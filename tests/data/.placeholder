@@ -1,0 +1,2 @@
+# The purpose of this file is to be able to commit the directory with git
+# Otherwise, we would not be able to push an empty folder

@@ -1,0 +1,93 @@
+
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ccres_disdrometer_processing"
+authors = [
+    { name="ACTRIS-CCRES", email="ccres-dev@listes.ipsl.fr"},
+]
+description="CCRES code to convert data"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+        'Development Status :: 2 - Pre-Alpha',
+        'Intended Audience :: Developers',
+        'License :: OSI Approved :: GNU Affero General Public License v3',
+        'Natural Language :: English',
+        'Programming Language :: Python :: Implementation :: CPython',
+        'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: 3.11',
+]
+keywords=['ccres_disdrometer_processing']
+dependencies=["click"]
+# Dynamic for setuptools
+dynamic = ["version"]
+
+[project.license]
+file = "LICENSE"
+
+[project.urls]
+homepage = "https://github.com/ACTRIS-CCRES/ccres_disdrometer_processing"
+documentation = "https://ccres-disdrometer-processing.readthedocs.io/en/latest/?version=latest"
+repository = "https://github.com/ACTRIS-CCRES/ccres_disdrometer_processing"
+changelog = "https://github.com/ACTRIS-CCRES/ccres_disdrometer_processing/blob/main/CHANGELOG.md"
+"Bug Tracker" = "https://github.com/ACTRIS-CCRES/ccres_disdrometer_processing/issues"
+
+[project.optional-dependencies]
+dev = [
+    "ccres_disdrometer_processing",
+    # Pytest
+    "pytest>=6.1.1",
+    "pytest-cov>=2.10.1",
+    "pytest-mock>=3.6.1",
+    "coverage>=5.3",
+
+    # Documentation
+    "sphinx>=4.5.0",
+    "myst",
+    "myst-parser",
+    "sphinx_book_theme>=0.3.0",
+
+    # Tox
+    "tox",
+
+    # Pre-commit
+    "pre-commit",
+
+    # Bump2version
+    "bump2version",
+    # Formatting
+    "black",
+    "flake8",
+
+    # Typing
+    "mypy"
+
+
+]
+
+[project.scripts]
+ccres_disdrometer_processing = "ccres_disdrometer_processing.cli.cli:main"
+
+[tool.setuptools]
+zip-safe=false
+
+[tool.setuptools.packages.find]
+include = ["ccres_disdrometer_processing", "ccres_disdrometer_processing.*"]
+
+[tool.mypy]
+explicit_package_bases = true
+disallow_untyped_defs = true
+ignore_missing_imports = true
+exclude = ['build/','venv',"ccres_disdrometer_processing/tests", "tests"]
+
+[tool.docformatter]
+recursive = true
+blank = true
+syntax = "numpy"
