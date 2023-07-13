@@ -25,7 +25,7 @@ classifiers = [
         'Programming Language :: Python :: 3.11',
 ]
 keywords=['ccres_disdrometer_processing']
-dependencies=["click"]
+dependencies=["click", "netCDF4","xarray", "pandas", "numpy", "requests", "scipy","pytmatrix == 0.3.2", "pymiecoated@git+https://github.com/jleinonen/pymiecoated", "toml"]
 # Dynamic for setuptools
 dynamic = ["version"]
 
@@ -73,7 +73,7 @@ dev = [
 ]
 
 [project.scripts]
-ccres_disdrometer_processing = "ccres_disdrometer_processing.cli.cli:main"
+ccres_disdrometer_processing = "ccres_disdrometer_processing.cli.cli2:main"
 
 [tool.setuptools]
 zip-safe=false
