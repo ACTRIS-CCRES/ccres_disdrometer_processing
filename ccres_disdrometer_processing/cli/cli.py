@@ -7,35 +7,43 @@ import click
 import toml
 import xarray as xr
 
-sys.path.append(str(Path(__file__).parent.parent.parent))
+sys.path.append(str(Path(__file__).parent.parent))
 
-import ccres_disdrometer_processing.OPEN_DISDRO_NETCDF as disdro
-import ccres_disdrometer_processing.OPEN_WEATHER_NETCDF as weather
-import ccres_disdrometer_processing.SCATTERING as scattering
-from ccres_disdrometer_processing import constants
+import open_disdro_netcdf as disdro
+import open_weather_netcdf as weather
+import scattering as scattering
+from constants import BEAM_ORIENTATION, F_PARSIVEL, FREQ, E
+from logger import LogLevels, init_logger
 
 DISDRO_TYPES = ["parsivel-cloudnet"]
 WS_TYPES = ["sirta-cloudnet"]
 RADAR_TYPES = ["basta-cloudnet"]  # sera vu plus tard
 
 
-@click.command()
+@click.group()
+@click.option("-v", "verbosity", count=True)
+def cli(verbosity):
+    log_level = LogLevels.get_by_verbosity_count(verbosity)
+    init_logger(log_level)
+
+
+@cli.command()
+def status():
+    print("Good, thanks !")
+
+
+@cli.command()
 @click.option("--disdro-type", type=click.Choice(DISDRO_TYPES), required=True)
 @click.option("--disdro-file", type=click.Path(exists=True), required=True)
 @click.option("--ws-type", type=click.Choice(WS_TYPES), required=True)
 @click.option("--ws-file", type=click.Path(exists=True), required=True)
 @click.option("--config-file", type=click.Path(exists=True), required=True)
 @click.argument("output-file", type=click.Path())
-def main(disdro_type, disdro_file, ws_type, ws_file, config_file, output_file):
+def preprocess(disdro_type, disdro_file, ws_type, ws_file, config_file, output_file):
     """Command line interface for ccres_disdrometer_processing."""
-    click.echo("CCRES disdrometer preprocessing")
+    click.echo("CCRES disdrometer preprocessing : test CLI")
 
     config = toml.load(config_file)
-
-    beam_orientation = constants.BEAM_ORIENTATION
-    freq = constants.f
-    e = constants.e
-    e = e[0] + e[1] * 1j
 
     axrMethod = config["methods"]["AXIS_RATIO_METHOD"]
     strMethod = config["methods"]["FALL_SPEED_METHOD"]
@@ -54,19 +62,18 @@ def main(disdro_type, disdro_file, ws_type, ws_file, config_file, output_file):
         disdro_xr = disdro.read_parsivel_cloudnet(disdro_file)
         scatt = scattering.scattering_prop(
             disdro_xr.size_classes[0:-5],
-            beam_orientation,
-            freq,
-            e,
+            BEAM_ORIENTATION,
+            FREQ,
+            E,
             axrMethod=axrMethod,
             mieMethod=mieMethod,
         )
-        F = constants.F_parsivel
         disdro_xr = disdro.reflectivity_model(
             disdro_xr,
             scatt,
             len(disdro_xr.size_classes[0:-5]),
-            F,
-            freq,
+            F_PARSIVEL,
+            FREQ,
             strMethod=strMethod,
             mieMethod=mieMethod,
             normMethod=normMethod,
@@ -77,7 +84,3 @@ def main(disdro_type, disdro_file, ws_type, ws_file, config_file, output_file):
     final_data.to_netcdf(output_file)
 
     return
-
-
-if __name__ == "__main__":
-    sys.exit(main())  # pragma: no cover

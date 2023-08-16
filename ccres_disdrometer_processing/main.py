@@ -3,10 +3,14 @@ import click
 import toml
 import xarray as xr
 
+import ccres_disdrometer_processing.ccres_disdrometer_processing.scattering as dcrcc
 import ccres_disdrometer_processing.constants as constants
-import ccres_disdrometer_processing.OPEN_DISDRO_NETCDF as DISDRO
-import ccres_disdrometer_processing.OPEN_WEATHER_NETCDF as WEATHER
-import ccres_disdrometer_processing.SCATTERING as DCRCC
+from ccres_disdrometer_processing.ccres_disdrometer_processing import (
+    open_disdro_netcdf as disdro,
+)
+from ccres_disdrometer_processing.ccres_disdrometer_processing import (
+    open_weather_netcdf as weather,
+)
 
 DISDRO_TYPES = ["parsivel_cloudnet"]
 AMS_TYPES = ["weather_station_cloudnet"]
@@ -36,10 +40,10 @@ def main(config_file=CONFIG_FILE):
         disdro_type = config["data"]["DISDRO_TYPE"]
 
         beam_orientation = constants.BEAM_ORIENTATION
-        freq = constants.f
-        e = constants.e
-        e = e[0] + e[1] * 1j
-        # print("e : ", e)
+        FREQ = constants.FREQ
+        E = constants.E
+        E = E[0] + E[1] * 1j
+        # print("e : ", E)
 
         axrMethod = config["methods"]["AXIS_RATIO_METHOD"]
         strMethod = config["methods"]["FALL_SPEED_METHOD"]
@@ -53,28 +57,28 @@ def main(config_file=CONFIG_FILE):
     # ---------------------------------------------------------------------------------
 
     if ams_type == "weather_station_cloudnet":
-        ams_xr = WEATHER.read_weather_cloudnet(ams_file)
+        ams_xr = weather.read_weather_cloudnet(ams_file)
 
     # read and preprocess disdrometer data
     # ---------------------------------------------------------------------------------
 
     if disdro_type == "parsivel_cloudnet":
-        disdro_xr = DISDRO.read_parsivel_cloudnet(disdro_file)
-        scatt = DCRCC.scattering_prop(
+        disdro_xr = disdro.read_parsivel_cloudnet(disdro_file)
+        scatt = dcrcc.scattering_prop(
             disdro_xr.size_classes[0:-5],
             beam_orientation,
-            freq,
-            e,
+            FREQ,
+            E,
             axrMethod,
             mieMethod=mieMethod,
         )
-        F = 0.0054  # m2, sampling surface
-        disdro_xr = DISDRO.reflectivity_model(
+        F = constants.F_PARSIVEL  # m2, sampling surface
+        disdro_xr = disdro.reflectivity_model(
             disdro_xr,
             scatt,
             len(disdro_xr.size_classes[0:-5]),
             F,
-            freq,
+            FREQ,
             strMethod,
             mieMethod,
             normMethod,

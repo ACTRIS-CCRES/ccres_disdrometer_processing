@@ -1,31 +1,42 @@
 
 
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools", "numpy"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "ccres_disdrometer_processing"
-authors = [
-    { name="ACTRIS-CCRES", email="ccres-dev@listes.ipsl.fr"},
-]
-description="CCRES code to convert data"
+authors = [{ name = "ACTRIS-CCRES", email = "ccres-dev@listes.ipsl.fr" }]
+description = "CCRES code to convert data"
 readme = "README.md"
 requires-python = ">=3.8"
 classifiers = [
-        'Development Status :: 2 - Pre-Alpha',
-        'Intended Audience :: Developers',
-        'License :: OSI Approved :: GNU Affero General Public License v3',
-        'Natural Language :: English',
-        'Programming Language :: Python :: Implementation :: CPython',
-        'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.8',
-        'Programming Language :: Python :: 3.9',
-        'Programming Language :: Python :: 3.10',
-        'Programming Language :: Python :: 3.11',
+    'Development Status :: 2 - Pre-Alpha',
+    'Intended Audience :: Developers',
+    'License :: OSI Approved :: GNU Affero General Public License v3',
+    'Natural Language :: English',
+    'Programming Language :: Python :: Implementation :: CPython',
+    'Programming Language :: Python :: 3',
+    'Programming Language :: Python :: 3.8',
+    'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.10',
+    'Programming Language :: Python :: 3.11',
 ]
-keywords=['ccres_disdrometer_processing']
-dependencies=["click", "netCDF4","xarray", "pandas", "numpy", "requests", "scipy","pytmatrix == 0.3.2", "pymiecoated@git+https://github.com/jleinonen/pymiecoated", "toml"]
+keywords = ['ccres_disdrometer_processing']
+dependencies = [
+    "click",
+    "netCDF4",
+    "xarray",
+    "pandas",
+    "numpy",
+    "requests",
+    "scikit-learn",
+    "matplotlib",
+    "scipy",
+    "pytmatrix == 0.3.2",
+    "pymiecoated@git+https://github.com/jleinonen/pymiecoated",
+    "toml",
+]
 # Dynamic for setuptools
 dynamic = ["version"]
 
@@ -67,16 +78,16 @@ dev = [
     "flake8",
 
     # Typing
-    "mypy"
+    "mypy",
 
 
 ]
 
 [project.scripts]
-ccres_disdrometer_processing = "ccres_disdrometer_processing.cli.cli2:main"
+ccres_disdrometer_processing = "ccres_disdrometer_processing.cli.cli:cli"
 
 [tool.setuptools]
-zip-safe=false
+zip-safe = false
 
 [tool.setuptools.packages.find]
 include = ["ccres_disdrometer_processing", "ccres_disdrometer_processing.*"]
@@ -85,7 +96,7 @@ include = ["ccres_disdrometer_processing", "ccres_disdrometer_processing.*"]
 explicit_package_bases = true
 disallow_untyped_defs = true
 ignore_missing_imports = true
-exclude = ['build/','venv',"ccres_disdrometer_processing/tests", "tests"]
+exclude = ['build/', 'venv', "ccres_disdrometer_processing/tests", "tests"]
 
 [tool.docformatter]
 recursive = true

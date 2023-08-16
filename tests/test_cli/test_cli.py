@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
-from ccres_disdrometer_processing.cli import cli
+from ccres_disdrometer_processing.ccres_disdrometer_processing.cli import cli
 
 MAIN_DIR = Path(__file__).parent.parent.parent
 TEST_DIR = MAIN_DIR / "tests"
