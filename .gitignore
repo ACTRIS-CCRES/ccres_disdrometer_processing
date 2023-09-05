@@ -109,3 +109,8 @@ ENV/
 # IDE settings
 .vscode/
 .idea/
+
+# dev data directories
+daily_data/
+quicklooks/
+bdd_rain_events
