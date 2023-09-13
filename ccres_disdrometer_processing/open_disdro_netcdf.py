@@ -4,14 +4,16 @@ from typing import Union
 import numpy as np
 import xarray as xr
 from scattering import DATA, compute_fallspeed
-from scipy import constants
+from scipy import constants as cst
+import constants
+
+F = {"OTT HydroMet Parsivel2": constants.F_PARSIVEL}
 
 
 def read_parsivel_cloudnet(
     filename: Union[str, Path]
 ) -> xr.Dataset:  # Read Parsivel file from CLU
     data_nc = xr.open_dataset(filename)
-
     data = xr.Dataset(
         coords=dict(
             time=(["time"], data_nc.time.data),
@@ -20,46 +22,115 @@ def read_parsivel_cloudnet(
         )
     )
 
-    data["pr"] = xr.DataArray(
-        data_nc["rainfall_rate"].values * 1000 * 3600,
-        dims=["time"],
-        attrs={"units": "mm/h"},
-    )
-    data["cp"] = xr.DataArray(
-        np.cumsum(data_nc["rainfall_rate"].values * 60 * 1000),
-        dims=["time"],
-        attrs={"units": "mm"},
-    )
-    data["Z"] = xr.DataArray(
-        data_nc["radar_reflectivity"].values, dims=["time"], attrs={"units": "dBZ"}
-    )
-    data["visi"] = xr.DataArray(data_nc["visibility"].values, dims=["time"])
-    data["sa"] = xr.DataArray(data_nc["sig_laser"].values, dims=["time"])
-    data["particles_count"] = xr.DataArray(data_nc["n_particles"].values, dims=["time"])
-    data["sensor_temp"] = xr.DataArray(data_nc["T_sensor"].values, dims=["time"])
-    data["heating_current"] = xr.DataArray(data_nc["I_heating"].values, dims=["time"])
-    data["sensor_volt"] = xr.DataArray(data_nc["V_power_supply"].values, dims=["time"])
-    data["KE"] = xr.DataArray(data_nc["kinetic_energy"].values, dims=["time"])
-    data["sr"] = xr.DataArray(data_nc["snowfall_rate"].values, dims=["time"])
-    data["SYNOP_code"] = xr.DataArray(data_nc["synop_WaWa"].values, dims=["time"])
-    data["time_resolution"] = (
-        data.time.values[1] - data.time.values[0]
-    ) / np.timedelta64(1, "s")
-    data["psd"] = xr.DataArray(
-        data_nc["data_raw"].values, dims=["time", "size_classes", "speed_classes"]
-    )  # En vérité axis = 1 correspond aux vitesses et 2 aux diamètres ...
-    data["size_classes_width"] = xr.DataArray(
-        data_nc["diameter_spread"].values * 1000, dims=["size_classes"]
-    )
-    data["speed_classes_width"] = xr.DataArray(
-        data_nc["velocity_spread"].values, dims=["speed_classes"]
-    )
-    data["VD"] = np.sum(
-        data.psd * data.speed_classes.values.reshape(1, data.size_classes.size, 1),
-        axis=1,
-    ) / np.sum(data.psd, axis=1)
+    if data_nc.source == "OTT HydroMet Parsivel2":
+        data["F"] = F[data_nc.source]
+        data["pr"] = xr.DataArray(
+            data_nc["rainfall_rate"].values * 1000 * 3600,
+            dims=["time"],
+            attrs={"units": "mm/h"},
+        )
+        data["cp"] = xr.DataArray(
+            np.cumsum(data_nc["rainfall_rate"].values * 60 * 1000),
+            dims=["time"],
+            attrs={"units": "mm"},
+        )
+        data["Z"] = xr.DataArray(
+            data_nc["radar_reflectivity"].values, dims=["time"], attrs={"units": "dBZ"}
+        )
+        data["visi"] = xr.DataArray(data_nc["visibility"].values, dims=["time"])
+        data["sa"] = xr.DataArray(data_nc["sig_laser"].values, dims=["time"])
+        data["particles_count"] = xr.DataArray(
+            data_nc["n_particles"].values, dims=["time"]
+        )
+        data["sensor_temp"] = xr.DataArray(data_nc["T_sensor"].values, dims=["time"])
+        data["heating_current"] = xr.DataArray(
+            data_nc["I_heating"].values, dims=["time"]
+        )
+        data["sensor_volt"] = xr.DataArray(
+            data_nc["V_power_supply"].values, dims=["time"]
+        )
+        data["KE"] = xr.DataArray(data_nc["kinetic_energy"].values, dims=["time"])
+        data["sr"] = xr.DataArray(data_nc["snowfall_rate"].values, dims=["time"])
+        data["SYNOP_code"] = xr.DataArray(data_nc["synop_WaWa"].values, dims=["time"])
+        data["time_resolution"] = (
+            data.time.values[1] - data.time.values[0]
+        ) / np.timedelta64(1, "s")
+        data["psd"] = xr.DataArray(
+            data_nc["data_raw"].values, dims=["time", "size_classes", "speed_classes"]
+        )  # En vérité axis = 1 correspond aux vitesses et 2 aux diamètres ...
+        data["size_classes_width"] = xr.DataArray(
+            data_nc["diameter_spread"].values * 1000, dims=["size_classes"]
+        )
+        data["speed_classes_width"] = xr.DataArray(
+            data_nc["velocity_spread"].values, dims=["speed_classes"]
+        )
+        data["VD"] = np.sum(
+            data.psd * data.speed_classes.values.reshape(1, data.size_classes.size, 1),
+            axis=1,
+        ) / np.sum(data.psd, axis=1)
 
-    data["time"] = data.time.dt.round(freq="S")
+        data["time"] = data.time.dt.round(freq="S")
+
+    return data
+
+
+def read_parsivel_cloudnet_juelich(
+    filename: Union[str, Path]
+) -> xr.Dataset:  # Read Parsivel file from CLU
+    data_nc = xr.open_dataset(filename)
+    data = xr.Dataset(
+        coords=dict(
+            time=(["time"], data_nc.time.data),
+            size_classes=(["size_classes"], data_nc.diameter.data * 1000),
+            speed_classes=(["speed_classes"], data_nc.velocity.data),
+        )
+    )
+
+    if data_nc.source == "OTT HydroMet Parsivel2":
+        data["pr"] = xr.DataArray(
+            data_nc["rainfall_rate"].values * 1000 * 3600,
+            dims=["time"],
+            attrs={"units": "mm/h"},
+        )
+        data["cp"] = xr.DataArray(
+            np.cumsum(data_nc["rainfall_rate"].values * 60 * 1000),
+            dims=["time"],
+            attrs={"units": "mm"},
+        )
+        data["Z"] = xr.DataArray(
+            data_nc["radar_reflectivity"].values, dims=["time"], attrs={"units": "dBZ"}
+        )
+        data["visi"] = xr.DataArray(data_nc["visibility"].values, dims=["time"])
+        data["sa"] = xr.DataArray(data_nc["sig_laser"].values, dims=["time"])
+        data["particles_count"] = xr.DataArray(
+            data_nc["n_particles"].values, dims=["time"]
+        )
+        data["sensor_temp"] = xr.DataArray(data_nc["T_sensor"].values, dims=["time"])
+        data["heating_current"] = xr.DataArray(
+            data_nc["I_heating"].values, dims=["time"]
+        )
+        data["sensor_volt"] = xr.DataArray(
+            data_nc["V_power_supply"].values, dims=["time"]
+        )
+        data["SYNOP_code"] = xr.DataArray(data_nc["synop_WaWa"].values, dims=["time"])
+        data["time_resolution"] = (
+            data.time.values[1] - data.time.values[0]
+        ) / np.timedelta64(1, "s")
+        data["psd"] = xr.DataArray(
+            data_nc["data_raw"].values, dims=["time", "size_classes", "speed_classes"]
+        )  # En vérité axis = 1 correspond aux vitesses et 2 aux diamètres ...
+        data["size_classes_width"] = xr.DataArray(
+            data_nc["diameter_spread"].values * 1000, dims=["size_classes"]
+        )
+        data["speed_classes_width"] = xr.DataArray(
+            data_nc["velocity_spread"].values, dims=["speed_classes"]
+        )
+        data["VD"] = np.sum(
+            data.psd * data.speed_classes.values.reshape(1, data.size_classes.size, 1),
+            axis=1,
+        ) / np.sum(data.psd, axis=1)
+
+        data["time"] = data.time.dt.round(freq="S")
 
     return data
 
@@ -68,7 +139,6 @@ def reflectivity_model(
     mparsivel,
     scatt,
     n,
-    F,  # sampling surface
     freq,
     strMethod="GunAndKinzer",
     mieMethod="pymiecoated",
@@ -78,7 +148,8 @@ def reflectivity_model(
     # dt must remain at 60s)
     t = mparsivel.time_resolution.values  # s
     # wavelength
-    lambda_m = constants.c / freq
+    lambda_m = cst.c / freq
+    F = mparsivel.F.data
 
     model = DATA()
 

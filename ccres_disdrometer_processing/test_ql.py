@@ -14,4 +14,4 @@ weather, dcr, disdro = get_data_event(
     events["Start_time"][0],
     events["End_time"][0],
 )
-# print(weather)
+print(weather)

@@ -12,7 +12,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import scipy.stats as stats
+from create_input_files_quicklooks import get_data_event
 from matplotlib.gridspec import GridSpec
+from rain_event_selection import selection
 from scipy.optimize import curve_fit
 from scipy.stats import cumfreq
 from sklearn.linear_model import LinearRegression
@@ -66,7 +68,7 @@ def quicklooks(
 
     try:
         # Disdro and DCR resampled reflectivity data at the good range
-        Z_dcr = dcr.Zh.isel({"range": [1, 4, 6, 8]})
+        Z_dcr = dcr.Zh.isel({"range": [3, 4, 6, 8]})
         z_disdro = disdro.Ze_tm
         z_disdro[np.where(z_disdro == 0)] = np.nan  # avoid np.inf in Z_disdro
         Z_disdro = 10 * np.log10(z_disdro)
@@ -86,10 +88,11 @@ def quicklooks(
         Z_dcr_200m_resampled = Z_dcr_resampled[:, 3]  # data @ 212.5m, sampling 1 minute
 
         Doppler_resampled = (
-            dcr.v.isel({"range": [1, 4, 6, 8]})
+            dcr.v.isel({"range": [4, 6, 8]})
             .groupby_bins("time", time_index_offset, labels=time_index[:-1])
             .mean(dim="time", keep_attrs=True)
         )
+        Doppler_resampled = Doppler_resampled.rename({"time_bins": "time"})
 
         # Date format for plots
         locator = mpl.dates.AutoDateLocator()
@@ -129,7 +132,8 @@ def quicklooks(
             pd.to_datetime(Doppler_2500m.time.values),
             Doppler_2500m.range.values,
             Doppler_2500m.T,
-            vmin=0,
+            vmax=0,
+            vmin=-5,
             cmap=cmap,
             shading="nearest",
         )
@@ -144,10 +148,13 @@ def quicklooks(
             weather.time, weather["rain_sum"], color="red", label="Weather station"
         )
         ax3.plot(
-            disdro.time[:], disdro["cp"][:], color="green", label="Disdrometer"
+            disdro.time[:],
+            disdro["disdro_rain_sum"][:],
+            color="green",
+            label="Disdrometer",
         )  # to be checked : good values in 'cp' or not ?
         ax3.legend()
-        ax3.set_ylabel("Precipitation (mm)")
+        ax3.set_ylabel("Precipitation [mm]")
         ax3.set_title("Rain accumulation")
         ax3.grid()
         ax3.set_xlim(
@@ -175,8 +182,8 @@ def quicklooks(
         )
 
         fig.text(
-            s=start_time.strftime("%Y-%m-%d") + " OVERVIEW OF THE EVENT",
-            fontsize=14,
+            s=start_time.strftime("%Y-%m-%d") + " : Overview of the event",
+            fontsize=18,
             horizontalalignment="center",
             verticalalignment="center",
             y=0.97,
@@ -184,13 +191,9 @@ def quicklooks(
         )
 
         if not os.path.exists(
-            "./{}/{}".format(start_time.strftime("%Y"), start_time.strftime("%Y%m%d"))
+            output_path + "/{}".format(start_time.strftime("%Y%m%d"))
         ):
-            os.makedirs(
-                "./{}/{}".format(
-                    start_time.strftime("%Y"), start_time.strftime("%Y%m%d")
-                )
-            )
+            os.makedirs(output_path + "/{}".format(start_time.strftime("%Y%m%d")))
 
         plt.savefig(
             output_path
@@ -201,7 +204,7 @@ def quicklooks(
             transparent=False,
             facecolor="white",
         )
-        plt.show()
+        # plt.show(block=False)
 
         # Plot 2 :
         fig = plt.figure(figsize=(12, 20))
@@ -245,7 +248,7 @@ def quicklooks(
         ax2.legend()
         ax2.set_ylabel(r"$ \Delta Z [dBZ]$")
         ax2.set_title(
-            "Differences of reflectivity : BASTA @ {}m vs Disdro".format(
+            "Differences of reflectivity : DCR @ {}m vs Disdrometer".format(
                 Z_dcr_200m_resampled.range.values
             )
         )
@@ -290,6 +293,7 @@ def quicklooks(
         ax3.axvline(x=(Z_dcr_200m_resampled[:] - Z_disdro[:]).median(), color="green")
         ax3.legend(loc="upper left")
         ax3.grid()
+        ax3.set_xlim(left=-15, right=15)
         ax3.set_xlabel(r"$\Delta Z [dBZ]$")
         ax3.set_ylabel("Density")
         ax3_cdf.set_ylabel("% of values")
@@ -302,13 +306,7 @@ def quicklooks(
         model = LinearRegression()
         x_t = Z_disdro[MN : -MN - 1].values
         y_t = Z_dcr_200m_resampled[MN : -MN - 1].values
-
-        filt = np.where(
-            (np.isfinite(x_t) is True)
-            & (np.isfinite(y_t) is True)
-            & (np.isnan(x_t) is False)
-            & (np.isnan(y_t) is False)
-        )[0]
+        filt = np.where((np.isfinite(x_t)) & (np.isfinite(y_t)))[0]
         x_t = x_t[filt].reshape((-1, 1))
         y_t = y_t[filt].reshape((-1, 1))
         # print(x_t.shape)
@@ -318,9 +316,17 @@ def quicklooks(
             x_t,
             y_hat,
             color="C1",
-            label="$Z_{{DCR}}$ = {:.3f} $Z_{{DD}}$ + {:.3f}, $R^2$ = {:.2f}".format(
-                model.coef_[0][0], model.intercept_[0], model.score(x_t, y_t)
+            label="$Z_{{DCR}}$ = {:.3f} $Z_{{DD}}$ + {:.3f}".format(
+                model.coef_[0][0],
+                model.intercept_[0],
             ),
+        )
+        ax4.text(
+            1,
+            18,
+            "$R^2$ = {:.2f}".format(model.score(x_t, y_t)),
+            fontweight="semibold",
+            fontsize=10,
         )
         ax4.scatter(x_t, y_t, color="green")
 
@@ -328,14 +334,15 @@ def quicklooks(
         ax4.set_xlim(left=-0, right=25)
         ax4.set_ylim(bottom=-0, top=25)
         ax4.grid()
-        ax4.legend()
+        ax4.legend(loc="upper left")
         ax4.set_xlabel("$Z_{{DD}}$ (dBZ)")
         ax4.set_ylabel("$Z_{{DCR}}$ (dBZ)")
         ax4.set_title("Scatterplot $Z_{{DD}}$ vs $Z_{{DCR}}$")
+        ax4.set_aspect("equal")
 
         fig.text(
-            s=start_time.strftime("%Y-%m-%d") + " REFLECTIVITY",
-            fontsize=14,
+            s=start_time.strftime("%Y-%m-%d") + ": Reflectivity data",
+            fontsize=18,
             horizontalalignment="center",
             verticalalignment="center",
             y=0.97,
@@ -344,7 +351,7 @@ def quicklooks(
 
         plt.savefig(
             output_path
-            + "/{}/{}_quicklook1.png".format(
+            + "/{}/{}_quicklook2.png".format(
                 start_time.strftime("%Y%m%d"),
                 start_time.strftime("%Y%m%d"),
             ),
@@ -352,7 +359,7 @@ def quicklooks(
             transparent=False,
             facecolor="white",
         )
-        plt.show()
+        # plt.show(block=False)
 
         # Plot 3 : Doppler velocities
         fig = plt.figure(figsize=(12, 20))
@@ -374,16 +381,21 @@ def quicklooks(
         )  # Because for the moment psd size and speed axes are exchanged
         disdro_fallspeed = np.zeros(disdro_tr.shape[0])
         for t in range(len(disdro_fallspeed)):
-            drops_per_time_and_speed = np.sum(disdro_tr[t, :, :], axis=0).flatten()
-            disdro_fallspeed[t] = np.sum(
+            drops_per_time_and_speed = np.nansum(disdro_tr[t, :, :], axis=0).flatten()
+            disdro_fallspeed[t] = np.nansum(
                 disdro["speed_classes"] * drops_per_time_and_speed
-            ) / np.sum(disdro_tr[t, :, :])
-            # There still remains to compute standard deviation to be able to plot it
-        for i in range(4):
+            ) / np.nansum(disdro_tr[t, :, :])
+        print("disdro fallspeed vector shape :", disdro_fallspeed.shape)
+        print(disdro.time.values[0], Doppler_resampled.time.values[0], start_time)
+        print(disdro.time.values.shape, Doppler_resampled.time.values.shape)
+        # Time vectors : match OK !
+
+        # There still remains to compute standard deviation to be able to plot it
+        for i in range(3):
             filter_fallspeed = np.where(
-                (np.isfinite(disdro_fallspeed) is True)
-                & (np.isfinite(Doppler_resampled[:, i]) is True)
+                (np.isfinite(disdro_fallspeed)) & (np.isfinite(Doppler_resampled[:, i]))
             )[0]
+            print("filter isfinite : shape = ", filter_fallspeed.shape)
             pearsonr = stats.pearsonr(
                 disdro_fallspeed[filter_fallspeed],
                 Doppler_resampled[:, i][filter_fallspeed],
@@ -399,7 +411,7 @@ def quicklooks(
         ax1.plot(
             disdro.time,
             disdro_fallspeed,
-            label="Parsivel avg fall speed",
+            label="disdrometer avg fall speed",
             color="green",
         )
         ax1.grid()
@@ -420,7 +432,7 @@ def quicklooks(
         ax2.grid()
         ax2.legend()
         ax2.set_ylabel(r"$\Delta V$ (m/s)")
-        ax2.set_title("Differences DCR / Disdrometer fall speed")
+        ax2.set_title(" DCR / Disdrometer fall speed differences")
         ax2.set_xlim(
             left=Z_dcr_resampled.time.values.min(),
             right=Z_dcr_resampled.time.values.max(),
@@ -434,6 +446,7 @@ def quicklooks(
             0, cdf.binsize * cdf.cumcount.size, cdf.cumcount.size
         )
         ax3_cdf = ax3.twinx()
+        ax3_cdf.set_ylim(top=1, bottom=0)
         ax3_cdf.plot(
             dv,
             cdf.cumcount / len(f),
@@ -445,7 +458,7 @@ def quicklooks(
         ax3.hist(
             -Doppler_resampled[:, 2] - disdro_fallspeed,
             density=True,
-            label="DCR - Parsivel, $Med = ${:.2f} $m/s$".format(
+            label="DCR - Disdrometer, $Med = ${:.2f} $m/s$".format(
                 np.nanmedian(-Doppler_resampled[:, 2] - disdro_fallspeed)
             ),
             alpha=0.4,
@@ -461,6 +474,7 @@ def quicklooks(
         ax3.axvline(
             x=(-Doppler_resampled[:, 2] - disdro_fallspeed).median(), color="green"
         )
+        ax3.set_xlim(left=-4, right=4)
         ax3.legend(loc="upper left")
         ax3.set_xlabel(r"$\Delta V$ [m/s]")
         ax3.set_ylabel("Density")
@@ -469,10 +483,9 @@ def quicklooks(
         # 3.4. Scatterplot Doppler velocity vs disdro fallspeed + Regression
         model = LinearRegression()
         x_t = disdro_fallspeed[MN:-MN]
-        y_t = -Doppler_resampled[MN:-MN, 2].values
-        filt_fallspeed = np.where(
-            (np.isfinite(x_t) is True) & (np.isfinite(y_t) is True)
-        )[0]
+        y_t = -Doppler_resampled[MN:-MN, 1].values
+        filt_fallspeed = np.where((np.isfinite(x_t)) & (np.isfinite(y_t)))[0]
+        print(filt_fallspeed.shape)
         x_t = x_t[filt_fallspeed].reshape((-1, 1))
         y_t = y_t[filt_fallspeed].reshape((-1, 1))
 
@@ -480,10 +493,8 @@ def quicklooks(
         y_hat = model.predict(x_t)
 
         ax4.scatter(x_t, y_t, color="green")
-        lab = (
-            "$V_{{DCR}}$ = {a:.3f} $V_{{Disdrometer}}$ + {b:.3f}, $R^2$={c:.2f}".format(
-                a=model.coef_[0][0], b=model.intercept_[0], c=model.score(x_t, y_t)
-            )
+        lab = "$V_{{DCR}}$ = {a:.3f} $V_{{DD}}$ + {b:.3f}".format(
+            a=model.coef_[0][0], b=model.intercept_[0]
         )
         ax4.plot(
             x_t,
@@ -491,18 +502,26 @@ def quicklooks(
             color="C1",
             label=lab,
         )
+        ax4.text(
+            0.2,
+            1.3,
+            "$R^2$={:.2f}".format(model.score(x_t, y_t)),
+            fontsize=10,
+            fontweight="semibold",
+        )
         ax4.plot([0, 25], [0, 25], linestyle="--", color="grey", label="y = x")
         ax4.set_xlim(left=-0, right=6)
         ax4.set_ylim(bottom=-0, top=6)
         ax4.grid()
+        ax4.set_aspect("equal")
         ax4.set_xlabel("$V_{Disdrometer}$ (m/s)")
         ax4.set_ylabel("$V_{DCR}$ (m/s)")
-        ax4.legend()
+        ax4.legend(loc="lower left")
         ax4.set_title("Scatterplot $V_{{DCR}}$ vs $V_{{Disdrometer}}$")
 
         fig.text(
-            s=start_time.strftime("%Y-%m-%d") + " RAIN FALL SPEED",
-            fontsize=14,
+            s=start_time.strftime("%Y-%m-%d") + ": Rain fall speed data",
+            fontsize=18,
             horizontalalignment="center",
             verticalalignment="center",
             y=0.97,
@@ -517,16 +536,16 @@ def quicklooks(
             transparent=False,
             facecolor="white",
         )
-        plt.show()
+        # plt.show(block = False)
 
         # Plot 4 :
         fig = plt.figure(figsize=(12, 20))
         plt.subplots_adjust(0.08, 0.04, 0.89, 0.94, hspace=0.27)
 
-        gs = GridSpec(5, 3, figure=fig)
+        gs = GridSpec(5, 4, figure=fig)
         ax1 = fig.add_subplot(gs[0, :])
         ax2 = fig.add_subplot(gs[1, :])
-        ax3 = fig.add_subplot(gs[2, 1])
+        ax3 = fig.add_subplot(gs[2, 1:3])
         ax4 = fig.add_subplot(gs[3, :])
         ax5 = fig.add_subplot(gs[4, :])
 
@@ -535,7 +554,9 @@ def quicklooks(
             axe.set_xlabel("Time (UTC)")
 
         # 4.1. Rain accumulation differences
-        Delta_cum_pluvio_disdro = (disdro["cum"][:] - weather["cum"]) / weather["cum"]
+        Delta_cum_pluvio_disdro = (
+            disdro["disdro_rain_sum"][:] - weather["rain_sum"]
+        ) / weather["rain_sum"]
         ax1.plot(
             weather.time,
             Delta_cum_pluvio_disdro * 100,
@@ -551,18 +572,63 @@ def quicklooks(
         )
         ax1.set_title("Rain accumulation ratio Disdrometer v. Pluviometer")
 
-        # 4.2. Fall speed DCR/Disdro : relative difference
-        Fall_speed_rel_error = (
-            -Doppler_resampled[:, 2] - disdro_fallspeed
-        ) / disdro_fallspeed
-        ax2.plot(Doppler_resampled.time, Fall_speed_rel_error * 100)
+        # # 4.2. Fall speed DCR/Disdro : relative difference
+        # Fall_speed_rel_error = (
+        #     -Doppler_resampled[:, 2] - disdro_fallspeed
+        # ) / disdro_fallspeed
+        # ax2.plot(Doppler_resampled.time, Fall_speed_rel_error * 100)
+        # ax2.grid()
+        # ax2.set_ylabel("Relative error (%)")
+        # ax2.set_xlim(
+        #     left=Z_dcr_resampled.time.values.min(),
+        #     right=Z_dcr_resampled.time.values.max(),
+        # )
+        # ax2.set_title("Fall speed relative error DCR v. Disdrometer")
+
+        # 4.2. Wind direction time series
+        ax2.set_ylim(0, 360)
+        ax2.plot(weather.time, weather.wind_direction)
         ax2.grid()
-        ax2.set_ylabel("Relative error (%)")
-        ax2.set_xlim(
-            left=Z_dcr_resampled.time.values.min(),
-            right=Z_dcr_resampled.time.values.max(),
-        )
-        ax2.set_title("Fall speed relative error BASTA v. DBS2")
+        if (weather.main_wind_dir % 180 > 45) and (weather.main_wind_dir % 180 < 135):
+            ax2.axhspan(
+                ymin=weather.main_wind_dir - 45,
+                ymax=weather.main_wind_dir + 45,
+                color="green",
+                alpha=0.3,
+            )
+            ax2.axhspan(
+                ymin=(weather.main_wind_dir + 180) % 360 - 45,
+                ymax=(weather.main_wind_dir + 180) % 360 + 45,
+                color="green",
+                alpha=0.3,
+            )
+        else:
+            mwd1, mwd2 = weather.main_wind_dir, (weather.main_wind_dir + 180) % 360
+            if np.abs(mwd1 - 360) > 45:
+                mwd1, mwd2 = mwd2, mwd1
+            ax2.axhspan(
+                ymin=(mwd2) - 45,
+                ymax=(mwd2) + 45,
+                color="green",
+                alpha=0.3,
+            )
+            edges = [(mwd1 - 45) % 360, (mwd1 + 45) % 360]
+            ax2.axhspan(
+                ymin=edges[0],
+                ymax=360,
+                color="green",
+                alpha=0.3,
+            )
+            ax2.axhspan(
+                ymin=0,
+                ymax=edges[1],
+                color="green",
+                alpha=0.3,
+            )
+
+        ax2.set_ylabel("Wind direction [°]")
+        ax2.set_xlim(left=weather.time.values.min(), right=weather.time.values.max())
+        ax2.set_title("Wind direction over the event")
 
         # 4.3. Plot relationship Fallspeed(Diameter) and compare it to theoretical value
         def f_th(x):
@@ -573,10 +639,13 @@ def quicklooks(
         def f_fit(x, a, b, c):
             return a * (1 - np.exp(-b * np.power(x * (10**-3), c)))  # target shape
 
-        drop_density = disdro_tr.sum(dim="time")  # transpose if data is switched
+        drop_density = np.nansum(
+            disdro_tr, axis=0
+        )  # sum over time dim  # transpose if data is switched
         psd_nonzero = np.where(drop_density != 0)
         x, y = [], []
 
+        print(np.where(np.isnan(disdro_tr)))  ## à minuit !
         for k in range(
             len(psd_nonzero[0])
         ):  # add observations (size, speed) in the proportions described by the psd
@@ -586,7 +655,6 @@ def quicklooks(
             y += [disdro["speed_classes"][psd_nonzero[1][k]]] * int(
                 drop_density[psd_nonzero[0][k], psd_nonzero[1][k]]
             )
-
         X, Y = np.array(x), np.array(y)
 
         popt, pcov = curve_fit(f_fit, X, Y)
@@ -605,7 +673,7 @@ def quicklooks(
             disdro["size_classes"],
             y_hat,
             c="green",
-            label="Fit on Parsivel measurements",
+            label="Fit on DD measurements",
         )
         ax3.plot(
             disdro["size_classes"],
@@ -614,19 +682,24 @@ def quicklooks(
             label="Fall speed model (Gun and Kinzer)",
         )
         fig.colorbar(h2[3], ax=ax3)
-        ax3.legend()
+        ax3.legend(loc="best")
         ax3.grid()
         ax3.set_xlabel("Diameter (mm)")
         ax3.set_ylabel("Fall speed (m/s)")
-        ax3.set_xlim(disdro["size_classes"].min(), disdro["size_classes"].max())
-        ax3.set_ylim(disdro["speed_classes"].min(), disdro["speed_classes"].max())
+        # ax3.set_xlim(disdro["size_classes"].min(), disdro["size_classes"].max())
+        # ax3.set_ylim(disdro["speed_classes"].min(), disdro["speed_classes"].max())
+        ax3.set_xlim(0, 5)
+        ax3.set_ylim(0, 10)
         ax3.set_title("Relationship disdrometer fall speed / drop size ")
         # 4.4. Relative difference : disdro fallspeed vs speed law
         ratio_vdisdro_vth = np.zeros(len(disdro.time))
         for t in range(len(disdro.time)):
-            drops_per_time_and_diameter = np.sum(disdro_tr[t, :, :], axis=1).flatten()
-            mu_d = drops_per_time_and_diameter / np.sum(drops_per_time_and_diameter)
-            vth_disdro = np.sum(mu_d * y_th_disdro)
+            drops_per_time_and_diameter = np.nansum(
+                disdro_tr[t, :, :], axis=1
+            ).flatten()
+            mu_d = drops_per_time_and_diameter / np.nansum(drops_per_time_and_diameter)
+
+            vth_disdro = np.nansum(mu_d * y_th_disdro)
             vobs_disdro = disdro_fallspeed[t]
             ratio_vdisdro_vth[t] = vobs_disdro / vth_disdro
 
@@ -643,27 +716,29 @@ def quicklooks(
         ax4.set_title(
             "Ratio - AVG Fall Speed measured by disdrometers v. Gun and Kinzer law"
         )
-        ax4.set_ylim(top=1.5, bottom=0.5)
+        ax4.set_ylim(top=150, bottom=50)
         # 4.5. Quality checks / Quality flags : time series
         QC_delta_cum = (np.abs(Delta_cum_pluvio_disdro) <= 0.3).values.reshape((-1, 1))
         QF_meteo = np.vstack(
             (
                 weather.QF_T.values,
                 weather.QF_ws.values,
+                weather.QF_wd.values,
                 weather.QF_acc.values,
                 weather.QF_RR.values,
             )
         ).T
-        QF_meteo = QF_meteo[:, [0, 1, 3, 2]]
+        QF_meteo = QF_meteo[:, [0, 1, 2, 4, 3]]
         QC_vdsd_t = (np.abs(ratio_vdisdro_vth - 1) <= 0.3).reshape((-1, 1))
         # Quid QC sur fallspeed ? Wind direction (régime de bon fonctionnement du DD) ?
         Quality_matrix = np.hstack((QF_meteo, QC_delta_cum, QC_vdsd_t))
-        Quality_sum = Quality_matrix[:, [0, 1, 2, 5]].all(axis=1)
+        Quality_sum = Quality_matrix[:, [0, 1, 2, 3, 6]].all(axis=1)
 
         Quality_matrix_sum = np.flip(
             np.hstack((Quality_matrix, Quality_sum.reshape((-1, 1)))), axis=1
         )
         Quality_matrix_sum.astype(int)
+        Quality_matrix_sum = Quality_matrix_sum[:, [0, 1, 4, 2, 3, 5, 6, 7]]
 
         t = weather.time
         cmap = colors.ListedColormap(["red", "green"])
@@ -678,8 +753,8 @@ def quicklooks(
         )
         ax5.pcolormesh(
             t,
-            np.arange(2, 4),
-            Quality_matrix_sum[:, 2:4].T,
+            np.arange(3, 6),
+            Quality_matrix_sum[:, 3:6].T,
             cmap=cmap2,
             shading="nearest",
         )
@@ -692,10 +767,11 @@ def quicklooks(
             np.array(
                 [
                     "QC T°",
-                    "QC wind",
-                    "QC Rain Rate",
+                    "QC wind sp",
+                    "QC wind dir",
                     "QC rain acc.",
                     "QF Pluvio/Disdro",
+                    "QC Rain Rate",
                     "QC V(D)",
                     r"$\Pi$",
                 ]
@@ -705,8 +781,8 @@ def quicklooks(
         ax5.set_title("QF / QC timeseries")
 
         fig.text(
-            s=start_time.strftime("%Y-%m-%d") + " Quality check",
-            fontsize=14,
+            s=start_time.strftime("%Y-%m-%d") + ": Quality checks",
+            fontsize=18,
             horizontalalignment="center",
             verticalalignment="center",
             y=0.97,
@@ -723,9 +799,18 @@ def quicklooks(
             facecolor="white",
         )
 
-        plt.show()
+        # plt.show(block = False)
 
     except RuntimeError:
         return None
 
     return True
+
+
+if __name__ == "__main__":
+    events = selection()
+    s = events["Start_time"]
+    e = events["End_time"]
+    w, r, dd = get_data_event(s[0], e[0])
+    output = "/home/ygrit/Documents/disdro_processing/ccres_disdrometer_processing/quicklooks"
+    quicklooks(w, r, dd, output)

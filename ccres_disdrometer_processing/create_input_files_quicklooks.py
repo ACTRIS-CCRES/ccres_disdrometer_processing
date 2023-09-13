@@ -31,21 +31,6 @@ EVENT_THRESHOLDS = [MIN_CUM, CUM_REL_ERROR]
 
 DELTA_DISDRO = dt.timedelta(minutes=MN)
 
-STATION_NAME = "palaiseau"  # mettre en fichier de config !
-
-WEATHER_FILE_TEMPLATE = (
-    "/home/ygrit/Documents/disdro_processing/"
-    "ccres_disdrometer_processing/daily_data/{}".format(STATION_NAME)
-)
-DISDRO_FILE_TEMPLATE = (
-    "/home/ygrit/Documents/disdro_processing/"
-    "ccres_disdrometer_processing/daily_data/{}".format(STATION_NAME)
-)
-DCR_FILE_TEMPLATE = (
-    "/home/ygrit/Documents/disdro_processing/"
-    "ccres_disdrometer_processing/daily_data/{}".format(STATION_NAME)
-)
-
 
 def get_valid_paths(
     start: dt.datetime, end: dt.datetime, path: str
@@ -74,11 +59,13 @@ def get_valid_paths(
 
 
 def data_pluvio_event(
-    start, end, threshold=TIMESTAMP_THRESHOLDS + EVENT_THRESHOLDS
+    data_dir,
+    start,
+    end,
+    threshold=TIMESTAMP_THRESHOLDS + EVENT_THRESHOLDS,
+    main_wind_dir=270,
 ):  # start, end : datetimes.
-    paths = get_valid_paths(
-        start, end, f"{WEATHER_FILE_TEMPLATE}/weather-station/{{}}*.nc"
-    )
+    paths = get_valid_paths(start, end, f"{data_dir}/weather-station/{{}}*.nc")
 
     if paths is None:
         return None
@@ -89,13 +76,16 @@ def data_pluvio_event(
     weather_event = weather_ds.sel(
         {"time": slice(start - DELTA_DISDRO, end + DELTA_DISDRO)}
     )
-
+    weather_event["main_wind_dir"] = main_wind_dir
     weather_event["rain"] = weather_event["rainfall_rate"] * 1000 * 60
     weather_event["rain_sum"] = np.cumsum(weather_event["rain"])
 
     # Quality Flags
     weather_event["QF_T"] = weather_event["air_temperature"] > threshold[0] + 273.15
     weather_event["QF_ws"] = weather_event["wind_speed"] < threshold[1]
+    weather_event["QF_wd"] = (
+        np.abs(weather_event["wind_direction"]) - main_wind_dir < 45
+    ) | (np.abs(weather_event["wind_direction"]) - (360 - main_wind_dir) < 45)
     weather_event["QF_acc"] = weather_event["rain_sum"] > threshold[4]
     weather_event["QF_RR"] = xr.DataArray(
         data=np.full(len(weather_event.time), True, dtype=bool), dims=["time"]
@@ -126,15 +116,15 @@ def data_pluvio_event(
             (weather_event.time >= start_time_chunk)
             & (weather_event.time <= stop_time_chunk - np.timedelta64(1, "m"))
         )
-        weather_event["QF_acc"].values[time_slice] = np.tile(
+        weather_event["QF_RR"].values[time_slice] = np.tile(
             (RR_chunk <= threshold[2]), CHUNK_THICKNESS
         )
 
     return weather_event
 
 
-def data_dcr_event(start, end):
-    paths = get_valid_paths(start, end, f"{DCR_FILE_TEMPLATE}/radar/{{}}*.nc")
+def data_dcr_event(data_dir, start, end):
+    paths = get_valid_paths(start, end, f"{data_dir}/radar/{{}}*.nc")
 
     if paths is None:
         return None
@@ -148,16 +138,16 @@ def data_dcr_event(start, end):
     negative_time_diffs = np.where(time_diffs / np.timedelta64(1, "s") < 0)[0]
 
     if len(negative_time_diffs) > 0:
-        lgr.critical("DCR : index problem")
+        lgr.critical("DCR : time index problem")
         return None
     return dcr_event
 
 
-def data_disdro_event(start, end):
+def data_disdro_event(data_dir, start, end):
     # Path to disdro files is wrong for the moment !
     # The preprocessed data still needs to be generated and put somewhere easy
     # to compute tests with it
-    paths = get_valid_paths(start, end, f"{DISDRO_FILE_TEMPLATE}/disdrometer/{{}}*.nc")
+    paths = get_valid_paths(start, end, f"{data_dir}/disdrometer_preprocessed/{{}}*.nc")
 
     if paths is None:
         return None
@@ -173,8 +163,14 @@ def data_disdro_event(start, end):
     return disdro_event
 
 
-def get_data_event(start, end, thresholds=TIMESTAMP_THRESHOLDS + EVENT_THRESHOLDS):
-    weather = data_pluvio_event(start, end, thresholds)
-    dcr = data_dcr_event(start, end)
-    disdro = data_disdro_event(start, end)
+def get_data_event(
+    data_dir,
+    start,
+    end,
+    thresholds=TIMESTAMP_THRESHOLDS + EVENT_THRESHOLDS,
+    main_wind_dir=270,
+):
+    weather = data_pluvio_event(data_dir, start, end, thresholds, main_wind_dir)
+    dcr = data_dcr_event(data_dir, start, end)
+    disdro = data_disdro_event(data_dir, start, end)
     return weather, dcr, disdro

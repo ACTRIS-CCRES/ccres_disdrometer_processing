@@ -1,11 +1,21 @@
-# import datetime as dt  # dates
-import glob  # to load several files
+import datetime as dt
+import glob
+import logging
 import os
 
-# import matplotlib.pyplot as plt  # to plot event statistics ?
+import matplotlib as mpl
+import matplotlib.colors as colors
+import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd  # save list of events as a csv file
-import xarray as xr  # open CLU weather station data
+import pandas as pd
+import scipy.stats as stats
+import xarray as xr
+from create_input_files_quicklooks import get_data_event
+from matplotlib.gridspec import GridSpec
+from rain_event_selection import selection
+from scipy.optimize import curve_fit
+from scipy.stats import cumfreq
+from sklearn.linear_model import LinearRegression
 
 CLIC = 0.2  # mm/mn : pluvio sampling. Varies between the different weather stations ?
 RRMAX = 3  # mm/h
@@ -19,28 +29,26 @@ DELTA_LENGTH = 180
 CHUNK_THICKNESS = 15  # mn
 
 
-def selection(
-    station, ws_data_dir, db_dir, delta_length=DELTA_LENGTH, delta_event=DELTA_EVENT
-):
-    PATH_FILES_weather = ws_data_dir + "/*.nc"
-    FILES_weather = sorted(glob.glob(PATH_FILES_weather))
+def sel(
+    list_preprocessed_files, delta_length=DELTA_LENGTH, delta_event=DELTA_EVENT
+):  # lst : list of paths for DD preprocessed files
+    preprocessed_ds_full = xr.concat(
+        (xr.open_dataset(file) for file in list_preprocessed_files[:]), dim="time"
+    )
+    preprocessed_ds_full["time"] = preprocessed_ds_full.time.dt.round(freq="S")
 
-    if not os.path.exists(db_dir):
-        os.makedirs(db_dir)
-
-    weather_ds_full = xr.concat(
-        (xr.open_dataset(file) for file in FILES_weather[:]), dim="time"
+    # preprocessed_ds = preprocessed_ds_full.isel(
+    #     {"time": np.where(preprocessed_ds_full.rain.values >= CLIC)[0]}
+    # )
+    preprocessed_ds = preprocessed_ds_full.isel(
+        {"time": np.where(preprocessed_ds_full.rain.values > 0)[0]}
     )
 
-    weather_ds_full["time"] = weather_ds_full.time.dt.round(freq="S")
-    weather_ds_full["rain"] = weather_ds_full["rainfall_rate"] * 1000 * 60
+    preprocessed_ds["rain_cumsum"] = np.cumsum(preprocessed_ds_full["rain"])
 
-    weather_ds = weather_ds_full.isel(
-        {"time": np.where(weather_ds_full.rain.values >= CLIC)[0]}
-    )
-    weather_ds["rain_sum"] = np.cumsum(weather_ds["rain"])
+    t = preprocessed_ds.time
 
-    t = weather_ds.time
+    print(t, len(list_preprocessed_files))
 
     start = []
     end = []
@@ -54,6 +62,8 @@ def selection(
                 end.append(t[i].values)
             start_candidate = t[i + 1]
 
+    print(start, end)
+
     mask = np.ones(
         (len(start), 5), dtype=int
     )  # ordre : Min temperature, min rain accumulation, max wind avg, max wind, max RR
@@ -63,17 +73,15 @@ def selection(
 
     for k in range(len(start)):
         min_temperature = (
-            weather_ds_full["air_temperature"]
-            .sel({"time": slice(start[k], end[k])})
-            .min()
+            preprocessed_ds_full["temp"].sel({"time": slice(start[k], end[k])}).min()
         )
         test_values[k, 0] = np.round(min_temperature.values - 273.15, decimals=2)
         if min_temperature < MIN_T:
             mask[k, 0] = 0
 
         accumulation = (
-            weather_ds["rain_sum"].sel({"time": end[k]})
-            - weather_ds["rain_sum"].loc[start[k]]
+            preprocessed_ds["rain_cumsum"].sel({"time": end[k]})
+            - preprocessed_ds["rain_cumsum"].loc[start[k]]
             + CLIC
         )  # add 1 trigger
         test_values[k, 1] = np.round(accumulation.values, decimals=2)
@@ -81,15 +89,13 @@ def selection(
             mask[k, 1] = 0
 
         avg_ws = (
-            weather_ds_full["wind_speed"].sel({"time": slice(start[k], end[k])}).mean()
+            preprocessed_ds_full["ws"].sel({"time": slice(start[k], end[k])}).mean()
         )
         test_values[k, 2] = np.round(avg_ws.values, decimals=2)
         if avg_ws > MAX_MEANWS:
             mask[k, 2] = 0
 
-        max_ws = (
-            weather_ds_full["wind_speed"].sel({"time": slice(start[k], end[k])}).max()
-        )
+        max_ws = preprocessed_ds_full["ws"].sel({"time": slice(start[k], end[k])}).max()
         test_values[k, 3] = np.round(max_ws.values, decimals=2)
         if max_ws > MAX_WS:
             mask[k, 3] = 0
@@ -105,7 +111,7 @@ def selection(
         RR_chunks = np.zeros(len(time_chunks) - 1)
         for j in range(len(time_chunks) - 1):
             RR_chunk = (
-                weather_ds["rain"]
+                preprocessed_ds["rain"]
                 .sel(
                     {
                         "time": slice(
@@ -121,13 +127,13 @@ def selection(
             RR_chunks[j] = RR_chunk
         RR_chunks_max = np.max(RR_chunks)
         test_values[k, 4] = np.round(RR_chunks_max.mean(), 3)
-        if RR_chunks_max > 3:
+        if RR_chunks_max > RRMAX:
             mask[k, 4] = 0
 
         test_values[k, 5] = np.round(
             (
-                weather_ds["rain_sum"].sel({"time": end[k]})
-                - weather_ds["rain_sum"].sel({"time": start[k]})
+                preprocessed_ds["rain_cumsum"].sel({"time": end[k]})
+                - preprocessed_ds["rain_cumsum"].sel({"time": start[k]})
             )
             / ((end[k] - start[k]) / np.timedelta64(1, "h")),
             decimals=2,
@@ -151,18 +157,16 @@ def selection(
         }
     )
 
-    print(len(Events))
-    Events.to_csv(
-        db_dir
-        + "/rain_events_{}_length{}_event{}.csv".format(
-            station, delta_length, delta_event
-        ),
-        header=True,
-    )
-
     return Events
 
 
+def dd_ql(preprocessed_ds, events):
+    for start, end in zip(events["Start_time"], events["End_time"]):
+        # ds = preprocessed_ds.sel({"time":slice(start, end)}) # +- DELTA_DISDRO
+
+
 if __name__ == "__main__":
-    # selection()
-    pass
+    path_ws_data = "/home/ygrit/Documents/disdro_processing/ccres_disdrometer_processing/daily_data/palaiseau/disdrometer_preprocessed/"
+    lst = sorted(glob.glob(path_ws_data + "*.nc"))
+    events = sel(lst)
+    print(events)
