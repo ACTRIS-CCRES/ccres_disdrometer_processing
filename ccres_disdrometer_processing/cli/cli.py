@@ -64,7 +64,7 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
     # read and preprocess disdrometer data
     # ---------------------------------------------------------------------------------
 
-    disdro_xr = disdro.read_parsivel_cloudnet(disdro_file)
+    disdro_xr = disdro.read_parsivel_cloudnet_choice(disdro_file)
     scatt = scattering.scattering_prop(
         disdro_xr.size_classes[0:-5],
         beam_orientation,
@@ -82,9 +82,13 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
         mieMethod=mieMethod,
         normMethod=normMethod,
     )
-
+    print(
+        weather_xr.time.values.shape,
+        disdro_xr.time.values.shape,
+        radar_xr.time.values.shape,
+    )
     final_data = xr.merge([weather_xr, disdro_xr, radar_xr])
 
     final_data.to_netcdf(output_file)
-
+    print(final_data.time.values.shape)
     return

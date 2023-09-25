@@ -7,10 +7,10 @@ def read_weather_cloudnet(filename):
     data_nc = xr.open_dataset(filename)
 
     start_time = pd.Timestamp(data_nc.time.values[0]).replace(
-        hour=0, minute=0, second=0
+        hour=0, minute=0, second=0, microsecond=0, nanosecond=0
     )
     end_time = pd.Timestamp(data_nc.time.values[0]).replace(
-        hour=23, minute=59, second=0
+        hour=23, minute=59, second=0, microsecond=0, nanosecond=0
     )
     time_index = pd.date_range(
         start_time, end_time + pd.Timedelta(minutes=1), freq="1T"

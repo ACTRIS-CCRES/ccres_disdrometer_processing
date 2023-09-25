@@ -301,11 +301,6 @@ def main_loop_degrade(
                 disdro_file, (os.path.exists(disdro_file))
             )  # , (os.path.exists(radar_file)))
             if os.path.exists(disdro_file):  # and os.path.exists(radar_file):
-                # read radar data
-                # ---------------------------------------------------------------------------------
-                if add_radar:
-                    radar_xr = radar.read_radar_cloudnet(radar_file)
-
                 # read and preprocess disdrometer data
                 # ---------------------------------------------------------------------------------
 
@@ -331,10 +326,15 @@ def main_loop_degrade(
                     normMethod,
                 )
 
-                final_data = xr.merge([disdro_xr, radar_xr])
-                final_data.to_netcdf(output_file)
+                # read radar data
+                # ---------------------------------------------------------------------------------
+                if (add_radar) and (os.path.exists(radar_file)):
+                    radar_xr = radar.read_radar_cloudnet(radar_file)
+                    final_data = xr.merge([disdro_xr, radar_xr])
+                    final_data.to_netcdf(output_file)
 
-                # disdro_xr.to_netcdf(output_file)
+                else:
+                    disdro_xr.to_netcdf(output_file)
 
 
 def main_loop_quicklooks(config_file=CONFIG_FILE_LOOP):
@@ -402,4 +402,4 @@ def main_loop_quicklooks(config_file=CONFIG_FILE_LOOP):
 if __name__ == "__main__":
     conf_lindenberg = "CONFIG_LINDENBERG_LOOP_DEGRADE.toml"
     conf_juelich = "CONFIG_disdro_loop.toml"
-    main_loop_degrade(config_file=conf_juelich)
+    main_loop_degrade(config_file=conf_lindenberg, add_radar=True)

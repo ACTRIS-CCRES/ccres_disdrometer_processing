@@ -17,10 +17,10 @@ F = {
 def resample_data_perfect_timesteps(filename: Union[str, Path]) -> xr.Dataset:
     data_nc = xr.open_dataset(filename)
     start_time = pd.Timestamp(data_nc.time.values[0]).replace(
-        hour=0, minute=0, second=0
+        hour=0, minute=0, second=0, microsecond=0, nanosecond=0
     )
     end_time = pd.Timestamp(data_nc.time.values[0]).replace(
-        hour=23, minute=59, second=0
+        hour=23, minute=59, second=0, microsecond=0, nanosecond=0
     )
     time_index = pd.date_range(
         start_time, end_time + pd.Timedelta(minutes=1), freq="1T"
@@ -39,11 +39,14 @@ def resample_data_perfect_timesteps(filename: Union[str, Path]) -> xr.Dataset:
     )
     data_notime = data_nc[notime_var]
     data_perfect_timesteps = xr.merge((data_time_resampled, data_notime))
+    print(data_perfect_timesteps.dims, data_perfect_timesteps.time_bins)
+    data_perfect_timesteps["time_bins"] = data_perfect_timesteps.time_bins.dt.round(
+        freq="1S"
+    )
 
     for key in ["year", "month", "day", "location"]:
         data_perfect_timesteps.attrs[key] = data_nc.attrs[key]
     data_perfect_timesteps.attrs["disdrometer_source"] = data_nc.attrs["source"]
-
     return data_perfect_timesteps
 
 
@@ -104,8 +107,6 @@ def read_parsivel_cloudnet(
             data.psd * data.speed_classes.values.reshape(1, data.size_classes.size, 1),
             axis=1,
         ) / np.sum(data.psd, axis=1)
-
-        # data["time"] = data.time.dt.round(freq="1T")
 
     return data
 
@@ -246,6 +247,7 @@ def read_thies_cloudnet(
 
 def read_parsivel_cloudnet_choice(filename: Union[str, Path]) -> xr.Dataset:
     data_nc = resample_data_perfect_timesteps(filename=filename)
+    print(type(data_nc))
     station = data_nc.location
     source = data_nc.source
     type
