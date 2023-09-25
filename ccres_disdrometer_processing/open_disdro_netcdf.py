@@ -1,22 +1,58 @@
 from pathlib import Path
 from typing import Union
 
+import constants
 import numpy as np
+import pandas as pd
 import xarray as xr
 from scattering import DATA, compute_fallspeed
 from scipy import constants as cst
-import constants
 
-F = {"OTT HydroMet Parsivel2": constants.F_PARSIVEL}
+F = {
+    "OTT HydroMet Parsivel2": constants.F_PARSIVEL,
+    "Thies Clima LNM": constants.F_THIES,
+}
+
+
+def resample_data_perfect_timesteps(filename: Union[str, Path]) -> xr.Dataset:
+    data_nc = xr.open_dataset(filename)
+    start_time = pd.Timestamp(data_nc.time.values[0]).replace(
+        hour=0, minute=0, second=0
+    )
+    end_time = pd.Timestamp(data_nc.time.values[0]).replace(
+        hour=23, minute=59, second=0
+    )
+    time_index = pd.date_range(
+        start_time, end_time + pd.Timedelta(minutes=1), freq="1T"
+    )
+    time_index_offset = time_index - pd.Timedelta(30, "sec")
+    time_var, notime_var = [], []
+    for var in data_nc.keys():
+        if "time" in data_nc[var].coords.dims:
+            time_var.append(var)
+        else:
+            notime_var.append(var)
+    data_time_resampled = (
+        data_nc[time_var]
+        .groupby_bins("time", time_index_offset, labels=time_index[:-1])
+        .first()
+    )
+    data_notime = data_nc[notime_var]
+    data_perfect_timesteps = xr.merge((data_time_resampled, data_notime))
+
+    for key in ["year", "month", "day", "location"]:
+        data_perfect_timesteps.attrs[key] = data_nc.attrs[key]
+    data_perfect_timesteps.attrs["disdrometer_source"] = data_nc.attrs["source"]
+
+    return data_perfect_timesteps
 
 
 def read_parsivel_cloudnet(
-    filename: Union[str, Path]
-) -> xr.Dataset:  # Read Parsivel file from CLU
-    data_nc = xr.open_dataset(filename)
+    data_nc: xr.Dataset,
+) -> xr.Dataset:  # Read Parsivel file from CLU resampled file
     data = xr.Dataset(
         coords=dict(
-            time=(["time"], data_nc.time.data),
+            time=(["time"], data_nc.time_bins.data),
             size_classes=(["size_classes"], data_nc.diameter.data * 1000),
             speed_classes=(["speed_classes"], data_nc.velocity.data),
         )
@@ -69,24 +105,24 @@ def read_parsivel_cloudnet(
             axis=1,
         ) / np.sum(data.psd, axis=1)
 
-        data["time"] = data.time.dt.round(freq="S")
+        # data["time"] = data.time.dt.round(freq="1T")
 
     return data
 
 
 def read_parsivel_cloudnet_juelich(
-    filename: Union[str, Path]
-) -> xr.Dataset:  # Read Parsivel file from CLU
-    data_nc = xr.open_dataset(filename)
+    data_nc: xr.Dataset,
+) -> xr.Dataset:  # Read Parsivel file from CLU resampled file, Jülich specificities
     data = xr.Dataset(
         coords=dict(
-            time=(["time"], data_nc.time.data),
+            time=(["time"], data_nc.time_bins.data),
             size_classes=(["size_classes"], data_nc.diameter.data * 1000),
             speed_classes=(["speed_classes"], data_nc.velocity.data),
         )
     )
 
     if data_nc.source == "OTT HydroMet Parsivel2":
+        data["F"] = F[data_nc.source]
         data["pr"] = xr.DataArray(
             data_nc["rainfall_rate"].values * 1000 * 3600,
             dims=["time"],
@@ -130,9 +166,101 @@ def read_parsivel_cloudnet_juelich(
             axis=1,
         ) / np.sum(data.psd, axis=1)
 
-        data["time"] = data.time.dt.round(freq="S")
+        # data["time"] = data.time.dt.round(freq="1T")
+
+        # data["time"] = data.time.dt.round(freq="1S").dt.floor(freq="1T")
+        # time_diffs = np.diff(data.time.values)
+        # ambiguous_time = np.where(time_diffs / np.timedelta64(1, "m") == 0)
+        # if len(ambiguous_time[0]) > 0:
+        #     print(
+        #         ambiguous_time[0],
+        #         data.time.values[ambiguous_time[0][0] - 3 : ambiguous_time[0][0] + 3],
+        #     )
+        #     for k in range(len(ambiguous_time[0])):
+        #         print(
+        #             time_diffs[ambiguous_time[0][k] - 1],
+        #             time_diffs[ambiguous_time[0][k]],
+        #             time_diffs[ambiguous_time[0][k] + 1],
+        #         )
+        #         if time_diffs[ambiguous_time[0][k] + 1] == 2:
+        #             data.time.values[ambiguous_time[0][k] + 1] += np.timedelta64(1, "m") # noqa
 
     return data
+
+
+def read_thies_cloudnet(
+    data_nc: xr.Dataset,
+) -> xr.Dataset:  # Read Parsivel file from CLU resampled file
+    data = xr.Dataset(
+        coords=dict(
+            time=(["time"], data_nc.time_bins.data),
+            size_classes=(["size_classes"], data_nc.diameter.data * 1000),
+            speed_classes=(["speed_classes"], data_nc.velocity.data),
+        )
+    )
+
+    data["F"] = F[data_nc.source]
+    data["pr"] = xr.DataArray(
+        data_nc["rainfall_rate"].values * 1000 * 3600,
+        dims=["time"],
+        attrs={"units": "mm/h"},
+    )
+    data["cp"] = xr.DataArray(
+        np.cumsum(data_nc["rainfall_rate"].values * 60 * 1000),
+        dims=["time"],
+        attrs={"units": "mm"},
+    )
+    data["Z"] = xr.DataArray(
+        data_nc["radar_reflectivity"].values, dims=["time"], attrs={"units": "dBZ"}
+    )
+    data["visi"] = xr.DataArray(data_nc["visibility"].values, dims=["time"])
+    # data["sa"] = xr.DataArray(data_nc["sig_laser"].values, dims=["time"])
+    data["particles_count"] = xr.DataArray(data_nc["n_particles"].values, dims=["time"])
+    data["sensor_temp"] = xr.DataArray(data_nc["T_interior"].values, dims=["time"])
+    data["heating_current"] = xr.DataArray(
+        data_nc["I_heating_laser_head"].values, dims=["time"]
+    )
+    data["sensor_volt"] = xr.DataArray(data_nc["V_sensor_supply"].values, dims=["time"])
+    data["SYNOP_code"] = xr.DataArray(data_nc["synop_WaWa"].values, dims=["time"])
+    data["time_resolution"] = (
+        data.time.values[1] - data.time.values[0]
+    ) / np.timedelta64(1, "s")
+    data["psd"] = xr.DataArray(
+        data_nc["data_raw"].values, dims=["time", "size_classes", "speed_classes"]
+    )  # En vérité axis = 1 correspond aux vitesses et 2 aux diamètres ...
+    data["size_classes_width"] = xr.DataArray(
+        data_nc["diameter_spread"].values * 1000, dims=["size_classes"]
+    )
+    data["speed_classes_width"] = xr.DataArray(
+        data_nc["velocity_spread"].values, dims=["speed_classes"]
+    )
+    data["VD"] = np.sum(
+        data.psd * data.speed_classes.values.reshape(1, 1, -1),
+        axis=2,
+    ) / np.sum(
+        data.psd, axis=2
+    )  # car la psd est déjà "à l'endroit" pour les fichiers Thies, en apparence
+
+    return data
+
+
+def read_parsivel_cloudnet_choice(filename: Union[str, Path]) -> xr.Dataset:
+    data_nc = resample_data_perfect_timesteps(filename=filename)
+    station = data_nc.location
+    source = data_nc.source
+    type
+    if station == "Palaiseau":
+        data = read_parsivel_cloudnet(data_nc)
+        return data
+    elif station == "Jülich":
+        data = read_parsivel_cloudnet_juelich(data_nc)
+        return data
+
+    elif source == "Thies Clima LNM":
+        data = read_thies_cloudnet(data_nc)
+        return data
+    else:
+        return None
 
 
 def reflectivity_model(

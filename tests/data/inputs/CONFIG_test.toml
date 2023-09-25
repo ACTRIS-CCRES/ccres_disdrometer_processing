@@ -13,3 +13,4 @@ AXIS_RATIO_METHOD = "BeardChuang_PolynomialFit"
 COMPUTE_MIE_METHOD = "pytmatrix"
 REFRACTION_INDEX = "constant"
 NORMALIZATION_METHOD = "model"
+BEAM_ORIENTATION = 1

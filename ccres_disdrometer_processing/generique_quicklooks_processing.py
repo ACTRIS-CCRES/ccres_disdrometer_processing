@@ -1,21 +1,8 @@
-import datetime as dt
 import glob
-import logging
-import os
 
-import matplotlib as mpl
-import matplotlib.colors as colors
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import scipy.stats as stats
 import xarray as xr
-from create_input_files_quicklooks import get_data_event
-from matplotlib.gridspec import GridSpec
-from rain_event_selection import selection
-from scipy.optimize import curve_fit
-from scipy.stats import cumfreq
-from sklearn.linear_model import LinearRegression
 
 CLIC = 0.2  # mm/mn : pluvio sampling. Varies between the different weather stations ?
 RRMAX = 3  # mm/h
@@ -161,12 +148,12 @@ def sel(
 
 
 def dd_ql(preprocessed_ds, events):
-    for start, end in zip(events["Start_time"], events["End_time"]):
-        # ds = preprocessed_ds.sel({"time":slice(start, end)}) # +- DELTA_DISDRO
+    # for start, end in zip(events["Start_time"], events["End_time"]):
+    pass
 
 
 if __name__ == "__main__":
-    path_ws_data = "/home/ygrit/Documents/disdro_processing/ccres_disdrometer_processing/daily_data/palaiseau/disdrometer_preprocessed/"
+    path_ws_data = "/home/ygrit/Documents/disdro_processing/ccres_disdrometer_processing/daily_data/palaiseau/disdrometer_preprocessed/"  # noqa
     lst = sorted(glob.glob(path_ws_data + "*.nc"))
     events = sel(lst)
     print(events)

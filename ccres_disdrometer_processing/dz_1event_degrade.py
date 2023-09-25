@@ -33,7 +33,8 @@ def sel_degrade(
     preprocessed_ds_full = xr.concat(
         (xr.open_dataset(file) for file in list_preprocessed_files[:]), dim="time"
     )
-    preprocessed_ds_full["time"] = preprocessed_ds_full.time.dt.floor(freq="T")
+
+    preprocessed_ds_full["time"] = preprocessed_ds_full.time.dt.round(freq="1T")
 
     # preprocessed_ds = preprocessed_ds_full.isel(
     #     {"time": np.where(preprocessed_ds_full.rain.values >= CLIC)[0]}
@@ -43,6 +44,10 @@ def sel_degrade(
             "time": np.where(preprocessed_ds_full.pr.values > 0)[0]
         }  # > CLIC éventuellement, mais en allant calculer cum sur le ds full ?
     )
+    time_diffs = np.diff(preprocessed_ds_full.time.values) / np.timedelta64(1, "m")
+    neg_diffs = np.where(time_diffs == 0)
+    print(neg_diffs, neg_diffs[0].shape)
+    print(preprocessed_ds_full.time.values[neg_diffs])
 
     preprocessed_ds["rain_cumsum"] = np.cumsum(preprocessed_ds_full["pr"] / 60)
 
@@ -148,10 +153,6 @@ def dz_per_event(
         return None
 
     try:
-        np.savetxt(
-            "/home/ygrit/Documents/disdro_processing/ccres_disdrometer_processing/daily_data/juelich/timestamps.txt",
-            disdro.time.values,
-        )
         # Get data
         Z_dcr = dcr.Zh.isel(
             {"range": [0, 2, 4, 5]}
@@ -267,7 +268,7 @@ def dz_per_event(
 
         disdro_tr = np.transpose(
             disdro["psd"].values, axes=(0, 2, 1)
-        )  ## besoin de transposer à Juelich !
+        )  # besoin de transposer à Juelich !
         disdro_fallspeed = np.zeros(disdro_tr.shape[0])
         for t in range(len(disdro_fallspeed)):
             drops_per_time_and_speed = np.nansum(disdro_tr[t, :, :], axis=0).flatten()
@@ -477,7 +478,7 @@ def dz_timeseries(events, preprocessed_ds, data_dir):
 
     for i in range(1, len(events["Start_time"])):
         start, end = events["Start_time"].iloc[i], events["End_time"].iloc[i]
-        print("Evenement ", i, start, end)
+        print("Evenement ", i, "/", len(events["Start_time"]), start, end)
         x = dz_per_event(preprocessed_ds, data_dir, start, end, filtered=True)
         if x is None:
             print("NONE")
@@ -534,6 +535,31 @@ def dz_timeseries(events, preprocessed_ds, data_dir):
             len_episodes.shape,
             raindrop_diameter.shape,
         )
+
+    t1, t2 = startend[0, 0].strftime("%Y%m"), startend[-1, 0].strftime("%Y%m")
+    data_tosave = pd.DataFrame(
+        {
+            "start_time": startend[:, 0],
+            "end_time": startend[:, 1],
+            "episode_length": len_episodes.flatten(),
+            "nb_computable_points_event": nb_points_per_event.flatten(),
+            "avg_raindrop_diameter": raindrop_diameter.flatten(),
+            "dz_median": dZ[:, 0],
+            "dz_q1": dZ[:, 1],
+            "dz_q3": dZ[:, 2],
+            "dz_mean": dZ[:, 3],
+            "dz_minval": dZ[:, 4],
+            "dz_maxval": dZ[:, 5],
+            "qf_RR": qf_ratio[:, 0],
+            "qf_VD": qf_ratio[:, 1],
+            "good_points_ratio": qf_ratio[:, 2],
+            "good_points_number": qf_ratio[:, 3],
+            "cum": cum.flatten(),
+            "len_episodes": len_episodes.flatten(),
+        }
+    )
+    data_tosave.to_csv(data_dir + "/csv/dz_data_{}_{}.csv".format(t1, t2), header=True)
+
     return (
         startend,
         nb_points_per_event,
@@ -554,57 +580,76 @@ def dz_plot(
     len_episodes,
     raindrop_diameter,
     acc_filter=False,
+    showfliers=False,
+    showmeans=False,
 ):
     t = startend[:, 0]
     plt.figure()
     for i in range(len(dZ)):
-        if cum[i] < MIN_CUM:
-            plt.scatter(t[i], dZ[i, 0], color="red", alpha=qf_ratio[i, 2])
-        else:
+        if cum[i] > MIN_CUM:
             plt.scatter(t[i], dZ[i, 0], color="green", alpha=qf_ratio[i, 2])
+        else:
+            plt.scatter(t[i], dZ[i, 0], color="red", alpha=qf_ratio[i, 2])
+
     plt.grid()
     plt.xlabel("Date")
-    plt.ylabel("$\Delta$Z (dBZ)")
+    plt.ylabel(r"$\Delta$Z (dBZ)$")
     plt.show(block=False)
     print(cum)
 
     fig, ax = plt.subplots(figsize=((20, 6)))
-    ax.axhline(
-        y=0, color="green", alpha=1, label="Rain accumulation > {}mm".format(MIN_CUM)
-    )
-    ax.axhline(
-        y=0, color="red", alpha=1, label="Rain accumulation < {}mm".format(MIN_CUM)
-    )
+    # ax.axhline(
+    #     y=0, color="green", alpha=1, label="Rain accumulation > {}mm".format(MIN_CUM)
+    # )
+    # ax.axhline(
+    #     y=0, color="red", alpha=1, label="Rain accumulation < {}mm".format(MIN_CUM)
+    # )
     ax.axhline(y=0, color="blue")
-    ax.legend(loc="upper left")
+
+    # Moving average of the bias
+    N = 3  # avg(T) given by T, T-1, T-2
+    f = np.intersect1d(
+        np.where((cum > MIN_CUM))[0], np.where(np.isfinite(dZ[:, 0]) * 1 == 1)[0]
+    )
+    f = np.intersect1d(f, np.where(qf_ratio[:, 3] >= 20))
+    print(f, f.shape)
+    dZ_good, t_good = dZ[f, 0], t[f]
+    print(np.isfinite(dZ[39, 0]), dZ[39, 0], type(dZ[39, 0]))
+    dZ_moving_avg = np.convolve(dZ_good, np.ones(N) / N, mode="valid")
+    print(t_good[N - 1 :].shape, dZ_moving_avg.shape)
+    (moving_avg,) = ax.plot(t_good[N - 1 :], dZ_moving_avg, color="red")
+    # print(
+    #     t_good, t_good.shape, dZ_moving_avg, dZ_moving_avg.shape, dZ_good, dZ_good.shape
+    # )
 
     for k in range(len(dZ)):
-        bxp_stats = [
-            {
-                "mean": dZ[k, 3],
-                "med": dZ[k, 0],
-                "q1": dZ[k, 1],
-                "q3": dZ[k, 2],
-                "fliers": [dZ[k, 4], dZ[k, 5]],
-                "whishi": np.minimum(
-                    dZ[k, 2] + 1 * np.abs(dZ[k, 2] - dZ[k, 1]), dZ[k, 5]
-                ),
-                "whislo": np.maximum(
-                    dZ[k, 0] - 1 * np.abs(dZ[k, 2] - dZ[k, 1]), dZ[k, 4]
-                ),
-            }
-        ]
-        mean_shape = dict(markeredgecolor="purple", marker="_")
-        med_shape = dict(markeredgecolor="red", marker="_")
+        if cum[k] > MIN_CUM:
+            bxp_stats = [
+                {
+                    "mean": dZ[k, 3],
+                    "med": dZ[k, 0],
+                    "q1": dZ[k, 1],
+                    "q3": dZ[k, 2],
+                    "fliers": [dZ[k, 4], dZ[k, 5]],
+                    "whishi": np.minimum(
+                        dZ[k, 2] + 1 * np.abs(dZ[k, 2] - dZ[k, 1]), dZ[k, 5]
+                    ),
+                    "whislo": np.maximum(
+                        dZ[k, 0] - 1 * np.abs(dZ[k, 2] - dZ[k, 1]), dZ[k, 4]
+                    ),
+                }
+            ]
+            mean_shape = dict(markeredgecolor="purple", marker="_")
+            med_shape = dict(markeredgecolor="red", marker="_")
 
-        if cum[k] < MIN_CUM:
-            boxprops = dict(color="red")
-            fliers_shape = dict(
-                markerfacecolor="none",
-                marker="o",
-                markeredgecolor="red",
-            )
-        else:
+            # if cum[k] < MIN_CUM:
+            #     boxprops = dict(color="red")
+            #     fliers_shape = dict(
+            #         markerfacecolor="none",
+            #         marker="o",
+            #         markeredgecolor="red",
+            #     )
+
             boxprops = dict(color="green")
             fliers_shape = dict(
                 markerfacecolor="none",
@@ -612,25 +657,30 @@ def dz_plot(
                 markeredgecolor="green",
             )
 
-        box = ax.bxp(
-            bxp_stats,
-            showmeans=True,
-            showfliers=True,
-            meanprops=mean_shape,
-            medianprops=med_shape,
-            # positions=t[k],
-            positions=[mpl.dates.date2num(t[k])],
-            widths=[1],
-            flierprops=fliers_shape,
-            boxprops=boxprops,
-        )
-
-        if k == 0:
-            ax.legend(
-                [box["medians"][0], box["means"][0]],
-                ["median", "mean"],
-                loc="upper right",
+            box = ax.bxp(
+                bxp_stats,
+                showmeans=showmeans,
+                showfliers=showfliers,
+                meanprops=mean_shape,
+                # medianprops=med_shape,
+                # positions=t[k],
+                positions=[mpl.dates.date2num(t[k])],
+                widths=[1],
+                flierprops=fliers_shape,
+                boxprops=boxprops,
             )
+    if showmeans:
+        ax.legend(
+            [moving_avg, box["medians"][0], box["means"][0]],
+            ["bias moving avg (3 values)", "median", "mean"],
+            loc="upper right",
+        )
+    else:
+        ax.legend(
+            [moving_avg, box["medians"][0]],
+            ["bias moving avg (3 values)", "median"],
+            loc="upper right",
+        )
     plt.grid()
     plt.xlabel("Date")
     plt.ylabel("$Z_{MIRA35} - Z_{disdrometer}$ (dBZ)")
@@ -646,12 +696,21 @@ def dz_plot(
     plt.xticks(rotation=0, fontsize=16, fontweight="semibold")
     ax.set_yticklabels(ax.get_yticks(), fontsize=18, fontweight="semibold")
     plt.title(
-        "Time series of MIRA35 @ Jülich Calibration constant variability ({} good events)".format(
-            len(np.where(cum > MIN_CUM)[0]), fontsize=15, fontweight="semibold"
+        r"{} - {} Time series of MIRA35 @ Jülich CC variability ({} good events with more than {:.0f}mm of rain and 20 timesteps to compute )".format(  # noqa
+            t[0].strftime("%Y/%m"),
+            t[-1].strftime("%Y/%m"),
+            len(np.where(cum > MIN_CUM)[0]),
+            MIN_CUM,
         )
+        + r"\Delta Z",
+        fontsize=15,
+        fontweight="semibold",
     )
     plt.savefig(
-        data_dir + "/timeseries/timeseries_bxp.png",
+        data_dir
+        + "/timeseries/timeseries_bxp_{}_{}.png".format(
+            t[0].strftime("%Y%m"), t[-1].strftime("%Y%m")
+        ),
         dpi=500,
         transparent=False,
         edgecolor="white",
@@ -659,11 +718,10 @@ def dz_plot(
     plt.show(block=False)
 
     plt.figure()
-    filt = np.where(cum > MIN_CUM)
-    print(filt[0])
-    biases = dZ[filt[0], 0].flatten()
-    print(np.isnan(biases))
-    print(qf_ratio[filt[0], 2] / 100)
+    # filt = np.where(cum > MIN_CUM)
+    # print(filt[0])
+    biases = dZ[f, 0].flatten()
+    print(qf_ratio[f, 2] / 100)
     plt.hist(biases, bins=np.arange(-30, 31, 1), alpha=0.5, color="green")
     plt.axvline(
         x=np.nanmean(biases),
@@ -673,9 +731,16 @@ def dz_plot(
     plt.xlim(left=-30, right=30)
     plt.xlabel("median $Z_{MIRA35} - Z_{disdrometer}$ (dBZ)")
     plt.ylabel("Count")
-    plt.title("Histogram of biases over the 6 months")
+    plt.title(
+        "Histogram of biases over the period {} - {}".format(
+            t[0].strftime("%Y/%m"), t[-1].strftime("%Y/%m")
+        )
+    )
     plt.savefig(
-        data_dir + "/timeseries/pdf_dz.png",
+        data_dir
+        + "/timeseries/pdf_dz_{}_{}.png".format(
+            t[0].strftime("%Y%m"), t[-1].strftime("%Y%m")
+        ),
         dpi=500,
         transparent=False,
         edgecolor="white",
@@ -685,12 +750,16 @@ def dz_plot(
 
 
 if __name__ == "__main__":
-    data_dir = "/home/ygrit/Documents/disdro_processing/ccres_disdrometer_processing/daily_data/juelich/"
+    # station = "lindenberg"
+    station = "juelich"
+    data_dir = "/home/ygrit/Documents/dcrcc_data/{}".format(station)
     lst_preprocessed_files = sorted(
         glob.glob(
-            "/home/ygrit/Documents/disdro_processing/ccres_disdrometer_processing/daily_data/juelich/disdrometer_preprocessed/*degrade.nc"
+            "/home/ygrit/Documents/dcrcc_data/{}/disdrometer_preprocessed/*degrade.nc".format(  # noqa
+                station
+            )
         )
-    )
+    )[:700]
     print("{} DD preprocessed files".format(len(lst_preprocessed_files)))
     events, preprocessed_ds = sel_degrade(lst_preprocessed_files)
     print(events)

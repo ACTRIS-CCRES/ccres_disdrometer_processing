@@ -10,8 +10,8 @@ import xarray as xr
 sys.path.append(str(Path(__file__).parent.parent))
 
 import open_disdro_netcdf as disdro
-import open_weather_netcdf as weather
 import open_radar_netcdf as radar
+import open_weather_netcdf as weather
 import scattering as scattering
 from constants import E
 from logger import LogLevels, init_logger

@@ -5,8 +5,12 @@ import xarray as xr
 def read_radar_cloudnet(filename):  # daily radar file from cloudnet
     data_nc = xr.open_dataset(filename)
 
-    start_time = pd.Timestamp(data_nc.time.values[0]).floor(freq="1T")
-    end_time = pd.Timestamp(data_nc.time.values[-1]).floor(freq="1T")
+    start_time = pd.Timestamp(data_nc.time.values[0]).replace(
+        hour=0, minute=0, second=0
+    )
+    end_time = pd.Timestamp(data_nc.time.values[-1]).replace(
+        hour=23, minute=59, second=0
+    )
     time_index = pd.date_range(
         start_time, end_time + pd.Timedelta(minutes=1), freq="1T"
     )
@@ -41,5 +45,7 @@ def read_radar_cloudnet(filename):  # daily radar file from cloudnet
         dims=["time", "range"],
         attrs=data_nc["v"].attrs,
     )
+
+    radar_ds.attrs["radar_source"] = data_nc.attrs["source"]
 
     return radar_ds
