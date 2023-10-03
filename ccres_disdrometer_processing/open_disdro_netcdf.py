@@ -13,6 +13,33 @@ F = {
     "Thies Clima LNM": constants.F_THIES,
 }
 
+KEYS = [
+    "visibility",
+    "sig_laser",
+    "n_particles",
+    "T_sensor",
+    "I_heating",
+    "V_power_supply",
+    "kinetic_energy",
+    "snowfall_rate",
+    "synop_WaWa",
+    # "diameter_spread",
+    # "velocity_spread",
+]
+NEW_KEYS = [
+    "visi",
+    "sa",
+    "particles_count",
+    "sensor_temp",
+    "heating_current",
+    "sensor_volt",
+    "KE",
+    "sr",
+    "SYNOP_code",
+    # "size_classes_width",
+    # "speed_classes_width",
+]
+
 
 def resample_data_perfect_timesteps(filename: Union[str, Path]) -> xr.Dataset:
     data_nc = xr.open_dataset(filename)
@@ -39,7 +66,6 @@ def resample_data_perfect_timesteps(filename: Union[str, Path]) -> xr.Dataset:
     )
     data_notime = data_nc[notime_var]
     data_perfect_timesteps = xr.merge((data_time_resampled, data_notime))
-    print(data_perfect_timesteps.dims, data_perfect_timesteps.time_bins)
     data_perfect_timesteps["time_bins"] = data_perfect_timesteps.time_bins.dt.round(
         freq="1S"
     )
@@ -60,7 +86,6 @@ def read_parsivel_cloudnet(
             speed_classes=(["speed_classes"], data_nc.velocity.data),
         )
     )
-
     if data_nc.source == "OTT HydroMet Parsivel2":
         data["F"] = F[data_nc.source]
         data["pr"] = xr.DataArray(
@@ -76,42 +101,53 @@ def read_parsivel_cloudnet(
         data["Z"] = xr.DataArray(
             data_nc["radar_reflectivity"].values, dims=["time"], attrs={"units": "dBZ"}
         )
-        data["visi"] = xr.DataArray(data_nc["visibility"].values, dims=["time"])
-        data["sa"] = xr.DataArray(data_nc["sig_laser"].values, dims=["time"])
-        data["particles_count"] = xr.DataArray(
-            data_nc["n_particles"].values, dims=["time"]
+        data["psd"] = xr.DataArray(
+            np.transpose(data_nc["data_raw"].values, axes=(0, 2, 1)),
+            dims=["time", "size_classes", "speed_classes"],
         )
-        data["sensor_temp"] = xr.DataArray(data_nc["T_sensor"].values, dims=["time"])
-        data["heating_current"] = xr.DataArray(
-            data_nc["I_heating"].values, dims=["time"]
-        )
-        data["sensor_volt"] = xr.DataArray(
-            data_nc["V_power_supply"].values, dims=["time"]
-        )
-        data["KE"] = xr.DataArray(data_nc["kinetic_energy"].values, dims=["time"])
-        data["sr"] = xr.DataArray(data_nc["snowfall_rate"].values, dims=["time"])
-        data["SYNOP_code"] = xr.DataArray(data_nc["synop_WaWa"].values, dims=["time"])
         data["time_resolution"] = (
             data.time.values[1] - data.time.values[0]
         ) / np.timedelta64(1, "s")
-        data["psd"] = xr.DataArray(
-            data_nc["data_raw"].values, dims=["time", "size_classes", "speed_classes"]
-        )  # En vérité axis = 1 correspond aux vitesses et 2 aux diamètres ...
+
+        for i in range(len(KEYS)):
+            if KEYS[i] in list(data_nc.keys()):
+                data[NEW_KEYS[i]] = xr.DataArray(data_nc[KEYS[i]].values, dims=["time"])
+
+        # data["visi"] = xr.DataArray(data_nc["visibility"].values, dims=["time"])
+        # data["sa"] = xr.DataArray(data_nc["sig_laser"].values, dims=["time"])
+        # data["particles_count"] = xr.DataArray(
+        #     data_nc["n_particles"].values, dims=["time"]
+        # )
+        # data["sensor_temp"] = xr.DataArray(data_nc["T_sensor"].values, dims=["time"])
+        # data["heating_current"] = xr.DataArray(
+        #     data_nc["I_heating"].values, dims=["time"]
+        # )
+        # data["sensor_volt"] = xr.DataArray(
+        #     data_nc["V_power_supply"].values, dims=["time"]
+        # )
+        # data["KE"] = xr.DataArray(data_nc["kinetic_energy"].values, dims=["time"])
+        # data["sr"] = xr.DataArray(data_nc["snowfall_rate"].values, dims=["time"])
+        # data["SYNOP_code"] = xr.DataArray(data_nc["synop_WaWa"].values, dims=["time"])
+
         data["size_classes_width"] = xr.DataArray(
             data_nc["diameter_spread"].values * 1000, dims=["size_classes"]
-        )
+        )  # mm
         data["speed_classes_width"] = xr.DataArray(
             data_nc["velocity_spread"].values, dims=["speed_classes"]
         )
-        data["VD"] = np.sum(
-            data.psd * data.speed_classes.values.reshape(1, data.size_classes.size, 1),
-            axis=1,
-        ) / np.sum(data.psd, axis=1)
+
+        # VD = np.empty((data.time.size, data.size_classes.size))
+        # for t in range(data.time.size):
+        #     for s in range(data.size_classes.size):
+        #         VD[t, s] = (
+        #             np.nansum(data.psd.values[t, s, :] * data.speed_classes.values)
+        #         ) / np.nansum(data.psd.values[t, s, :])
+        # data["VD"] = xr.DataArray(VD, dims=["time", "size_classes"])
 
     return data
 
 
-def read_parsivel_cloudnet_juelich(
+def read_parsivel_cloudnet_bis(
     data_nc: xr.Dataset,
 ) -> xr.Dataset:  # Read Parsivel file from CLU resampled file, Jülich specificities
     data = xr.Dataset(
@@ -154,37 +190,19 @@ def read_parsivel_cloudnet_juelich(
             data.time.values[1] - data.time.values[0]
         ) / np.timedelta64(1, "s")
         data["psd"] = xr.DataArray(
-            data_nc["data_raw"].values, dims=["time", "size_classes", "speed_classes"]
-        )  # En vérité axis = 1 correspond aux vitesses et 2 aux diamètres ...
+            np.transpose(data_nc["data_raw"].values, axes=(0, 2, 1)),
+            dims=["time", "size_classes", "speed_classes"],
+        )
         data["size_classes_width"] = xr.DataArray(
             data_nc["diameter_spread"].values * 1000, dims=["size_classes"]
         )
         data["speed_classes_width"] = xr.DataArray(
             data_nc["velocity_spread"].values, dims=["speed_classes"]
         )
-        data["VD"] = np.sum(
-            data.psd * data.speed_classes.values.reshape(1, data.size_classes.size, 1),
-            axis=1,
-        ) / np.sum(data.psd, axis=1)
-
-        # data["time"] = data.time.dt.round(freq="1T")
-
-        # data["time"] = data.time.dt.round(freq="1S").dt.floor(freq="1T")
-        # time_diffs = np.diff(data.time.values)
-        # ambiguous_time = np.where(time_diffs / np.timedelta64(1, "m") == 0)
-        # if len(ambiguous_time[0]) > 0:
-        #     print(
-        #         ambiguous_time[0],
-        #         data.time.values[ambiguous_time[0][0] - 3 : ambiguous_time[0][0] + 3],
-        #     )
-        #     for k in range(len(ambiguous_time[0])):
-        #         print(
-        #             time_diffs[ambiguous_time[0][k] - 1],
-        #             time_diffs[ambiguous_time[0][k]],
-        #             time_diffs[ambiguous_time[0][k] + 1],
-        #         )
-        #         if time_diffs[ambiguous_time[0][k] + 1] == 2:
-        #             data.time.values[ambiguous_time[0][k] + 1] += np.timedelta64(1, "m") # noqa
+        # data["VD"] = np.sum(
+        #     data.psd * data.speed_classes.values.reshape(1, data.size_classes.size, 1),
+        #     axis=1,
+        # ) / np.sum(data.psd, axis=1)
 
     return data
 
@@ -228,41 +246,38 @@ def read_thies_cloudnet(
     ) / np.timedelta64(1, "s")
     data["psd"] = xr.DataArray(
         data_nc["data_raw"].values, dims=["time", "size_classes", "speed_classes"]
-    )  # En vérité axis = 1 correspond aux vitesses et 2 aux diamètres ...
+    )
     data["size_classes_width"] = xr.DataArray(
         data_nc["diameter_spread"].values * 1000, dims=["size_classes"]
     )
     data["speed_classes_width"] = xr.DataArray(
         data_nc["velocity_spread"].values, dims=["speed_classes"]
     )
-    data["VD"] = np.sum(
-        data.psd * data.speed_classes.values.reshape(1, 1, -1),
-        axis=2,
-    ) / np.sum(
-        data.psd, axis=2
-    )  # car la psd est déjà "à l'endroit" pour les fichiers Thies, en apparence
+    # data["VD"] = np.sum(
+    #     data.psd * data.speed_classes.values.reshape(1, 1, -1),
+    #     axis=2,
+    # ) / np.sum(data.psd, axis=2)
 
     return data
 
 
 def read_parsivel_cloudnet_choice(filename: Union[str, Path]) -> xr.Dataset:
     data_nc = resample_data_perfect_timesteps(filename=filename)
-    print(type(data_nc))
     station = data_nc.location
     source = data_nc.source
     type
     if station == "Palaiseau":
         data = read_parsivel_cloudnet(data_nc)
-        return data
-    elif station == "Jülich":
-        data = read_parsivel_cloudnet_juelich(data_nc)
-        return data
-
+    elif station == "Jülich" or station == "Norunda":
+        # data = read_parsivel_cloudnet_bis(data_nc)
+        data = read_parsivel_cloudnet(data_nc)
     elif source == "Thies Clima LNM":
         data = read_thies_cloudnet(data_nc)
-        return data
     else:
-        return None
+        data = None
+    if not (data is None):
+        data.attrs = data_nc.attrs
+    return data
 
 
 def reflectivity_model(
@@ -300,8 +315,8 @@ def reflectivity_model(
 
     for ii in range(len(mparsivel.time)):
         Ni = np.nansum(
-            mparsivel.psd.values[ii, :, :], 0
-        )  # sum over speed axis -> number of drops per time and size
+            mparsivel.psd.values[ii, :, :], 1
+        )  # sum over speed axis -> number of drops per time and size # replace axis=1 by 0 if not transposed in parsivel
 
         model.RR[ii] = (
             (np.pi / 6.0)
@@ -312,8 +327,8 @@ def reflectivity_model(
         # we need to derive V(D)
         for i in range(len(mparsivel.size_classes)):
             model.VD[ii, i] = np.nansum(
-                mparsivel.psd.values[ii, :, i] * mparsivel.speed_classes.values
-            ) / np.nansum(mparsivel.psd.values[ii, :, i])
+                mparsivel.psd.values[ii, i, :] * mparsivel.speed_classes.values
+            ) / np.nansum(mparsivel.psd.values[ii, i, :])
 
         # parameterisation for the velocity (Gun and Kinzer)
         VDmodel = compute_fallspeed(mparsivel.size_classes.values, strMethod=strMethod)

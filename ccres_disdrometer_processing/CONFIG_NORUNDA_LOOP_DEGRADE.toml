@@ -1,20 +1,20 @@
 title = "Script to compute reflectivity from disdro data at SIRTA (loop)"
 
 [data]
-FREQ = 35.0
-STATION = "lindenberg"
+FREQ = 94.0
+
+STATION = "norunda"
 MAIN_WIND_DIR = 270
-DISDRO = "thies-lnm"
+DISDRO = "parsivel"
 AMS = 'weather-station'
 AMS_TYPE = "weather_station_cloudnet"
-RADAR = "mira"
+RADAR = "rpg-fmcw-94"
 DATA_DIR = "/home/ygrit/Documents/dcrcc_data/"
 QUICKLOOKS_DIR = "/home/ygrit/Documents/dcrcc_data/"
 BDD_RAIN_EVENTS_PATH = "/home/ygrit/Documents/disdro_processing/ccres_disdrometer_processing/bdd_rain_events/"
-
 [period]
-BEGIN_DATE = [2022, 1]
-END_DATE = [2022, 12]
+BEGIN_DATE = [2021, 3]
+END_DATE = [2023, 9]
 
 
 [methods]

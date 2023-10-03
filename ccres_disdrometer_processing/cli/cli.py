@@ -87,7 +87,9 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
         disdro_xr.time.values.shape,
         radar_xr.time.values.shape,
     )
-    final_data = xr.merge([weather_xr, disdro_xr, radar_xr])
+    final_data = xr.merge(
+        [weather_xr, disdro_xr, radar_xr], combine_attrs="drop_conflicts"
+    )
 
     final_data.to_netcdf(output_file)
     print(final_data.time.values.shape)

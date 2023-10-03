@@ -1,6 +1,6 @@
 """Console script for disdrometers reflectivity calculation."""
 import os
-
+import glob
 import click
 import constants as constants
 import create_input_files_quicklooks as input_ql
@@ -223,32 +223,33 @@ def main_loop_degrade(
 ):  # Juelich Mira : 35GHz, not 95
     if CONF:
         config = toml.load(config_file)
-        # print(config)
         disdro_files = (
             config["data"]["DATA_DIR"]
             + "{}/".format(config["data"]["STATION"])
             + "disdrometer/{}{}{}_"
-            + "{}_{}.nc".format(config["data"]["STATION"], config["data"]["DISDRO"])
+            + "{}_{}*.nc".format(config["data"]["STATION"], config["data"]["DISDRO"])
         )
 
         radar_files = (
             config["data"]["DATA_DIR"]
             + "{}/".format(config["data"]["STATION"])
             + "radar/{}{}{}_"
-            + "{}_{}.nc".format(config["data"]["STATION"], config["data"]["RADAR"])
+            + "{}_{}*.nc".format(config["data"]["STATION"], config["data"]["RADAR"])
         )
 
         output_files = (
             config["data"]["DATA_DIR"]
             + "{}/".format(config["data"]["STATION"])
             + "disdrometer_preprocessed/{}{}{}_"
-            + "{}_preprocessed_degrade.nc".format(config["data"]["STATION"])
+            + "{}_preprocessed_degrade_{}_{}.nc".format(
+                config["data"]["STATION"],
+                config["data"]["DISDRO"],
+                config["data"]["RADAR"],
+            )
         )
-        # disdro_type = config["data"]["DISDRO_TYPE"]
 
-        FREQ_J = constants.FREQ_35
+        FREQ = config["data"]["FREQ"] * 1e9
         E = constants.E
-        # print("e : ", E)
 
         beam_orientation = config["methods"]["BEAM_ORIENTATION"]
         axrMethod = config["methods"]["AXIS_RATIO_METHOD"]
@@ -281,7 +282,6 @@ def main_loop_degrade(
         )
     if len(years_list) > 2:
         tup = [np.tile(years_list[i], 12) for i in range(1, len(years_list) - 1)]
-        print(tup, type(tup))
         years_middle = np.hstack(tup).tolist()
         years = np.array(
             [years_list[0]] * (12 - config["period"]["BEGIN_DATE"][1] + 1)
@@ -294,47 +294,51 @@ def main_loop_degrade(
         for d in range(1, 32):
             day = "{:02d}".format(d)
             print("{}/{}/{}".format(year, month, day))
-            disdro_file = disdro_files.format(year, month, day)
-            radar_file = radar_files.format(year, month, day)
+            disdro_file = glob.glob(disdro_files.format(year, month, day))
+            radar_file = glob.glob(radar_files.format(year, month, day))
             output_file = output_files.format(year, month, day)
             print(
-                disdro_file, (os.path.exists(disdro_file))
-            )  # , (os.path.exists(radar_file)))
-            if os.path.exists(disdro_file):  # and os.path.exists(radar_file):
-                # read and preprocess disdrometer data
-                # ---------------------------------------------------------------------------------
+                "disdro file : ",
+                (len(disdro_file) > 0),
+                "radar file : ",
+                (len(radar_file) > 0),
+            )
+            if add_radar:
+                if len(disdro_file) > 0 and len(radar_file) > 0:
+                    disdro_file, radar_file = disdro_file[0], radar_file[0]
+                    # read and preprocess disdrometer data
+                    # ---------------------------------------------------------------------------------
 
-                disdro_xr = disdro.read_parsivel_cloudnet_choice(disdro_file)
+                    disdro_xr = disdro.read_parsivel_cloudnet_choice(disdro_file)
 
-                scatt = dcrcc.scattering_prop(
-                    disdro_xr.size_classes[0:-5],
-                    beam_orientation,
-                    # radar_xr["lambda"].data,
-                    FREQ_J,
-                    E,
-                    axrMethod,
-                    mieMethod=mieMethod,
-                )
-                disdro_xr = disdro.reflectivity_model(
-                    disdro_xr,
-                    scatt,
-                    len(disdro_xr.size_classes[0:-5]),
-                    # radar_xr["lambda"].data,
-                    FREQ_J,
-                    strMethod,
-                    mieMethod,
-                    normMethod,
-                )
-
-                # read radar data
-                # ---------------------------------------------------------------------------------
-                if (add_radar) and (os.path.exists(radar_file)):
+                    scatt = dcrcc.scattering_prop(
+                        disdro_xr.size_classes[0:-5],
+                        beam_orientation,
+                        # radar_xr["lambda"].data,
+                        FREQ,
+                        E,
+                        axrMethod,
+                        mieMethod=mieMethod,
+                    )
+                    disdro_xr = disdro.reflectivity_model(
+                        disdro_xr,
+                        scatt,
+                        len(disdro_xr.size_classes[0:-5]),
+                        # radar_xr["lambda"].data,
+                        FREQ,
+                        strMethod,
+                        mieMethod,
+                        normMethod,
+                    )
+                    # read radar data
+                    # ---------------------------------------------------------------------------------
                     radar_xr = radar.read_radar_cloudnet(radar_file)
-                    final_data = xr.merge([disdro_xr, radar_xr])
+                    final_data = xr.merge(
+                        [disdro_xr, radar_xr], combine_attrs="drop_conflicts"
+                    )
                     final_data.to_netcdf(output_file)
 
-                else:
-                    disdro_xr.to_netcdf(output_file)
+    return
 
 
 def main_loop_quicklooks(config_file=CONFIG_FILE_LOOP):
@@ -402,4 +406,5 @@ def main_loop_quicklooks(config_file=CONFIG_FILE_LOOP):
 if __name__ == "__main__":
     conf_lindenberg = "CONFIG_LINDENBERG_LOOP_DEGRADE.toml"
     conf_juelich = "CONFIG_disdro_loop.toml"
-    main_loop_degrade(config_file=conf_lindenberg, add_radar=True)
+    conf_norunda = "CONFIG_NORUNDA_LOOP_DEGRADE.toml"
+    main_loop_degrade(config_file=conf_norunda, add_radar=True)

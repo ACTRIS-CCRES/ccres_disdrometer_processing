@@ -12,6 +12,10 @@ from create_input_files_quicklooks import data_dcr_event
 
 lgr = logging.getLogger(__name__)
 
+# LIST_VARIABLES = ["pr", "Zdcr", "DVdcr", "Ze_tm", "psd"] # when radar data will be
+# read through the preprocessed file
+LIST_VARIABLES = ["pr", "Ze_tm", "psd"]
+
 CLIC = 0.001  # mm/mn : can identify rain rates lower than 0.1mm/h for disdro data
 RRMAX = 3  # mm/h
 MIN_CUM = 2  # mm/episode
@@ -30,30 +34,37 @@ DELTA_DISDRO = dt.timedelta(minutes=MN)
 def sel_degrade(
     list_preprocessed_files, delta_length=DELTA_LENGTH, delta_event=DELTA_EVENT
 ):  # lst : list of paths for DD preprocessed files
+    # col = (xr.open_dataset(file) for file in list_preprocessed_files[:])
+    # for c in col:
+    #     print(c.dims, c.time.values[0])
+
+    lgr.info("Begin stacking of daily preprocessed files")
     preprocessed_ds_full = xr.concat(
-        (xr.open_dataset(file) for file in list_preprocessed_files[:]), dim="time"
+        (xr.open_dataset(file)[LIST_VARIABLES] for file in list_preprocessed_files[:]),
+        dim="time",
     )
+    lgr.info("Stacking of daily preprocessed files : success")
+    # preprocessed_ds_full["time"] = preprocessed_ds_full.time.dt.round(freq="1T")
+    # not necessary anymore with perfect timesteps
 
-    preprocessed_ds_full["time"] = preprocessed_ds_full.time.dt.round(freq="1T")
-
-    # preprocessed_ds = preprocessed_ds_full.isel(
-    #     {"time": np.where(preprocessed_ds_full.rain.values >= CLIC)[0]}
-    # )
+    lgr.info("Select timesteps with rain records")
     preprocessed_ds = preprocessed_ds_full.isel(
         {
             "time": np.where(preprocessed_ds_full.pr.values > 0)[0]
         }  # > CLIC éventuellement, mais en allant calculer cum sur le ds full ?
     )
-    time_diffs = np.diff(preprocessed_ds_full.time.values) / np.timedelta64(1, "m")
-    neg_diffs = np.where(time_diffs == 0)
-    print(neg_diffs, neg_diffs[0].shape)
-    print(preprocessed_ds_full.time.values[neg_diffs])
+    lgr.info("OK")
+
+    # time_diffs = np.diff(preprocessed_ds_full.time.values) / np.timedelta64(1, "m")
+    # neg_diffs = np.where(time_diffs == 0)
+    # print(neg_diffs, neg_diffs[0].shape)
+    # print(preprocessed_ds_full.time.values[neg_diffs])
 
     preprocessed_ds["rain_cumsum"] = np.cumsum(preprocessed_ds_full["pr"] / 60)
 
     t = preprocessed_ds.time
 
-    print(t, len(t.values), len(list_preprocessed_files))
+    # print(t, len(t.values), len(list_preprocessed_files))
 
     start = []
     end = []
@@ -67,10 +78,8 @@ def sel_degrade(
                 end.append(t[i].values)
             start_candidate = t[i + 1]
 
-    mask = np.ones(
-        (len(start), 5), dtype=int
-    )  # ordre : Min temperature, min rain accumulation, max wind avg, max wind, max RR
-    test_values = np.empty((len(start), 6), dtype=object)
+    mask = np.ones((len(start), 2), dtype=int)  # order :  min rain accumulation, max RR
+    test_values = np.empty((len(start), 3), dtype=object)
 
     # Overall constraints/flags on weather conditions
 
@@ -166,7 +175,8 @@ def dz_per_event(
             freq="1T",
         )
         time_index_offset = time_index - pd.Timedelta(30, "sec")
-
+        if start_time.day == 20:
+            print(dcr.time.values[:])
         Z_dcr_resampled = Z_dcr.groupby_bins(
             "time", time_index_offset, labels=time_index[:-1]
         ).median(dim="time", keep_attrs=True)
@@ -198,7 +208,7 @@ def dz_per_event(
             )
             == 0
         ):
-            lgr.CRITICAL(
+            lgr.critical(
                 "Problem : no finite reflectivity data for dcr/disdro comparison"
             )
             return None
@@ -267,8 +277,8 @@ def dz_per_event(
         print("shape of the DZ vector", dZdisdro.shape)
 
         disdro_tr = np.transpose(
-            disdro["psd"].values, axes=(0, 2, 1)
-        )  # besoin de transposer à Juelich !
+            disdro["psd"].values, axes=(0, 1, 2)
+        )  # bNo more need to transpose now it is done in the preprocessing !
         disdro_fallspeed = np.zeros(disdro_tr.shape[0])
         for t in range(len(disdro_fallspeed)):
             drops_per_time_and_speed = np.nansum(disdro_tr[t, :, :], axis=0).flatten()
@@ -446,8 +456,17 @@ def dz_per_event(
 
 
 def dz_timeseries(events, preprocessed_ds, data_dir):
-    start, end = events["Start_time"].iloc[0], events["End_time"].iloc[0]
-    rain_acc = events["Rain accumulation (mm)"].iloc[0]
+    k = 0
+    start, end = events["Start_time"].iloc[k], events["End_time"].iloc[k]
+    rain_acc = events["Rain accumulation (mm)"].iloc[k]
+    x = dz_per_event(preprocessed_ds, data_dir, start, end, filtered=True)
+    print(not (x is None))
+    while x is None:
+        k += 1
+        start, end = events["Start_time"].iloc[k], events["End_time"].iloc[k]
+        rain_acc = events["Rain accumulation (mm)"].iloc[k]
+        x = dz_per_event(preprocessed_ds, data_dir, start, end, filtered=True)
+
     (
         start_time,
         end_time,
@@ -458,7 +477,7 @@ def dz_timeseries(events, preprocessed_ds, data_dir):
         good_points_ratio,
         good_points_number,
         AVG_RAINDROP_DIAMETER,
-    ) = dz_per_event(preprocessed_ds, data_dir, start, end, filtered=True)
+    ) = x
 
     startend = np.array([[start, end]])
     nb_points_per_event = np.array([nb_points]).reshape((1, -1))
@@ -476,7 +495,7 @@ def dz_timeseries(events, preprocessed_ds, data_dir):
     len_episodes = np.array([delta_startend / np.timedelta64(1, "m")]).reshape((-1, 1))
     raindrop_diameter = np.array([AVG_RAINDROP_DIAMETER]).reshape((-1, 1))
 
-    for i in range(1, len(events["Start_time"])):
+    for i in range(k + 1, len(events["Start_time"])):
         start, end = events["Start_time"].iloc[i], events["End_time"].iloc[i]
         print("Evenement ", i, "/", len(events["Start_time"]), start, end)
         x = dz_per_event(preprocessed_ds, data_dir, start, end, filtered=True)
@@ -572,6 +591,9 @@ def dz_timeseries(events, preprocessed_ds, data_dir):
 
 
 def dz_plot(
+    location,
+    radar_source,
+    disdro_source,
     startend,
     nb_points_per_event,
     dZ,
@@ -582,6 +604,7 @@ def dz_plot(
     acc_filter=False,
     showfliers=False,
     showmeans=False,
+    showcaps=False,
 ):
     t = startend[:, 0]
     plt.figure()
@@ -614,7 +637,6 @@ def dz_plot(
     f = np.intersect1d(f, np.where(qf_ratio[:, 3] >= 20))
     print(f, f.shape)
     dZ_good, t_good = dZ[f, 0], t[f]
-    print(np.isfinite(dZ[39, 0]), dZ[39, 0], type(dZ[39, 0]))
     dZ_moving_avg = np.convolve(dZ_good, np.ones(N) / N, mode="valid")
     print(t_good[N - 1 :].shape, dZ_moving_avg.shape)
     (moving_avg,) = ax.plot(t_good[N - 1 :], dZ_moving_avg, color="red")
@@ -640,7 +662,8 @@ def dz_plot(
                 }
             ]
             mean_shape = dict(markeredgecolor="purple", marker="_")
-            med_shape = dict(markeredgecolor="red", marker="_")
+            # med_shape = dict(markeredgecolor="red", marker="_")
+            med_shape = dict(linewidth=2)
 
             # if cum[k] < MIN_CUM:
             #     boxprops = dict(color="red")
@@ -651,7 +674,7 @@ def dz_plot(
             #     )
 
             boxprops = dict(color="green")
-            fliers_shape = dict(
+            flierprops = dict(
                 markerfacecolor="none",
                 marker="o",
                 markeredgecolor="green",
@@ -661,12 +684,13 @@ def dz_plot(
                 bxp_stats,
                 showmeans=showmeans,
                 showfliers=showfliers,
+                showcaps=showcaps,
                 meanprops=mean_shape,
-                # medianprops=med_shape,
+                medianprops=med_shape,
                 # positions=t[k],
                 positions=[mpl.dates.date2num(t[k])],
                 widths=[1],
-                flierprops=fliers_shape,
+                flierprops=flierprops,
                 boxprops=boxprops,
             )
     if showmeans:
@@ -696,15 +720,24 @@ def dz_plot(
     plt.xticks(rotation=0, fontsize=16, fontweight="semibold")
     ax.set_yticklabels(ax.get_yticks(), fontsize=18, fontweight="semibold")
     plt.title(
-        r"{} - {} Time series of MIRA35 @ Jülich CC variability ({} good events with more than {:.0f}mm of rain and 20 timesteps to compute )".format(  # noqa
+        r"{} - {} Time series of {} @ {} CC variability ({} good events -- more than {:.0f}mm of rain and 20 timesteps to compute ".format(  # noqa
             t[0].strftime("%Y/%m"),
             t[-1].strftime("%Y/%m"),
+            radar_source,
+            location,
             len(np.where(cum > MIN_CUM)[0]),
             MIN_CUM,
         )
-        + r"\Delta Z",
+        + r"$\Delta Z$)",
         fontsize=15,
         fontweight="semibold",
+    )
+    plt.text(
+        x=pd.Timestamp((t[0].value + t[-1].value) / 2.0),
+        y=25,
+        s="disdrometer used as a reference : " + disdro_source,
+        fontsize=14,
+        ha="center",
     )
     plt.savefig(
         data_dir
@@ -726,11 +759,13 @@ def dz_plot(
     plt.axvline(
         x=np.nanmean(biases),
         color="red",
-        label="mean of median biases : {:.2f}".format(np.nanmean(biases)),
+        label="mean of median biases : {:.2f} dBZ".format(np.nanmean(biases)),
     )
     plt.xlim(left=-30, right=30)
     plt.xlabel("median $Z_{MIRA35} - Z_{disdrometer}$ (dBZ)")
     plt.ylabel("Count")
+    plt.legend()
+    plt.grid()
     plt.title(
         "Histogram of biases over the period {} - {}".format(
             t[0].strftime("%Y/%m"), t[-1].strftime("%Y/%m")
@@ -751,15 +786,16 @@ def dz_plot(
 
 if __name__ == "__main__":
     # station = "lindenberg"
-    station = "juelich"
+    # station = "juelich"
+    station = "norunda"
     data_dir = "/home/ygrit/Documents/dcrcc_data/{}".format(station)
     lst_preprocessed_files = sorted(
         glob.glob(
-            "/home/ygrit/Documents/dcrcc_data/{}/disdrometer_preprocessed/*degrade.nc".format(  # noqa
+            "/home/ygrit/Documents/dcrcc_data/{}/disdrometer_preprocessed/*degrade*.nc".format(  # noqa
                 station
             )
         )
-    )[:700]
+    )[:]
     print("{} DD preprocessed files".format(len(lst_preprocessed_files)))
     events, preprocessed_ds = sel_degrade(lst_preprocessed_files)
     print(events)
@@ -776,7 +812,16 @@ if __name__ == "__main__":
         raindrop_diameter,
     ) = dz_timeseries(events, preprocessed_ds, data_dir)
 
+    ds = xr.open_dataset(lst_preprocessed_files[0])
+    print(list(ds.keys()))
+    location = preprocessed_ds.location
+    disdro_source = preprocessed_ds.disdrometer_source
+    radar_source = preprocessed_ds.radar_source
+
     dz_plot(
+        location,
+        radar_source,
+        disdro_source,
         startend,
         nb_points_per_event,
         dZ,
@@ -785,4 +830,5 @@ if __name__ == "__main__":
         len_episodes,
         raindrop_diameter,
         acc_filter=False,
+        showfliers=False,
     )

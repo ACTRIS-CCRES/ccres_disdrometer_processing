@@ -1,10 +1,11 @@
 title = "Script to compute reflectivity from disdro data at SIRTA (loop)"
 
 [data]
+FREQ = 35.0
 STATION = "juelich"
 MAIN_WIND_DIR = 270
 DISDRO = "parsivel"
-DISDRO_TYPE = "parsivel_cloudnet_juelich"
+DISDRO_TYPE = "parsivel_cloudnet_bis"
 AMS = 'weather-station'
 AMS_TYPE = "weather_station_cloudnet"
 RADAR = "mira"
@@ -13,7 +14,7 @@ QUICKLOOKS_DIR = "/home/ygrit/Documents/dcrcc_data/"
 BDD_RAIN_EVENTS_PATH = "/home/ygrit/Documents/disdro_processing/ccres_disdrometer_processing/bdd_rain_events/"
 
 [period]
-BEGIN_DATE = [2023, 1]
+BEGIN_DATE = [2023, 2]
 END_DATE = [2023, 9]
 
 

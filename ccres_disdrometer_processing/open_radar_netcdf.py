@@ -1,9 +1,14 @@
 import pandas as pd
 import xarray as xr
 
+LIST_VARIABLES = ["Zh", "v", "radar_frequency"]
+RANGE_BOUNDS = [0, 3000]
+
 
 def read_radar_cloudnet(filename):  # daily radar file from cloudnet
-    data_nc = xr.open_dataset(filename)
+    data_nc = xr.open_dataset(filename)[LIST_VARIABLES].sel(
+        range=slice(RANGE_BOUNDS[0], RANGE_BOUNDS[1])
+    )
 
     start_time = pd.Timestamp(data_nc.time.values[0]).replace(
         hour=0, minute=0, second=0, microsecond=0, nanosecond=0
@@ -14,13 +19,12 @@ def read_radar_cloudnet(filename):  # daily radar file from cloudnet
     time_index = pd.date_range(
         start_time, end_time + pd.Timedelta(minutes=1), freq="1T"
     )
-    print(start_time, end_time, time_index[0], time_index[-1])
     radar_ds = xr.Dataset(
         coords=dict(
             time=(["time"], time_index[:-1]), range=(["range"], data_nc.range.data)
         )
     )
-    radar_ds["lambda"] = data_nc.radar_frequency * 10**9
+    radar_ds["frequency"] = data_nc.radar_frequency  # * 10**9
 
     time_index_offset = time_index - pd.Timedelta(30, "sec")
 
@@ -48,5 +52,7 @@ def read_radar_cloudnet(filename):  # daily radar file from cloudnet
     )
 
     radar_ds.attrs["radar_source"] = data_nc.attrs["source"]
-    print(time_index[:-1].shape, radar_ds.time.values.shape)
+
+    data_nc.close()
+
     return radar_ds

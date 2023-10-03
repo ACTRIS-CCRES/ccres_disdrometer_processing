@@ -134,6 +134,9 @@ def data_dcr_event(data_dir, start, end):
 
     dcr_event = dcr_ds.sel({"time": slice(start - DELTA_DISDRO, end + DELTA_DISDRO)})
 
+    if dcr_event.time.size == 0:
+        return None
+
     time_diffs = np.diff(dcr_event.time.values)
     negative_time_diffs = np.where(time_diffs / np.timedelta64(1, "s") < 0)[0]
 
