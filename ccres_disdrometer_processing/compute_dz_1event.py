@@ -1,3 +1,4 @@
+# (Obsolete)
 # Compute statistics for reflectivity differences during one rain event,
 # with or without applying filtering options
 

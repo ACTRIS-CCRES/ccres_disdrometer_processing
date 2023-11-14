@@ -10,3 +10,4 @@ F_PARSIVEL = 0.0054  # m2, sampling surface
 AUparameter = 1009  # 1009 @ Lindenberg !
 AUparameter_palaiseau = 965
 F_THIES = 0.0046 * 1000 / AUparameter
+

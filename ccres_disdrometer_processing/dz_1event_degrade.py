@@ -1,6 +1,7 @@
 import datetime as dt
 import glob
 import logging
+import sys
 
 import matplotlib as mpl
 import matplotlib.colors as colors
@@ -14,7 +15,7 @@ lgr = logging.getLogger(__name__)
 
 # LIST_VARIABLES = ["pr", "Zdcr", "DVdcr", "Ze_tm", "psd"] # when radar data will be
 # read through the preprocessed file
-LIST_VARIABLES = ["pr", "Ze_tm", "psd"]
+LIST_VARIABLES = ["pr", "Ze_tm", "psd", "range"]
 
 CLIC = 0.001  # mm/mn : can identify rain rates lower than 0.1mm/h for disdro data
 RRMAX = 3  # mm/h
@@ -152,9 +153,11 @@ def dz_per_event(
     data_dir,
     start_time,
     end_time,
+    gate,
     filtered=True,
 ):
-    dcr = data_dcr_event(data_dir, start_time, end_time)
+    print("RADAR_TYPE FOR DCR FILE SELECTION : ", radar_type)
+    dcr = data_dcr_event(data_dir, start_time, end_time, r_type = radar_type)
     disdro = preprocessed_ds.sel(
         {"time": slice(start_time - DELTA_DISDRO, end_time + DELTA_DISDRO)}
     )
@@ -163,9 +166,10 @@ def dz_per_event(
 
     try:
         # Get data
+        Z_2000m = dcr.Zh.sel({"range":slice(0,2500)})
         Z_dcr = dcr.Zh.isel(
-            {"range": [0, 2, 4, 5]}
-        )  # 36m, 108m, 180m, 216m (108m altitude to remove)
+            {"range": np.arange(15)}
+        )
         z_disdro = disdro.Ze_tm
         z_disdro[np.where(z_disdro == 0)] = np.nan  # avoid np.inf in Z_disdro
         Z_disdro = 10 * np.log10(z_disdro)
@@ -175,24 +179,20 @@ def dz_per_event(
             freq="1T",
         )
         time_index_offset = time_index - pd.Timedelta(30, "sec")
-        if start_time.day == 20:
-            print(dcr.time.values[:])
         Z_dcr_resampled = Z_dcr.groupby_bins(
             "time", time_index_offset, labels=time_index[:-1]
         ).median(dim="time", keep_attrs=True)
         Z_dcr_resampled = Z_dcr_resampled.rename({"time_bins": "time"})
-        Z_dcr_200m_resampled = Z_dcr_resampled[:, 2]  # data @ ~215m, sampling 1 minute
-
-        print(
-            "Len of time vector (delta_disdro included)",
-            len(time_index) - 1,
-            Z_dcr_200m_resampled.shape,
-            Z_disdro.shape,
-        )
+        Z_dcr_200m_resampled = Z_dcr_resampled[:, int(gate)]  # data @ ~215m, sampling 1 minute
+        Z_dcr_resampled = Z_dcr_resampled.isel({"range":[0, 2, 6, 10]})
         if len(Z_dcr_200m_resampled) != len(Z_disdro):
+            print(len(Z_dcr_200m_resampled), len(Z_disdro))
+            print(Z_dcr_resampled.time.values[50:70], Z_dcr_200m_resampled.time.values[50:70])
+            # print(Z_dcr_200m_resampled.time.values[:], Z_disdro.time.values[:])
             Z_dcr_200m_resampled = Z_dcr_200m_resampled.sel(
                 {"time": Z_disdro.time.values}
             )
+            print(Z_dcr_200m_resampled.values.shape)
             Z_dcr_resampled = Z_dcr_resampled.sel({"time": Z_disdro.time.values})
             print("TIME VECTOR MODIFIED")
         # Doppler = dcr.v.isel({"range": [1, 4, 6, 8]})
@@ -213,13 +213,44 @@ def dz_per_event(
             )
             return None
 
+
+        # QL plot 2d Z
+        cmap = plt.get_cmap("rainbow").copy()
+        cmap.set_under("w")
+
+        fig, ax = plt.subplots(1, 1)
+        locator = mpl.dates.AutoDateLocator()
+        formatter = mpl.dates.ConciseDateFormatter(locator)
+        ax.xaxis.set_major_formatter(formatter)
+
+        pc = ax.pcolormesh(
+                            pd.to_datetime(Z_2000m.time.values),
+                            Z_2000m.range.values,
+                            Z_2000m.T,
+                            vmin=0,
+                            cmap=cmap,
+                            shading="nearest",
+                            )
+        ax.set_ylabel(dcr.Zh.range.attrs["long_name"])
+        ax.set_title(dcr.attrs["title"])  # "94 GHz" should vary
+        pos = ax.get_position()
+        cb_ax = fig.add_axes([0.91, pos.y0, 0.02, pos.y1 - pos.y0])
+        cb1 = fig.colorbar(pc, orientation="vertical", cax=cb_ax)
+        cb1.set_label(dcr.Zh.attrs["long_name"] + " (dBZ)")
+        plt.savefig(
+            data_dir + "/QL/{}_{}_{}_Z2D.png".format(start_time.strftime("%Y%m%d%T"), preprocessed_ds.radar_source, preprocessed_ds.disdrometer_source),
+            dpi=500,
+            transparent=False,
+            edgecolor="white",)
+        plt.close()
+
         # QL Plot Zbasta vs Zdisdro
         fig, ax = plt.subplots()
         locator = mpl.dates.AutoDateLocator()
         formatter = mpl.dates.ConciseDateFormatter(locator)
         ax.xaxis.set_major_formatter(formatter)
         for i in range(len(Z_dcr_resampled.range.values)):
-            rng = Z_dcr_resampled.range.values[i] - dcr.altitude.values[0]
+            rng = Z_dcr_resampled.range.values[i]  # - dcr.altitude.values[0]
             # print(
             #     type(rng),
             #     type(Z_dcr_resampled.range.values[i]),
@@ -242,12 +273,12 @@ def dz_per_event(
         plt.xlabel("Time (UTC)")
         plt.grid()
         plt.legend()
+        plt.title("{} - Disdrometer and DCR reflectivity".format(dcr.attrs["location"]))
         plt.savefig(
-            data_dir + "/QL/{}_Refl.png".format(start_time.strftime("%Y%m%d%T")),
+            data_dir + "/QL/{}_{}_{}_Refl.png".format(start_time.strftime("%Y%m%d%T"), preprocessed_ds.radar_source, preprocessed_ds.disdrometer_source),
             dpi=500,
             transparent=False,
-            edgecolor="white",
-        )
+            edgecolor="white",)
         plt.close()
 
         # QL Plot Disdro rain
@@ -263,8 +294,9 @@ def dz_per_event(
         plt.ylabel("Rain accumulation [mm]")
         plt.xlabel("Time (UTC)")
         plt.grid()
+        plt.title("{} - Disdrometer rain accumulation".format(dcr.attrs["location"]))
         plt.savefig(
-            data_dir + "/QL/{}_cumsum.png".format(start_time.strftime("%Y%m%d%T")),
+            data_dir + "/QL/{}_{}_{}_cumsum.png".format(start_time.strftime("%Y%m%d%T"), preprocessed_ds.radar_source, preprocessed_ds.disdrometer_source),
             dpi=500,
             transparent=False,
             edgecolor="white",
@@ -354,10 +386,9 @@ def dz_per_event(
             )[::-1],
             fontsize=8,
         )
-        ax.set_title("QF / QC timeseries")
+        ax.set_title("{} - QF / QC timeseries".format(dcr.attrs["location"]))
         plt.savefig(
-            data_dir
-            + "/QL/{}_Quality_checks.png".format(start_time.strftime("%Y%m%d%T")),
+            data_dir + "/QL/{}_{}_{}_Quality_checks.png".format(start_time.strftime("%Y%m%d%T"), preprocessed_ds.radar_source, preprocessed_ds.disdrometer_source),
             dpi=500,
             transparent=False,
             edgecolor="white",
@@ -368,6 +399,7 @@ def dz_per_event(
 
         x_t = Z_disdro[MN : -MN - 1].values
         y_t = Z_dcr_200m_resampled[MN : -MN - 1].values
+        print(x_t.shape, y_t.shape, "len of Z vectors")
         # print(x_t)
         # print(y_t)
         # f = np.where(np.isfinite(x_t))
@@ -388,6 +420,8 @@ def dz_per_event(
         nb_points = len(Q)
         print("nb_points :", nb_points, "good :", len(good[0]), "bad :", len(bad[0]))
 
+        Z_disdro_dcr = np.hstack((x_t[good[0]], y_t[good[0]]))
+
         if filtered is True:
             dZdisdro = dZdisdro[MN : -MN - 1][filter][good[0]]
             dd_tr = disdro_tr[MN : -MN - 1, :, :]
@@ -400,7 +434,7 @@ def dz_per_event(
         else:
             dZdisdro = dZdisdro[MN : -MN - 1][filter]
             AVG_RAINDROP_DIAMETER = np.nan
-        print(dZdisdro.shape)
+        print("DZ shape", dZdisdro.shape)
 
         if dZdisdro.shape[0] >= 1:
             print(np.count_nonzero(np.isfinite(dZdisdro)), dZdisdro.shape)
@@ -410,6 +444,10 @@ def dz_per_event(
             dZ_mean = np.mean(dZdisdro)
             dZ_minval = np.min(dZdisdro)
             dZ_maxval = np.max(dZdisdro)
+            RainRate_criterion_ratio = np.count_nonzero(Quality_matrix_filtered[:, 0]) / len(Q)
+            QC_vdsd_t_ratio = np.count_nonzero(Quality_matrix_filtered[:, 1]) / len(Q)
+            good_points_ratio = np.count_nonzero(Q) / len(Q)
+            good_points_number = np.count_nonzero(Q)
 
         else:
             (
@@ -420,6 +458,7 @@ def dz_per_event(
                 dZ_minval,
                 dZ_maxval,
             ) = (np.nan, np.nan, np.nan, np.nan, np.nan, np.nan)
+            RainRate_criterion_ratio, QC_vdsd_t_ratio, good_points_ratio, good_points_number = np.nan, np.nan, np.nan, np.nan
 
         dZ_med_quartiles = np.array(
             [
@@ -432,12 +471,7 @@ def dz_per_event(
             ]
         ).reshape((-1, 1))
 
-        RainRate_criterion_ratio = np.count_nonzero(
-            Quality_matrix_filtered[:, 0]
-        ) / len(Q)
-        QC_vdsd_t_ratio = np.count_nonzero(Quality_matrix_filtered[:, 1]) / len(Q)
-        good_points_ratio = np.count_nonzero(Q) / len(Q)
-        good_points_number = np.count_nonzero(Q)
+
 
     except RuntimeError:
         return None
@@ -452,20 +486,21 @@ def dz_per_event(
         good_points_ratio,
         good_points_number,
         AVG_RAINDROP_DIAMETER,
+        Z_disdro_dcr,
     )
 
 
-def dz_timeseries(events, preprocessed_ds, data_dir):
+def dz_timeseries(events, preprocessed_ds, data_dir, gate, radar_type, disdro_type):
     k = 0
     start, end = events["Start_time"].iloc[k], events["End_time"].iloc[k]
     rain_acc = events["Rain accumulation (mm)"].iloc[k]
-    x = dz_per_event(preprocessed_ds, data_dir, start, end, filtered=True)
+    x = dz_per_event(preprocessed_ds, data_dir, start, end, gate, filtered=True)
     print(not (x is None))
     while x is None:
         k += 1
         start, end = events["Start_time"].iloc[k], events["End_time"].iloc[k]
         rain_acc = events["Rain accumulation (mm)"].iloc[k]
-        x = dz_per_event(preprocessed_ds, data_dir, start, end, filtered=True)
+        x = dz_per_event(preprocessed_ds, data_dir, start, end, gate, filtered=True)
 
     (
         start_time,
@@ -477,6 +512,7 @@ def dz_timeseries(events, preprocessed_ds, data_dir):
         good_points_ratio,
         good_points_number,
         AVG_RAINDROP_DIAMETER,
+        Z_disdro_dcr,
     ) = x
 
     startend = np.array([[start, end]])
@@ -494,11 +530,12 @@ def dz_timeseries(events, preprocessed_ds, data_dir):
     delta_startend = np.array([end - start], dtype="timedelta64[ms]")[0]
     len_episodes = np.array([delta_startend / np.timedelta64(1, "m")]).reshape((-1, 1))
     raindrop_diameter = np.array([AVG_RAINDROP_DIAMETER]).reshape((-1, 1))
+    Z_timesteps = Z_disdro_dcr
 
     for i in range(k + 1, len(events["Start_time"])):
         start, end = events["Start_time"].iloc[i], events["End_time"].iloc[i]
         print("Evenement ", i, "/", len(events["Start_time"]), start, end)
-        x = dz_per_event(preprocessed_ds, data_dir, start, end, filtered=True)
+        x = dz_per_event(preprocessed_ds, data_dir, start, end, gate, filtered=True)
         if x is None:
             print("NONE")
             continue
@@ -513,6 +550,7 @@ def dz_timeseries(events, preprocessed_ds, data_dir):
             good_points_ratio,
             good_points_number,
             AVG_RAINDROP_DIAMETER,
+            Z_disdro_dcr,
         ) = x
 
         startend = np.append(startend, np.array([[start, end]]), axis=0)
@@ -544,6 +582,7 @@ def dz_timeseries(events, preprocessed_ds, data_dir):
             np.array([AVG_RAINDROP_DIAMETER]).reshape((-1, 1)),
             axis=0,
         )
+        Z_timesteps = np.vstack((Z_timesteps, Z_disdro_dcr))
 
         print(
             startend.shape,
@@ -553,6 +592,7 @@ def dz_timeseries(events, preprocessed_ds, data_dir):
             cum.shape,
             len_episodes.shape,
             raindrop_diameter.shape,
+            Z_timesteps.shape
         )
 
     t1, t2 = startend[0, 0].strftime("%Y%m"), startend[-1, 0].strftime("%Y%m")
@@ -577,7 +617,7 @@ def dz_timeseries(events, preprocessed_ds, data_dir):
             "len_episodes": len_episodes.flatten(),
         }
     )
-    data_tosave.to_csv(data_dir + "/csv/dz_data_{}_{}.csv".format(t1, t2), header=True)
+    data_tosave.to_csv(data_dir + "/csv/dz_data_{}_{}_{}_{}_gate_{}.csv".format(radar_type, disdro_type, t1, t2, int(gate)), header=True)
 
     return (
         startend,
@@ -587,6 +627,7 @@ def dz_timeseries(events, preprocessed_ds, data_dir):
         cum,
         len_episodes,
         raindrop_diameter,
+        Z_timesteps
     )
 
 
@@ -594,6 +635,8 @@ def dz_plot(
     location,
     radar_source,
     disdro_source,
+    radar_type,
+    disdro_type,
     startend,
     nb_points_per_event,
     dZ,
@@ -601,24 +644,16 @@ def dz_plot(
     cum,
     len_episodes,
     raindrop_diameter,
+    gate,
+    Z_timesteps,
+    min_timesteps=30,
     acc_filter=False,
     showfliers=False,
     showmeans=False,
     showcaps=False,
 ):
+    
     t = startend[:, 0]
-    plt.figure()
-    for i in range(len(dZ)):
-        if cum[i] > MIN_CUM:
-            plt.scatter(t[i], dZ[i, 0], color="green", alpha=qf_ratio[i, 2])
-        else:
-            plt.scatter(t[i], dZ[i, 0], color="red", alpha=qf_ratio[i, 2])
-
-    plt.grid()
-    plt.xlabel("Date")
-    plt.ylabel(r"$\Delta$Z (dBZ)$")
-    plt.show(block=False)
-    print(cum)
 
     fig, ax = plt.subplots(figsize=((20, 6)))
     # ax.axhline(
@@ -634,65 +669,62 @@ def dz_plot(
     f = np.intersect1d(
         np.where((cum > MIN_CUM))[0], np.where(np.isfinite(dZ[:, 0]) * 1 == 1)[0]
     )
-    f = np.intersect1d(f, np.where(qf_ratio[:, 3] >= 20))
-    print(f, f.shape)
-    dZ_good, t_good = dZ[f, 0], t[f]
-    dZ_moving_avg = np.convolve(dZ_good, np.ones(N) / N, mode="valid")
-    print(t_good[N - 1 :].shape, dZ_moving_avg.shape)
+    f = np.intersect1d(f, np.where(qf_ratio[:, 3] >= min_timesteps))
+    print("Events with enough rain and timesteps : ", f.shape)
+    dZ_good, t_good = dZ[f, :], t[f]
+    dZ_moving_avg = np.convolve(dZ_good[:,0], np.ones(N) / N, mode="valid")
     (moving_avg,) = ax.plot(t_good[N - 1 :], dZ_moving_avg, color="red")
-    # print(
-    #     t_good, t_good.shape, dZ_moving_avg, dZ_moving_avg.shape, dZ_good, dZ_good.shape
-    # )
 
-    for k in range(len(dZ)):
-        if cum[k] > MIN_CUM:
-            bxp_stats = [
-                {
-                    "mean": dZ[k, 3],
-                    "med": dZ[k, 0],
-                    "q1": dZ[k, 1],
-                    "q3": dZ[k, 2],
-                    "fliers": [dZ[k, 4], dZ[k, 5]],
-                    "whishi": np.minimum(
-                        dZ[k, 2] + 1 * np.abs(dZ[k, 2] - dZ[k, 1]), dZ[k, 5]
-                    ),
-                    "whislo": np.maximum(
-                        dZ[k, 0] - 1 * np.abs(dZ[k, 2] - dZ[k, 1]), dZ[k, 4]
-                    ),
-                }
-            ]
-            mean_shape = dict(markeredgecolor="purple", marker="_")
-            # med_shape = dict(markeredgecolor="red", marker="_")
-            med_shape = dict(linewidth=2)
+    for k in range(len(dZ_good)):  # should it be in range(len(dZ_good)) ?
+        bxp_stats = [
+            {
+                "mean": dZ_good[k, 3],
+                "med": dZ_good[k, 0],
+                "q1": dZ_good[k, 1],
+                "q3": dZ_good[k, 2],
+                "fliers": [dZ_good[k, 4], dZ_good[k, 5]],
+                "whishi": np.minimum(
+                    dZ_good[k, 2] + 1 * np.abs(dZ_good[k, 2] - dZ_good[k, 1]), dZ_good[k, 5]
+                ),
+                "whislo": np.maximum(
+                    dZ_good[k, 1] - 1 * np.abs(dZ_good[k, 2] - dZ_good[k, 1]), dZ_good[k, 4]
+                ),
+            }
+        ]
+        mean_shape = dict(markeredgecolor="orange", marker="_")
+        # med_shape = dict(markeredgecolor="red", marker="_")
+        med_shape = dict(marker='*', markersize=6, markerfacecolor='darkorange', markeredgecolor="darkorange")
 
-            # if cum[k] < MIN_CUM:
-            #     boxprops = dict(color="red")
-            #     fliers_shape = dict(
-            #         markerfacecolor="none",
-            #         marker="o",
-            #         markeredgecolor="red",
-            #     )
+        # if cum[k] < MIN_CUM:
+        #     boxprops = dict(color="red")
+        #     fliers_shape = dict(
+        #         markerfacecolor="none",
+        #         marker="o",
+        #         markeredgecolor="red",
+        #     )
 
-            boxprops = dict(color="green")
-            flierprops = dict(
-                markerfacecolor="none",
-                marker="o",
-                markeredgecolor="green",
-            )
+        boxprops = dict(color="green")
+        flierprops = dict(
+            markerfacecolor="none",
+            marker="o",
+            markeredgecolor="green",
+        )
+        whiskerprops = dict(lw=0.0)
 
-            box = ax.bxp(
-                bxp_stats,
-                showmeans=showmeans,
-                showfliers=showfliers,
-                showcaps=showcaps,
-                meanprops=mean_shape,
-                medianprops=med_shape,
-                # positions=t[k],
-                positions=[mpl.dates.date2num(t[k])],
-                widths=[1],
-                flierprops=flierprops,
-                boxprops=boxprops,
-            )
+        box = ax.bxp(
+            bxp_stats,
+            showmeans=showmeans,
+            showfliers=showfliers,
+            showcaps=showcaps,
+            meanprops=mean_shape,
+            medianprops=med_shape,
+            # positions=t[k],
+            positions=[mpl.dates.date2num(t_good[k])],
+            widths=[1],
+            flierprops=flierprops,
+            boxprops=boxprops,
+            whiskerprops=whiskerprops
+        )
     if showmeans:
         ax.legend(
             [moving_avg, box["medians"][0], box["means"][0]],
@@ -706,8 +738,8 @@ def dz_plot(
             loc="upper right",
         )
     plt.grid()
-    plt.xlabel("Date")
-    plt.ylabel("$Z_{MIRA35} - Z_{disdrometer}$ (dBZ)")
+    plt.xlabel("Date", fontsize = 15, fontweight=300)
+    plt.ylabel("$Z_{DCR} - Z_{disdrometer}$ (dBZ)", fontsize=15, fontweight=300)
     ax.set_ylim(bottom=-30, top=30)
     locator = mpl.dates.MonthLocator(interval=1)
     formatter = mpl.dates.ConciseDateFormatter(locator)
@@ -717,32 +749,44 @@ def dz_plot(
     # ax.xaxis.set_major_formatter(mpl.dates.DateFormatter("%Y-%b-%d"))
     dates_axe = mpl.dates.num2date(np.array(ax.get_xticks()))
     dates_axe = [d.date() for d in dates_axe]
-    plt.xticks(rotation=0, fontsize=16, fontweight="semibold")
+    plt.xticks(rotation=45, fontsize=13, fontweight="semibold")
     ax.set_yticklabels(ax.get_yticks(), fontsize=18, fontweight="semibold")
     plt.title(
-        r"{} - {} Time series of {} @ {} CC variability ({} good events -- more than {:.0f}mm of rain and 20 timesteps to compute ".format(  # noqa
-            t[0].strftime("%Y/%m"),
-            t[-1].strftime("%Y/%m"),
-            radar_source,
-            location,
-            len(np.where(cum > MIN_CUM)[0]),
+        "{} - {} Time series of {} @ {} CC variability \n".format(t[0].strftime("%Y/%m"),t[-1].strftime("%Y/%m"),radar_source,location,)
+        + r"({} good events -- more than {:.0f}mm of rain and {} timesteps to compute ".format(  # noqa
+            len(f),
             MIN_CUM,
+            int(min_timesteps)
         )
         + r"$\Delta Z$)",
-        fontsize=15,
+        fontsize=13,
         fontweight="semibold",
     )
     plt.text(
         x=pd.Timestamp((t[0].value + t[-1].value) / 2.0),
-        y=25,
+        y=26,
         s="disdrometer used as a reference : " + disdro_source,
+        fontsize=14,
+        ha="center",
+    )
+    plt.text(
+        x=pd.Timestamp((t[0].value + t[-1].value) / 2.0),
+        y=23,
+        s="No weather station data for QC",
+        fontsize=14,
+        ha="center",
+    )
+    plt.text(
+        x=pd.Timestamp((t[0].value + t[-1].value) / 2.0),
+        y=20,
+        s=r"Gate n° {} ({}m AGL) used for $\Delta Z$ computation".format(int(gate)+1, int(preprocessed_ds.range.values[int(gate)])),
         fontsize=14,
         ha="center",
     )
     plt.savefig(
         data_dir
-        + "/timeseries/timeseries_bxp_{}_{}.png".format(
-            t[0].strftime("%Y%m"), t[-1].strftime("%Y%m")
+        + "/timeseries/timeseries_bxp_{}_{}_{}_{}_gate_{}.png".format(radar_type, disdro_type,
+            t[0].strftime("%Y%m"), t[-1].strftime("%Y%m"), int(gate)
         ),
         dpi=500,
         transparent=False,
@@ -767,35 +811,91 @@ def dz_plot(
     plt.legend()
     plt.grid()
     plt.title(
-        "Histogram of biases over the period {} - {}".format(
+        "Histogram of biases over the period {} - {} \n".format(
             t[0].strftime("%Y/%m"), t[-1].strftime("%Y/%m")
         )
+        + "Disdrometer : {}, DCR : {}".format(disdro_source, radar_source)
     )
     plt.savefig(
         data_dir
-        + "/timeseries/pdf_dz_{}_{}.png".format(
-            t[0].strftime("%Y%m"), t[-1].strftime("%Y%m")
+        + "/timeseries/pdf_dz_{}_{}_{}_{}_gate_{}.png".format(radar_type, disdro_type,
+            t[0].strftime("%Y%m"), t[-1].strftime("%Y%m"), int(gate)
         ),
         dpi=500,
         transparent=False,
         edgecolor="white",
     )
-    # plt.show(block=False)
+    plt.close()
+
+    # Scatter plot Z_disdrometer vs. Z_radar cumulated over the whole studied time period
+    fig, ax = plt.subplots()
+    ax.axis("equal")
+    ax.set_xlim(left=-25,right=40)
+    ax.set_ylim(bottom=-25,top=30)
+    ax.scatter(Z_timesteps[:,0], Z_timesteps[:,1], s=2, c="green",)
+    ax.plot([-25,40],[-25,40], color = 'red', label = "Id")
+    ax.set_title("{} - {} @ {} : \n".format(t[0].strftime("%Y/%m"), t[-1].strftime("%Y/%m"), location)
+                 + "Scatterplot of disdrometer-based reflectivity VS DCR reflectivity \n"
+                 + "Disdrometer : {}, DCR : {}".format(disdro_source, radar_source), fontsize=11, fontweight="semibold")
+    ax.grid()
+    ax.set_xlabel(r"$Z_{disdrometer}$ [dBZ]")
+    ax.set_ylabel(r"$Z_{DCR}$ [dBZ]")
+    ax.legend()
+    plt.savefig(
+        data_dir
+        + "/timeseries/scatterplot_Z_{}_{}_{}_{}_gate_{}.png".format(radar_type, disdro_type,
+            t[0].strftime("%Y%m"), t[-1].strftime("%Y%m"), int(gate)
+        ),
+        dpi=500,
+        transparent=False,
+        edgecolor="white",
+    )
+    plt.close()
+  
+    # PDF dZ timestep by timestep, cumulated over the whole studied time period
+    fig, ax = plt.subplots()
+    ax.set_xlim(left=-30,right=30)
+    # ax.hist(Z_timesteps[:, 1] - Z_timesteps[:, 0], color="green", alpha=0.5, bins = np.arange(-30, 31, 1))
+    ax.hist(Z_timesteps[:, 1] - Z_timesteps[:, 0], color="green", alpha=0.5, bins = np.arange(-30, 31, 1), density=True)
+
+    median_dz = np.nanmedian(Z_timesteps[:, 1] - Z_timesteps[:, 0])
+    ax.axvline(x=median_dz, color="red", label=r"Median $\Delta Z$ = {:.2f} dBZ".format(median_dz))
+    ax.grid()
+    ax.set_xlabel(r"$Z_{radar} - Z_{disdrometer}$ [dBZ]")
+    ax.set_ylabel("% of values")
+    # ax.set_yticklabels(np.round(100 / Z_timesteps.shape[0] * np.array(ax.get_yticks()), decimals=1))
+    ax.set_ylim(top=0.15)
+    ax.set_yticklabels(np.round(100 * np.array(ax.get_yticks()), decimals=0))
+
+    ax.legend()
+    ax.set_title("PDF of $\Delta Z$ timestep by timestep \n"
+                 + "Studied period : {} - {} \n".format(t[0].strftime("%Y/%m"), t[-1].strftime("%Y/%m"))
+                 + "Disdrometer : {}, DCR : {}".format(disdro_source, radar_source), fontsize=11, fontweight="semibold")
+    plt.savefig(
+        data_dir
+        + "/timeseries/timestep_DZpdf_{}_{}_{}_{}_gate_{}.png".format(radar_type, disdro_type, t[0].strftime("%Y%m"), t[-1].strftime("%Y%m"), int(gate)),
+        dpi=500,
+        transparent=False,
+        edgecolor="white",
+    )
+    plt.close()
+
     return
 
 
 if __name__ == "__main__":
-    # station = "lindenberg"
-    # station = "juelich"
-    station = "norunda"
-    data_dir = "/home/ygrit/Documents/dcrcc_data/{}".format(station)
+    station = sys.argv[1]  # "lindenberg", "juelich", "norunda"
+    radar_type = sys.argv[2]  # "rpg-fmcw-94", "mira"
+    disdro_type = sys.argv[3]  # "thies-lnm", "parsivel"
+    # station = str(sys.argv[1])
+    # data_dir = "/home/ygrit/Documents/dcrcc_data/{}".format(station)
+    data_dir = str(sys.argv[4])  # includes station name
+    gate = int(sys.argv[5])
     lst_preprocessed_files = sorted(
         glob.glob(
-            "/home/ygrit/Documents/dcrcc_data/{}/disdrometer_preprocessed/*degrade*.nc".format(  # noqa
-                station
+            data_dir+"/disdrometer_preprocessed/*degrade_{}_{}.nc".format(disdro_type, radar_type)
             )
-        )
-    )[:]
+    )[-246:-126]
     print("{} DD preprocessed files".format(len(lst_preprocessed_files)))
     events, preprocessed_ds = sel_degrade(lst_preprocessed_files)
     print(events)
@@ -810,10 +910,11 @@ if __name__ == "__main__":
         cum,
         len_episodes,
         raindrop_diameter,
-    ) = dz_timeseries(events, preprocessed_ds, data_dir)
+        Z_timesteps
+    ) = dz_timeseries(events, preprocessed_ds, data_dir, gate, radar_type, disdro_type)
 
     ds = xr.open_dataset(lst_preprocessed_files[0])
-    print(list(ds.keys()))
+    # print(list(ds.keys()))
     location = preprocessed_ds.location
     disdro_source = preprocessed_ds.disdrometer_source
     radar_source = preprocessed_ds.radar_source
@@ -822,6 +923,8 @@ if __name__ == "__main__":
         location,
         radar_source,
         disdro_source,
+        radar_type,
+        disdro_type,
         startend,
         nb_points_per_event,
         dZ,
@@ -829,6 +932,9 @@ if __name__ == "__main__":
         cum,
         len_episodes,
         raindrop_diameter,
+        gate=gate,
+        Z_timesteps=Z_timesteps,
         acc_filter=False,
         showfliers=False,
+        showcaps=False
     )

@@ -14,6 +14,7 @@ import rain_event_selection as rain_events
 import scattering as dcrcc
 import toml
 import xarray as xr
+import sys
 
 # import ccres_disdrometer_processing.ccres_disdrometer_processing.scattering as dcrcc
 # import ccres_disdrometer_processing.constants as constants
@@ -31,7 +32,7 @@ AMS_TYPES = ["weather_station_cloudnet"]
 
 
 CONFIG_FILE = "CONFIG.toml"
-CONFIG_FILE_LOOP = "CONFIG_disdro_loop.toml"
+CONFIG_FILE_LOOP = "CONFIG_disdro_loop_with_ws_SPIRIT.toml"
 CONF = True
 # @click.command()
 # @click.option("--config-file", type=click.Path(exists=True), required=True)
@@ -113,6 +114,12 @@ def main_loop(config_file=CONFIG_FILE_LOOP):
             + "disdrometer/{}{}{}_"
             + "{}_{}.nc".format(config["data"]["STATION"], config["data"]["DISDRO"])
         )
+        radar_files = (
+            config["data"]["DATA_DIR"]
+            + "{}/".format(config["data"]["STATION"])
+            + "radar/{}{}{}_"
+            + "{}_{}.nc".format(config["data"]["STATION"], config["data"]["RADAR"])
+        )
         ams_files = (
             config["data"]["DATA_DIR"]
             + "{}/".format(config["data"]["STATION"])
@@ -128,8 +135,8 @@ def main_loop(config_file=CONFIG_FILE_LOOP):
         ams_type = config["data"]["AMS_TYPE"]
         disdro_type = config["data"]["DISDRO_TYPE"]
 
-        beam_orientation = constants.BEAM_ORIENTATION
-        FREQ = constants.FREQ
+        beam_orientation = config["methods"]["BEAM_ORIENTATION"]
+        FREQ = constants.FREQ  # 95 GHz
         E = constants.E
         # print("e : ", E)
 
@@ -159,7 +166,7 @@ def main_loop(config_file=CONFIG_FILE_LOOP):
     if len(years_list) == 2:
         years = np.array(
             [years_list[0]] * (12 - config["period"]["BEGIN_DATE"][1] + 1)
-            + [years_list[-1]] * (config["period"]["BEGIN_DATE"][1])
+            + [years_list[-1]] * (config["period"]["END_DATE"][1])
         )
     if len(years_list) > 2:
         years_middle = np.hstack(
@@ -168,7 +175,7 @@ def main_loop(config_file=CONFIG_FILE_LOOP):
         years = np.array(
             [years_list[0]] * (12 - config["period"]["BEGIN_DATE"][1] + 1)
             + years_middle
-            + [years_list[-1]] * (config["period"]["BEGIN_DATE"][1])
+            + [years_list[-1]] * (config["period"]["END_DATE"][1])
         )
 
     for year, month in zip(years, months):
@@ -178,10 +185,10 @@ def main_loop(config_file=CONFIG_FILE_LOOP):
             print("{}/{}/{}".format(year, month, day))
             disdro_file = disdro_files.format(year, month, day)
             ams_file = ams_files.format(year, month, day)
+            radar_file = radar_files.format(year, month, day)
             output_file = output_files.format(year, month, day)
-            print("HELLO")
-            print((os.path.exists(disdro_file)) and (os.path.exists(ams_file)))
-            if (os.path.exists(disdro_file)) and (os.path.exists(ams_file)):
+            print((os.path.exists(disdro_file)), (os.path.exists(ams_file)), (os.path.exists(radar_file)))
+            if (os.path.exists(disdro_file)) and (os.path.exists(ams_file)) and (os.path.exists(radar_file)):
                 # read weather-station data
                 # ---------------------------------------------------------------------------------
 
@@ -192,7 +199,7 @@ def main_loop(config_file=CONFIG_FILE_LOOP):
                 # ---------------------------------------------------------------------------------
 
                 if disdro_type == "parsivel_cloudnet":
-                    disdro_xr = disdro.read_parsivel_cloudnet(disdro_file)
+                    disdro_xr = disdro.read_parsivel_cloudnet_choice(disdro_file)
                     scatt = dcrcc.scattering_prop(
                         disdro_xr.size_classes[0:-5],
                         beam_orientation,
@@ -201,21 +208,27 @@ def main_loop(config_file=CONFIG_FILE_LOOP):
                         axrMethod,
                         mieMethod=mieMethod,
                     )
-                    F = constants.F_PARSIVEL  # m2, sampling surface
+
                     disdro_xr = disdro.reflectivity_model(
                         disdro_xr,
                         scatt,
                         len(disdro_xr.size_classes[0:-5]),
-                        F,
+                        # radar_xr["lambda"].data,
                         FREQ,
                         strMethod,
                         mieMethod,
                         normMethod,
                     )
+                
+                # read radar data
+                # ---------------------------------------------------------------------------------
+                radar_xr = radar.read_radar_cloudnet(radar_file)
 
-                final_data = xr.merge([ams_xr, disdro_xr])
+                final_data = xr.merge([ams_xr, disdro_xr, radar_xr], combine_attrs="drop_conflicts")
 
                 final_data.to_netcdf(output_file)
+
+    return
 
 
 def main_loop_degrade(
@@ -356,7 +369,7 @@ def main_loop_quicklooks(config_file=CONFIG_FILE_LOOP):
     config = toml.load(config_file)
     data_dir_root = config["data"]["DATA_DIR"] + "{}/".format(config["data"]["STATION"])
     weather_station_data_path = data_dir_root + "weather-station"
-    ql_output_path = config["data"]["QUICKLOOKS_DIR"] + "{}/".format(
+    ql_output_path = config["data"]["QUICKLOOKS_DIR"] + "{}/QL/".format(
         config["data"]["STATION"]
     )
     main_wind_direction = config["data"]["MAIN_WIND_DIR"]
@@ -393,18 +406,19 @@ def main_loop_quicklooks(config_file=CONFIG_FILE_LOOP):
         weather, dcr, disdro = input_ql.get_data_event(
             data_dir_root, start, end, main_wind_dir=main_wind_direction
         )
-        print(list(weather.keys()))
-        # plt.figure()
-        # plt.plot(weather.time, weather["rain_sum"])
-        # plt.plot(weather.time, weather.QF_acc)
-        # plt.show()
         q = ql_1event.quicklooks(weather, dcr, disdro, ql_output_path)
         print(q)
     return
 
 
 if __name__ == "__main__":
-    conf_lindenberg = "CONFIG_LINDENBERG_LOOP_DEGRADE.toml"
-    conf_juelich = "CONFIG_disdro_loop.toml"
-    conf_norunda = "CONFIG_NORUNDA_LOOP_DEGRADE.toml"
-    main_loop_degrade(config_file=conf_norunda, add_radar=True)
+    conf_lindenberg = "CONFIG_LINDENBERG_LOOP_DEGRADE_SPIRIT.toml"
+    # conf_lindenberg_rpg = "CONFIG_LINDENBERG_RPG_LOOP_DEGRADE_SPIRIT.toml"
+    # conf_juelich = "CONFIG_disdro_loop.toml"
+    # conf_norunda = "CONFIG_NORUNDA_LOOP_DEGRADE.toml"
+    main_loop_degrade(config_file=sys.argv[1], add_radar=True)
+
+    # conf_palaiseau = 'CONFIG_disdro_loop_with_ws_SPIRIT.toml'
+    # main_loop(config_file=sys.argv[1])
+
+    # main_loop_quicklooks(config_file=sys.argv[1])

@@ -34,7 +34,7 @@ def read_weather_cloudnet(filename):
 
     data = xr.Dataset(coords=dict(time=(["time"], data_nc_resampled.time_bins.data)))
 
-    if data_nc.source == "Generic weather-station":
+    if data_nc.source == "Generic weather-station" or data_nc.source == "":
         data["ws"] = xr.DataArray(
             data_nc_resampled["wind_speed"].values,
             dims=["time"],

@@ -52,7 +52,7 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
     mieMethod = config["methods"]["COMPUTE_MIE_METHOD"]  # pymiecoated OR pytmatrix
     normMethod = config["methods"]["NORMALIZATION_METHOD"]  # measurement OR model
     beam_orientation = config["methods"]["BEAM_ORIENTATION"]
-
+    FREQ = config["data"]["FREQ"] * 10**9 # Hz to GHz
     # read weather-station data
     # ---------------------------------------------------------------------------------
     weather_xr = weather.read_weather_cloudnet(ws_file)
@@ -68,7 +68,8 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
     scatt = scattering.scattering_prop(
         disdro_xr.size_classes[0:-5],
         beam_orientation,
-        radar_xr["lambda"].data,
+        # radar_xr["lambda"].data,
+        FREQ,
         E,
         axrMethod=axrMethod,
         mieMethod=mieMethod,
@@ -77,7 +78,8 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
         disdro_xr,
         scatt,
         len(disdro_xr.size_classes[0:-5]),
-        radar_xr["lambda"].data,
+        # radar_xr["lambda"].data,
+        FREQ,
         strMethod=strMethod,
         mieMethod=mieMethod,
         normMethod=normMethod,
@@ -87,6 +89,7 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
         disdro_xr.time.values.shape,
         radar_xr.time.values.shape,
     )
+    print(list(weather_xr.keys()))
     final_data = xr.merge(
         [weather_xr, disdro_xr, radar_xr], combine_attrs="drop_conflicts"
     )

@@ -788,7 +788,7 @@ def quicklooks(
             y=0.97,
             x=0.5,
         )
-
+        print("### QL4 OK ! ###")
         plt.savefig(
             output_path
             + "/{}/{}_quicklook4.png".format(

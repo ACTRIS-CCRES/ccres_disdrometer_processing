@@ -113,21 +113,6 @@ def read_parsivel_cloudnet(
             if KEYS[i] in list(data_nc.keys()):
                 data[NEW_KEYS[i]] = xr.DataArray(data_nc[KEYS[i]].values, dims=["time"])
 
-        # data["visi"] = xr.DataArray(data_nc["visibility"].values, dims=["time"])
-        # data["sa"] = xr.DataArray(data_nc["sig_laser"].values, dims=["time"])
-        # data["particles_count"] = xr.DataArray(
-        #     data_nc["n_particles"].values, dims=["time"]
-        # )
-        # data["sensor_temp"] = xr.DataArray(data_nc["T_sensor"].values, dims=["time"])
-        # data["heating_current"] = xr.DataArray(
-        #     data_nc["I_heating"].values, dims=["time"]
-        # )
-        # data["sensor_volt"] = xr.DataArray(
-        #     data_nc["V_power_supply"].values, dims=["time"]
-        # )
-        # data["KE"] = xr.DataArray(data_nc["kinetic_energy"].values, dims=["time"])
-        # data["sr"] = xr.DataArray(data_nc["snowfall_rate"].values, dims=["time"])
-        # data["SYNOP_code"] = xr.DataArray(data_nc["synop_WaWa"].values, dims=["time"])
 
         data["size_classes_width"] = xr.DataArray(
             data_nc["diameter_spread"].values * 1000, dims=["size_classes"]
@@ -265,7 +250,6 @@ def read_parsivel_cloudnet_choice(filename: Union[str, Path]) -> xr.Dataset:
     data_nc = resample_data_perfect_timesteps(filename=filename)
     station = data_nc.location
     source = data_nc.source
-    type
     if station == "Palaiseau":
         data = read_parsivel_cloudnet(data_nc)
     elif station == "Jülich" or station == "Norunda":

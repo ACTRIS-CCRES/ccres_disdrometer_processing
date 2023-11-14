@@ -45,6 +45,7 @@ def get_valid_paths(
     paths = []
     for date in dates:
         files = glob.glob(path.format(date.strftime("%Y%m%d")))
+        print("RADAR FILES WITH MATCHING NAMES : ", files)
         if len(files) == 0:
             lgr.critical("One file is missing")
             return None
@@ -123,9 +124,10 @@ def data_pluvio_event(
     return weather_event
 
 
-def data_dcr_event(data_dir, start, end):
-    paths = get_valid_paths(start, end, f"{data_dir}/radar/{{}}*.nc")
-
+def data_dcr_event(data_dir, start, end, r_type):
+    paths = get_valid_paths(start, end, f"{data_dir}/radar/{{}}*{r_type}*.nc")
+    # a été changé pour recevoir nom radar en .format dans get_valid_paths
+    # dépannage temporaire ; à terme : DCR data extraite des fichiers préprocessés
     if paths is None:
         return None
 
