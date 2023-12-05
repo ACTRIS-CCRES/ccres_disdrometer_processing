@@ -1,7 +1,6 @@
-import matplotlib.pyplot as plt
-import numpy as np
-import xarray as xr
 import datetime
+
+import xarray as xr
 
 f = xr.open_dataset(
     "/home/ygrit/Documents/dcrcc_data/lindenberg/RPG_file_model/230929_040001_P00_ZEN.LV1.NC"

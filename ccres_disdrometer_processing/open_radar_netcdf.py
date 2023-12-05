@@ -24,7 +24,9 @@ def read_radar_cloudnet(filename):  # daily radar file from cloudnet
             time=(["time"], time_index[:-1]), range=(["range"], data_nc.range.data)
         )
     )
-    radar_ds["frequency"] = data_nc.radar_frequency  # * 10**9
+    radar_ds["frequency"] = (
+        data_nc.radar_frequency * 10**9
+    )  # in Hz, so * 10**9 to get GHz
 
     time_index_offset = time_index - pd.Timedelta(30, "sec")
 
@@ -52,6 +54,7 @@ def read_radar_cloudnet(filename):  # daily radar file from cloudnet
     )
 
     radar_ds.attrs["radar_source"] = data_nc.attrs["source"]
+    radar_ds.attrs["radar_pid"] = data_nc.attrs["instrument_pid"]
 
     data_nc.close()
 

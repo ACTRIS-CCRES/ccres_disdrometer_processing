@@ -7,6 +7,7 @@ import click
 import toml
 import xarray as xr
 
+
 sys.path.append(str(Path(__file__).parent.parent))
 
 import open_disdro_netcdf as disdro
@@ -35,12 +36,19 @@ def status():
 
 @cli.command()
 # @click.option("--disdro-type", type=click.Choice(DISDRO_TYPES), required=True)
-@click.option("--disdro-file", type=click.Path(exists=True), required=True)
+@click.option("--disdro-file", type=click.Path(exists=True, file_okay=True, dir_okay=False, path_type=Path, resolve_path=True, readable=True), required=True)
 # @click.option("--ws-type", type=click.Choice(WS_TYPES), required=True)
-@click.option("--ws-file", type=click.Path(exists=True), required=True)
-@click.option("--radar-file", type=click.Path(exists=True), required=True)
-@click.option("--config-file", type=click.Path(exists=True), required=True)
-@click.argument("output-file", type=click.Path())
+@click.option("--ws-file", type=click.Path(exists=True, file_okay=True, dir_okay=False, path_type=Path, resolve_path=True, readable=True), required=False, default=None) 
+@click.option("--radar-file", type=click.Path(exists=True, file_okay=True, dir_okay=False, path_type=Path, resolve_path=True, readable=True), required=True)
+@click.option("--config-file", type=click.Path(exists=True, file_okay=True, dir_okay=False, path_type=Path, resolve_path=True, readable=True), required=True)
+@click.argument("output-file", type=click.Path(file_okay=True, dir_okay=False, path_type=Path, resolve_path=True))
+# Add access controls so that click prépares the work ;
+# give default value for WS file which is not mandatory
+# resolve_path=True (chemin absolu) ; 
+# path_type=True : va faire des path des objets "pathlib.Path"
+# readable=True, writeable ? doesn't matter
+# dir_ok=False, file_ok = True (I want a file and not a folder)
+
 def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
     """Command line interface for ccres_disdrometer_processing."""
     click.echo("CCRES disdrometer preprocessing : test CLI")
@@ -52,14 +60,11 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
     mieMethod = config["methods"]["COMPUTE_MIE_METHOD"]  # pymiecoated OR pytmatrix
     normMethod = config["methods"]["NORMALIZATION_METHOD"]  # measurement OR model
     beam_orientation = config["methods"]["BEAM_ORIENTATION"]
-    FREQ = config["data"]["FREQ"] * 10**9 # Hz to GHz
-    # read weather-station data
-    # ---------------------------------------------------------------------------------
-    weather_xr = weather.read_weather_cloudnet(ws_file)
 
     # read doppler radar data
     # ---------------------------------------------------------------------------------
     radar_xr = radar.read_radar_cloudnet(radar_file)
+    radar_frequency = radar_xr.frequency  # value is given in Hz in raadr_xr file
 
     # read and preprocess disdrometer data
     # ---------------------------------------------------------------------------------
@@ -68,8 +73,7 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
     scatt = scattering.scattering_prop(
         disdro_xr.size_classes[0:-5],
         beam_orientation,
-        # radar_xr["lambda"].data,
-        FREQ,
+        radar_frequency,
         E,
         axrMethod=axrMethod,
         mieMethod=mieMethod,
@@ -78,22 +82,27 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
         disdro_xr,
         scatt,
         len(disdro_xr.size_classes[0:-5]),
-        # radar_xr["lambda"].data,
-        FREQ,
+        radar_frequency,
         strMethod=strMethod,
         mieMethod=mieMethod,
         normMethod=normMethod,
     )
-    print(
-        weather_xr.time.values.shape,
-        disdro_xr.time.values.shape,
-        radar_xr.time.values.shape,
-    )
-    print(list(weather_xr.keys()))
-    final_data = xr.merge(
-        [weather_xr, disdro_xr, radar_xr], combine_attrs="drop_conflicts"
-    )
 
+    # read weather-station data
+    # ---------------------------------------------------------------------------------
+    if not (ws_file is None):
+        weather_xr = weather.read_weather_cloudnet(ws_file)
+        # print(list(weather_xr.keys()))
+        final_data = xr.merge(
+            [weather_xr, disdro_xr, radar_xr], combine_attrs="drop_conflicts"
+        )
+    else :
+        final_data = xr.merge(
+            [disdro_xr, radar_xr], combine_attrs="drop_conflicts"
+        )
+
+    final_data.attrs["weather_data_avail"] = (not (weather is None)) * 1
+    
     final_data.to_netcdf(output_file)
-    print(final_data.time.values.shape)
-    return
+
+    sys.exit(0) # Retourne 0 si l'exécution a fonctionnée 

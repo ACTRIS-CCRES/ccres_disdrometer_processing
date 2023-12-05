@@ -1,6 +1,5 @@
-import xarray as xr
-import numpy as np
 import matplotlib.pyplot as plt
+import xarray as xr
 
 dd_old = dd_prepro = xr.open_dataset(
     "/home/ygrit/Documents/disdro_processing/ccres_disdrometer_processing/tests/data/outputs/20210202_palaiseau_preprocessing.nc"

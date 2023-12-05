@@ -1,6 +1,8 @@
 """Console script for disdrometers reflectivity calculation."""
-import os
 import glob
+import os
+import sys
+
 import click
 import constants as constants
 import create_input_files_quicklooks as input_ql
@@ -14,7 +16,6 @@ import rain_event_selection as rain_events
 import scattering as dcrcc
 import toml
 import xarray as xr
-import sys
 
 # import ccres_disdrometer_processing.ccres_disdrometer_processing.scattering as dcrcc
 # import ccres_disdrometer_processing.constants as constants
@@ -187,8 +188,16 @@ def main_loop(config_file=CONFIG_FILE_LOOP):
             ams_file = ams_files.format(year, month, day)
             radar_file = radar_files.format(year, month, day)
             output_file = output_files.format(year, month, day)
-            print((os.path.exists(disdro_file)), (os.path.exists(ams_file)), (os.path.exists(radar_file)))
-            if (os.path.exists(disdro_file)) and (os.path.exists(ams_file)) and (os.path.exists(radar_file)):
+            print(
+                (os.path.exists(disdro_file)),
+                (os.path.exists(ams_file)),
+                (os.path.exists(radar_file)),
+            )
+            if (
+                (os.path.exists(disdro_file))
+                and (os.path.exists(ams_file))
+                and (os.path.exists(radar_file))
+            ):
                 # read weather-station data
                 # ---------------------------------------------------------------------------------
 
@@ -219,12 +228,14 @@ def main_loop(config_file=CONFIG_FILE_LOOP):
                         mieMethod,
                         normMethod,
                     )
-                
+
                 # read radar data
                 # ---------------------------------------------------------------------------------
                 radar_xr = radar.read_radar_cloudnet(radar_file)
 
-                final_data = xr.merge([ams_xr, disdro_xr, radar_xr], combine_attrs="drop_conflicts")
+                final_data = xr.merge(
+                    [ams_xr, disdro_xr, radar_xr], combine_attrs="drop_conflicts"
+                )
 
                 final_data.to_netcdf(output_file)
 

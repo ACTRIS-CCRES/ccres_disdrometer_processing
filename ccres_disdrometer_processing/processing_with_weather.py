@@ -1,14 +1,13 @@
 import datetime as dt
 import glob
 import logging
-import sys 
+import sys
+
 import matplotlib as mpl
-import matplotlib.colors as colors
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import xarray as xr
-from create_input_files_quicklooks import data_dcr_event
 
 lgr = logging.getLogger(__name__)
 
@@ -34,7 +33,18 @@ FALLSPEED_REL_ERROR = (
 TIMESTAMP_THRESHOLDS = [MIN_T, MAX_WS, RRMAX, FALLSPEED_REL_ERROR]
 EVENT_THRESHOLDS = [MIN_CUM, CUM_REL_ERROR]
 
-LIST_VARIABLES = ["rain", "temp", "ws", "wd", "rain_sum", "pr", "Zdcr", "Ze_tm", "psd", "RR"]
+LIST_VARIABLES = [
+    "rain",
+    "temp",
+    "ws",
+    "wd",
+    "rain_sum",
+    "pr",
+    "Zdcr",
+    "Ze_tm",
+    "psd",
+    "RR",
+]
 
 
 def sel(
@@ -56,9 +66,13 @@ def sel(
     preprocessed_ds = preprocessed_ds_full.isel(
         {"time": np.where(preprocessed_ds_full.rain.values > 0)[0]}
     )
-    print(len(preprocessed_ds.time.values), len(np.cumsum(preprocessed_ds_full["rain"])))
+    print(
+        len(preprocessed_ds.time.values), len(np.cumsum(preprocessed_ds_full["rain"]))
+    )
     print(np.where(preprocessed_ds.indexes["time"].duplicated(keep=False)))
-    preprocessed_ds["rain_cumsum"] = np.cumsum(preprocessed_ds["rain"])  # ds_full["rain"] auparavant
+    preprocessed_ds["rain_cumsum"] = np.cumsum(
+        preprocessed_ds["rain"]
+    )  # ds_full["rain"] auparavant
 
     t = preprocessed_ds.time
 
@@ -166,22 +180,34 @@ def sel(
             "Max Rain Rate <= {}mm".format(RRMAX): mask[:, 4],
         }
     )
-    Events.to_csv(data_dir + "/bdd_rain_events/events_{}_{}.csv".format(pd.Timestamp(start[0]).strftime("%Y%m"), pd.Timestamp(end[-1]).strftime("%Y%m")))
+    Events.to_csv(
+        data_dir
+        + "/bdd_rain_events/events_{}_{}.csv".format(
+            pd.Timestamp(start[0]).strftime("%Y%m"),
+            pd.Timestamp(end[-1]).strftime("%Y%m"),
+        )
+    )
 
     return Events, preprocessed_ds_full
 
 
-def data_event(preprocessed_ds, start_time, end_time,
-               threshold=TIMESTAMP_THRESHOLDS + EVENT_THRESHOLDS, main_wind_dir=270):
+def data_event(
+    preprocessed_ds,
+    start_time,
+    end_time,
+    threshold=TIMESTAMP_THRESHOLDS + EVENT_THRESHOLDS,
+    main_wind_dir=270,
+):
 
-    data_event = preprocessed_ds.sel({"time": slice(start_time - DELTA_DISDRO, end_time + DELTA_DISDRO)})
-    if data_event.time.size == 0 :
+    data_event = preprocessed_ds.sel(
+        {"time": slice(start_time - DELTA_DISDRO, end_time + DELTA_DISDRO)}
+    )
+    if data_event.time.size == 0:
         return None
 
     data_event["main_wind_dir"] = main_wind_dir  # to be treated earlier
     data_event["disdro_rain_sum"] = np.cumsum(data_event["RR"]) / 60
     data_event["ws_rain_sum"] = np.cumsum(data_event["rain"])
-
 
     # Quality Flags
 
@@ -189,9 +215,9 @@ def data_event(preprocessed_ds, start_time, end_time,
 
     data_event["QF_ws"] = data_event["ws"] < threshold[1]
 
-    data_event["QF_wd"] = (
-        np.abs(data_event["wd"]) - main_wind_dir < 45
-    ) | (np.abs(data_event["wd"]) - (360 - main_wind_dir) < 45)
+    data_event["QF_wd"] = (np.abs(data_event["wd"]) - main_wind_dir < 45) | (
+        np.abs(data_event["wd"]) - (360 - main_wind_dir) < 45
+    )
 
     data_event["QF_acc"] = data_event["rain_sum"] > threshold[4]
 
@@ -199,7 +225,9 @@ def data_event(preprocessed_ds, start_time, end_time,
         data=np.full(len(data_event.time), True, dtype=bool), dims=["time"]
     )
     time_chunks = np.arange(
-        np.datetime64(start_time), np.datetime64(end_time), np.timedelta64(CHUNK_THICKNESS, "m")
+        np.datetime64(start_time),
+        np.datetime64(end_time),
+        np.timedelta64(CHUNK_THICKNESS, "m"),
     )
     for start_time_chunk, stop_time_chunk in zip(time_chunks[:-1], time_chunks[1:]):
         RR_chunk = (
@@ -242,7 +270,7 @@ def dz_per_event(
         # Get data
         Z_dcr = data.Zdcr.isel(
             {"range": np.arange(15)}  # [3, 4, 6, 8] good for sirta for quicklooks
-        ) 
+        )
         z_disdro = data.Ze_tm
         z_disdro[np.where(z_disdro == 0)] = np.nan  # avoid np.inf in Z_disdro
         Z_disdro = 10 * np.log10(z_disdro)
@@ -255,14 +283,7 @@ def dz_per_event(
         #     Z_dcr = Z_dcr.sel({"time": Z_disdro.time.values})
         #     print("TIME VECTOR MODIFIED")
 
-        if (
-            len(
-                np.where((np.isfinite(Z_dcr_200m)) & (np.isfinite(Z_disdro)))[
-                    0
-                ]
-            )
-            == 0
-        ):
+        if len(np.where((np.isfinite(Z_dcr_200m)) & (np.isfinite(Z_disdro)))[0]) == 0:
             lgr.critical(
                 "Problem : no finite reflectivity data for dcr/disdro comparison"
             )
@@ -311,7 +332,7 @@ def dz_per_event(
         ) / data["ws_rain_sum"]
         QC_delta_cum = (np.abs(Delta_cum_pluvio_disdro) <= 0.3).values.reshape((-1, 1))
 
-        # Weather QFs 
+        # Weather QFs
         QF_meteo = np.vstack(
             (
                 data.QF_T.values,
@@ -335,7 +356,9 @@ def dz_per_event(
 
         # Good / bad points
 
-        x_t = Z_disdro[MN : -MN - 1].values  # sel (start, end) ? (np.Where -> same indices for Quality_matrix ?)
+        x_t = Z_disdro[
+            MN : -MN - 1
+        ].values  # sel (start, end) ? (np.Where -> same indices for Quality_matrix ?)
         y_t = Z_dcr_200m[MN : -MN - 1].values
 
         filter = np.where((np.isfinite(x_t)) & (np.isfinite(y_t)))
@@ -399,7 +422,9 @@ def dz_per_event(
 
         Temp_criterion_ratio = np.count_nonzero(Quality_matrix_filtered[:, 0]) / len(Q)
         Wind_criterion_ratio = np.count_nonzero(Quality_matrix_filtered[:, 1]) / len(Q)
-        Wind_dir_criterion_ratio = np.count_nonzero(Quality_matrix_filtered[:, 2]) / len(Q)
+        Wind_dir_criterion_ratio = np.count_nonzero(
+            Quality_matrix_filtered[:, 2]
+        ) / len(Q)
         RainRate_criterion_ratio = np.count_nonzero(
             Quality_matrix_filtered[:, 3]
         ) / len(Q)
@@ -434,13 +459,15 @@ def dz_timeseries(events, preprocessed_ds, data_dir, gate):
     k = 0
     start, end = events["Start_time"].iloc[k], events["End_time"].iloc[k]
     rain_acc = events["Rain accumulation (mm)"].iloc[k]
-    x = dz_per_event(preprocessed_ds, data_dir, start, end, gate=gate,filtered=True)
+    x = dz_per_event(preprocessed_ds, data_dir, start, end, gate=gate, filtered=True)
     print(not (x is None))
     while x is None:
         k += 1
         start, end = events["Start_time"].iloc[k], events["End_time"].iloc[k]
         rain_acc = events["Rain accumulation (mm)"].iloc[k]
-        x = dz_per_event(preprocessed_ds, data_dir, start, end, gate=gate,filtered=True)
+        x = dz_per_event(
+            preprocessed_ds, data_dir, start, end, gate=gate, filtered=True
+        )
 
     (
         start_time,
@@ -462,15 +489,21 @@ def dz_timeseries(events, preprocessed_ds, data_dir, gate):
     startend = np.array([[start, end]])
     nb_points_per_event = np.array([nb_points]).reshape((1, -1))
     dZ = dZ_med_quartiles.reshape((1, -1))
-    qf_ratio = np.array([Temp_criterion_ratio,
-                         Wind_criterion_ratio,
-                         Wind_dir_criterion_ratio,
-                         RainRate_criterion_ratio,
-                         QC_vdsd_t_ratio,
-                         good_points_ratio,
-                         good_points_number]).reshape((1, -1))
-    accumulation_flags = np.array([Accumulation_flag]).reshape((1,-1))
-    accumulation_errors_flags = np.array([Accumulation_relative_error_flag]).reshape((1,-1))
+    qf_ratio = np.array(
+        [
+            Temp_criterion_ratio,
+            Wind_criterion_ratio,
+            Wind_dir_criterion_ratio,
+            RainRate_criterion_ratio,
+            QC_vdsd_t_ratio,
+            good_points_ratio,
+            good_points_number,
+        ]
+    ).reshape((1, -1))
+    accumulation_flags = np.array([Accumulation_flag]).reshape((1, -1))
+    accumulation_errors_flags = np.array([Accumulation_relative_error_flag]).reshape(
+        (1, -1)
+    )
     cum = np.array([rain_acc]).reshape((1, -1))
     delta_startend = np.array([end - start], dtype="timedelta64[ms]")[0]
     len_episodes = np.array([delta_startend / np.timedelta64(1, "m")]).reshape((-1, 1))
@@ -479,7 +512,9 @@ def dz_timeseries(events, preprocessed_ds, data_dir, gate):
     for i in range(k + 1, len(events["Start_time"])):
         start, end = events["Start_time"].iloc[i], events["End_time"].iloc[i]
         print("Evenement ", i, "/", len(events["Start_time"]), start, end)
-        x = dz_per_event(preprocessed_ds, data_dir, start, end, gate=gate, filtered=True)
+        x = dz_per_event(
+            preprocessed_ds, data_dir, start, end, gate=gate, filtered=True
+        )
         if x is None:
             print("NONE")
             continue
@@ -506,16 +541,29 @@ def dz_timeseries(events, preprocessed_ds, data_dir, gate):
             nb_points_per_event, np.array([nb_points]).reshape((1, -1)), axis=0
         )
         dZ = np.append(dZ, dZ_med_quartiles.reshape((1, -1)), axis=0)
-        qf_ratio = np.append(qf_ratio,
-                             np.array([Temp_criterion_ratio,
-                                       Wind_criterion_ratio,
-                                       Wind_dir_criterion_ratio,
-                                       RainRate_criterion_ratio,
-                                       QC_vdsd_t_ratio,
-                                       good_points_ratio,
-                                       good_points_number]).reshape((1, -1)), axis=0)
-        accumulation_flags = np.append(accumulation_flags, np.array([Accumulation_flag]).reshape((1, -1)), axis=0)
-        accumulation_errors_flags = np.append(accumulation_errors_flags, np.array([Accumulation_relative_error_flag]).reshape((1,-1)), axis = 0)
+        qf_ratio = np.append(
+            qf_ratio,
+            np.array(
+                [
+                    Temp_criterion_ratio,
+                    Wind_criterion_ratio,
+                    Wind_dir_criterion_ratio,
+                    RainRate_criterion_ratio,
+                    QC_vdsd_t_ratio,
+                    good_points_ratio,
+                    good_points_number,
+                ]
+            ).reshape((1, -1)),
+            axis=0,
+        )
+        accumulation_flags = np.append(
+            accumulation_flags, np.array([Accumulation_flag]).reshape((1, -1)), axis=0
+        )
+        accumulation_errors_flags = np.append(
+            accumulation_errors_flags,
+            np.array([Accumulation_relative_error_flag]).reshape((1, -1)),
+            axis=0,
+        )
 
         cum = np.append(cum, np.array([rain_acc]).reshape((1, -1)), axis=0)
         delta_startend = np.array([end - start], dtype="timedelta64[ms]")[0]
@@ -556,7 +604,10 @@ def dz_timeseries(events, preprocessed_ds, data_dir, gate):
             "cum": cum.flatten(),
         }
     )
-    data_tosave.to_csv(data_dir + "/csv/dz_data_{}_{}_gate{}.csv".format(t1, t2, int(gate)), header=True)
+    data_tosave.to_csv(
+        data_dir + "/csv/dz_data_{}_{}_gate{}.csv".format(t1, t2, int(gate)),
+        header=True,
+    )
 
     return (
         startend,
@@ -603,7 +654,7 @@ def dz_plot(
     f = np.intersect1d(
         np.where((cum > MIN_CUM))[0], np.where(np.isfinite(dZ[:, 0]) * 1 == 1)[0]
     )
-    f = np.intersect1d(f, np.where(accumulation_errors_flags*1 == 1))
+    f = np.intersect1d(f, np.where(accumulation_errors_flags * 1 == 1))
     f = np.intersect1d(f, np.where(qf_ratio[:, 6] >= min_timesteps))
     print("Events with enough rain and timesteps : ", f.shape)
     dZ_good, t_good = dZ[f, :], t[f]
@@ -613,8 +664,8 @@ def dz_plot(
     dZ_moving_avg = np.convolve(dZ_good[:, 0], np.ones(N) / N, mode="valid")
     (moving_avg,) = ax.plot(t_good[N - 1 :], dZ_moving_avg, color="red")
 
-    print("GOOD : ", dZ_good.shape, dZ_moving_avg.shape, t_good[N-1:].shape)
-    print(dZ_good[:,0], t_good, dZ_moving_avg)
+    print("GOOD : ", dZ_good.shape, dZ_moving_avg.shape, t_good[N - 1 :].shape)
+    print(dZ_good[:, 0], t_good, dZ_moving_avg)
 
     # Boxplot props
     mean_shape = dict(markeredgecolor="purple", marker="_")
@@ -637,10 +688,12 @@ def dz_plot(
                 "q3": dZ_good[k, 2],
                 "fliers": [dZ_good[k, 4], dZ_good[k, 5]],
                 "whishi": np.minimum(
-                    dZ_good[k, 2] + 1 * np.abs(dZ_good[k, 2] - dZ_good[k, 1]), dZ_good[k, 5]
+                    dZ_good[k, 2] + 1 * np.abs(dZ_good[k, 2] - dZ_good[k, 1]),
+                    dZ_good[k, 5],
                 ),
                 "whislo": np.maximum(
-                    dZ_good[k, 1] - 1 * np.abs(dZ_good[k, 2] - dZ_good[k, 1]), dZ_good[k, 4]
+                    dZ_good[k, 1] - 1 * np.abs(dZ_good[k, 2] - dZ_good[k, 1]),
+                    dZ_good[k, 4],
                 ),
             }
         ]
@@ -657,7 +710,7 @@ def dz_plot(
             widths=[1],
             flierprops=flierprops,
             boxprops=boxprops,
-            whiskerprops=whiskerprops
+            whiskerprops=whiskerprops,
         )
 
     if showmeans:
@@ -689,10 +742,15 @@ def dz_plot(
     plt.xticks(rotation=45, fontsize=10, fontweight="semibold")
     ax.set_yticklabels(ax.get_yticks(), fontsize=18, fontweight="semibold")
     plt.title(
-        "{} - {} Time series of {} @ {} CC variability \n ".format(t[0].strftime("%Y/%m"), t[-1].strftime("%Y/%m"), radar_source, location,)
+        "{} - {} Time series of {} @ {} CC variability \n ".format(
+            t[0].strftime("%Y/%m"),
+            t[-1].strftime("%Y/%m"),
+            radar_source,
+            location,
+        )
         + r"{} good events -- max. {:.0f}% error between WS and DD accumulation, more than {:.0f}mm of rain and {} timesteps to compute $\Delta Z$ ".format(  # noqa
             len(f),
-            CUM_REL_ERROR*100,
+            CUM_REL_ERROR * 100,
             MIN_CUM,
             min_timesteps,
         ),
@@ -716,7 +774,9 @@ def dz_plot(
     plt.text(
         x=pd.Timestamp((t[0].value + t[-1].value) / 2.0),
         y=20,
-        s=r"Gate n° {} ({}m AGL) used for $\Delta Z$ computation".format(int(gate)+1, int(preprocessed_ds.range.values[int(gate)])),
+        s=r"Gate n° {} ({}m AGL) used for $\Delta Z$ computation".format(
+            int(gate) + 1, int(preprocessed_ds.range.values[int(gate)])
+        ),
         fontsize=14,
         ha="center",
     )
@@ -747,9 +807,12 @@ def dz_plot(
     plt.ylabel("Count")
     plt.legend()
     plt.grid()
-    plt.title("DCRCC of {} at {}, based on {} disdrometer \n".format(radar_source, location, disdro_source) +
-        "Histogram of biases (at gate {}) over the period {} - {}".format(int(gate)+1,
-            t[0].strftime("%Y/%m"), t[-1].strftime("%Y/%m")
+    plt.title(
+        "DCRCC of {} at {}, based on {} disdrometer \n".format(
+            radar_source, location, disdro_source
+        )
+        + "Histogram of biases (at gate {}) over the period {} - {}".format(
+            int(gate) + 1, t[0].strftime("%Y/%m"), t[-1].strftime("%Y/%m")
         )
     )
     plt.savefig(
@@ -770,9 +833,10 @@ def dd_ql(preprocessed_ds, events):
     pass
 
 
-def main(data_dir, gate) :
-
-    lst = sorted(glob.glob(data_dir + "/disdrometer_preprocessed/*_preprocessed.nc"))[:-500]
+def main(data_dir, gate):
+    lst = sorted(glob.glob(data_dir + "/disdrometer_preprocessed/*_preprocessed.nc"))[
+        :-500
+    ]
     events, preprocessed_ds = sel(lst)
     print(events)
 
@@ -806,8 +870,8 @@ def main(data_dir, gate) :
         showfliers=False,
         showmeans=False,
         showcaps=False,
-        showwhiskers=False
-        )
+        showwhiskers=False,
+    )
 
     return True
 

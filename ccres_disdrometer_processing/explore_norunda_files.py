@@ -1,8 +1,6 @@
-import xarray as xr
-import numpy as np
-import matplotlib.pyplot as plt
 import glob
-import datetime
+
+import xarray as xr
 
 a = glob.glob("/home/ygrit/Documents/dcrcc_data/norunda/disdrometer/*")[100]
 a = xr.open_dataset(a)

@@ -1,6 +1,6 @@
 import numpy as np
-import xarray as xr
 import pandas as pd
+import xarray as xr
 
 
 def read_weather_cloudnet(filename):
@@ -96,5 +96,8 @@ def read_weather_cloudnet(filename):
                 "long_name": "Meridional wind",
             },
         )
+
+    data.attrs["weather_source"] = data_nc_resampled.attrs["source"]
+    data.attrs["weather-station_pid"] = data_nc_resampled.attrs["instrument_pid"]
 
     return data

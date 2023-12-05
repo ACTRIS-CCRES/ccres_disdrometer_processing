@@ -65,7 +65,8 @@ def resample_data_perfect_timesteps(filename: Union[str, Path]) -> xr.Dataset:
         .first()
     )
     data_notime = data_nc[notime_var]
-    data_perfect_timesteps = xr.merge((data_time_resampled, data_notime))
+    data_perfect_timesteps = xr.merge((data_time_resampled, data_notime), combine_attrs="drop")
+    # print("#############", data_perfect_timesteps.attrs)
     data_perfect_timesteps["time_bins"] = data_perfect_timesteps.time_bins.dt.round(
         freq="1S"
     )
@@ -73,6 +74,7 @@ def resample_data_perfect_timesteps(filename: Union[str, Path]) -> xr.Dataset:
     for key in ["year", "month", "day", "location"]:
         data_perfect_timesteps.attrs[key] = data_nc.attrs[key]
     data_perfect_timesteps.attrs["disdrometer_source"] = data_nc.attrs["source"]
+    data_perfect_timesteps.attrs["disdrometer_pid"] = data_nc.attrs["instrument_pid"]
     return data_perfect_timesteps
 
 
@@ -86,8 +88,8 @@ def read_parsivel_cloudnet(
             speed_classes=(["speed_classes"], data_nc.velocity.data),
         )
     )
-    if data_nc.source == "OTT HydroMet Parsivel2":
-        data["F"] = F[data_nc.source]
+    if data_nc.disdrometer_source == "OTT HydroMet Parsivel2":
+        data["F"] = F[data_nc.disdrometer_source]
         data["pr"] = xr.DataArray(
             data_nc["rainfall_rate"].values * 1000 * 3600,
             dims=["time"],
@@ -111,8 +113,9 @@ def read_parsivel_cloudnet(
 
         for i in range(len(KEYS)):
             if KEYS[i] in list(data_nc.keys()):
-                data[NEW_KEYS[i]] = xr.DataArray(data_nc[KEYS[i]].values, dims=["time"])
-
+                data[NEW_KEYS[i]] = xr.DataArray(
+                    data_nc[KEYS[i]].values, dims=["time"], attrs=data_nc[KEYS[i]].attrs
+                )
 
         data["size_classes_width"] = xr.DataArray(
             data_nc["diameter_spread"].values * 1000, dims=["size_classes"]
@@ -143,8 +146,8 @@ def read_parsivel_cloudnet_bis(
         )
     )
 
-    if data_nc.source == "OTT HydroMet Parsivel2":
-        data["F"] = F[data_nc.source]
+    if data_nc.disdrometer_source == "OTT HydroMet Parsivel2":
+        data["F"] = F[data_nc.disdrometer_source]
         data["pr"] = xr.DataArray(
             data_nc["rainfall_rate"].values * 1000 * 3600,
             dims=["time"],
@@ -203,7 +206,7 @@ def read_thies_cloudnet(
         )
     )
 
-    data["F"] = F[data_nc.source]
+    data["F"] = F[data_nc.disdrometer_source]
     data["pr"] = xr.DataArray(
         data_nc["rainfall_rate"].values * 1000 * 3600,
         dims=["time"],
@@ -249,7 +252,7 @@ def read_thies_cloudnet(
 def read_parsivel_cloudnet_choice(filename: Union[str, Path]) -> xr.Dataset:
     data_nc = resample_data_perfect_timesteps(filename=filename)
     station = data_nc.location
-    source = data_nc.source
+    source = data_nc.disdrometer_source
     if station == "Palaiseau":
         data = read_parsivel_cloudnet(data_nc)
     elif station == "Jülich" or station == "Norunda":
