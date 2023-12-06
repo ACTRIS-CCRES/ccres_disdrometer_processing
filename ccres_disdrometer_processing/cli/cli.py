@@ -6,6 +6,7 @@ from pathlib import Path
 import click
 import toml
 import xarray as xr
+import numpy as np
 
 
 sys.path.append(str(Path(__file__).parent.parent))
@@ -60,16 +61,17 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
     mieMethod = config["methods"]["COMPUTE_MIE_METHOD"]  # pymiecoated OR pytmatrix
     normMethod = config["methods"]["NORMALIZATION_METHOD"]  # measurement OR model
     beam_orientation = config["methods"]["BEAM_ORIENTATION"]
+    computed_frequencies = config["methods"]["COMPUTED_FREQUENCIES"]
 
     # read doppler radar data
     # ---------------------------------------------------------------------------------
     radar_xr = radar.read_radar_cloudnet(radar_file)
-    radar_frequency = radar_xr.frequency  # value is given in Hz in raadr_xr file
+    radar_frequency = radar_xr.frequency  # value is given in Hz in radar_xr file
 
     # read and preprocess disdrometer data
     # ---------------------------------------------------------------------------------
 
-    disdro_xr = disdro.read_parsivel_cloudnet_choice(disdro_file)
+    disdro_xr = disdro.read_parsivel_cloudnet_choice(disdro_file, computed_frequencies)
     scatt = scattering.scattering_prop(
         disdro_xr.size_classes[0:-5],
         beam_orientation,
@@ -101,8 +103,15 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
             [disdro_xr, radar_xr], combine_attrs="drop_conflicts"
         )
 
-    final_data.attrs["weather_data_avail"] = (not (weather is None)) * 1
-    
+    weather_avail = int((not (weather is None)))
+    final_data.attrs["weather_data_avail"] = weather_avail
+
+    final_data.attrs["axis_ratioMethod"] = axrMethod
+    final_data.attrs["fallspeedFormula"] = strMethod
+    final_data.attrs["scatteringMethod"] = mieMethod
+    final_data.attrs["DSDnormalizationMethod"] = normMethod
+    final_data.attrs["beam_orientation"] = beam_orientation
+
     final_data.to_netcdf(output_file)
 
-    sys.exit(0) # Retourne 0 si l'exécution a fonctionnée 
+    sys.exit(0) # Returns 0 if the code ran well

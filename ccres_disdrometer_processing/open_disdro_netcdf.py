@@ -249,7 +249,7 @@ def read_thies_cloudnet(
     return data
 
 
-def read_parsivel_cloudnet_choice(filename: Union[str, Path]) -> xr.Dataset:
+def read_parsivel_cloudnet_choice(filename: Union[str, Path], computed_frequencies:list) -> xr.Dataset:
     data_nc = resample_data_perfect_timesteps(filename=filename)
     station = data_nc.location
     source = data_nc.disdrometer_source
@@ -264,6 +264,9 @@ def read_parsivel_cloudnet_choice(filename: Union[str, Path]) -> xr.Dataset:
         data = None
     if not (data is None):
         data.attrs = data_nc.attrs
+
+    # data = data.expand_dims("computed_frequencies").assign_coords(new_dim=("computed_frequencies", np.array(computed_frequencies)))
+    data = data.assign_coords({"computed_frequencies": np.array(computed_frequencies)})
     return data
 
 

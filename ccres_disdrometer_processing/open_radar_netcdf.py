@@ -2,7 +2,7 @@ import pandas as pd
 import xarray as xr
 
 LIST_VARIABLES = ["Zh", "v", "radar_frequency"]
-RANGE_BOUNDS = [0, 3000]
+RANGE_BOUNDS = [0, 2500]
 
 
 def read_radar_cloudnet(filename):  # daily radar file from cloudnet

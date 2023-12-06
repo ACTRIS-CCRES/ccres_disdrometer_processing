@@ -16,8 +16,8 @@ output_file = f"{TEST_OUT_DIR}/20210202_palaiseau_preprocessed_v2311.nc"
 # print(MAIN_DIR)
 # print(TEST_DIR)
 
-do = True
-open = False
+do = False
+open = True
 
 if do :
     os.system("ccres_disdrometer_processing preprocess --disdro-file {} --ws-file {} --radar-file {} --config-file {} {}".format(disdro_file, ws_file, radar_file, config_file, output_file))
@@ -27,4 +27,6 @@ if do :
 if open : 
     ds = xr.open_dataset(output_file)
     print(ds.attrs)
+    print(ds.coords)
     print(list(ds.keys()))
+    print(ds.wd.dims)
