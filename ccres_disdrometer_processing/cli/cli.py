@@ -61,7 +61,8 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
     mieMethod = config["methods"]["COMPUTE_MIE_METHOD"]  # pymiecoated OR pytmatrix
     normMethod = config["methods"]["NORMALIZATION_METHOD"]  # measurement OR model
     beam_orientation = config["methods"]["BEAM_ORIENTATION"]
-    computed_frequencies = config["methods"]["COMPUTED_FREQUENCIES"]
+    computed_frequencies = config["methods"]["COMPUTED_FREQUENCIES"] # given in Hz -> ok for the scattering script
+    multilambda = bool(config["methods"]["multilambda"]) # True if multi lambda needed, False if only computation at lambda_radar needed
 
     # read doppler radar data
     # ---------------------------------------------------------------------------------
@@ -72,23 +73,38 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
     # ---------------------------------------------------------------------------------
 
     disdro_xr = disdro.read_parsivel_cloudnet_choice(disdro_file, computed_frequencies)
-    scatt = scattering.scattering_prop(
-        disdro_xr.size_classes[0:-5],
-        beam_orientation,
-        radar_frequency,
-        E,
-        axrMethod=axrMethod,
-        mieMethod=mieMethod,
-    )
-    disdro_xr = disdro.reflectivity_model(
-        disdro_xr,
-        scatt,
-        len(disdro_xr.size_classes[0:-5]),
-        radar_frequency,
-        strMethod=strMethod,
-        mieMethod=mieMethod,
-        normMethod=normMethod,
-    )
+
+    if multilambda == False :
+        scatt = scattering.scattering_prop(
+            disdro_xr.size_classes[0:-5],
+            beam_orientation,
+            radar_frequency,
+            E,
+            axrMethod=axrMethod,
+            mieMethod=mieMethod,
+        )
+        disdro_xr = disdro.reflectivity_model(
+            disdro_xr,
+            scatt,
+            len(disdro_xr.size_classes[0:-5]),
+            radar_frequency,
+            strMethod=strMethod,
+            mieMethod=mieMethod,
+            normMethod=normMethod,
+        )
+    else : 
+        scatt_list = []
+        for frequency in computed_frequencies :
+            scatt = scattering.scattering_prop(
+            disdro_xr.size_classes[0:-5],
+            beam_orientation,
+            frequency,
+            E,
+            axrMethod=axrMethod,
+            mieMethod=mieMethod,
+            )
+            scatt_list.append(scatt)
+        disdro_xr = disdro.reflectivity_model_multilambda
 
     # read weather-station data
     # ---------------------------------------------------------------------------------
@@ -111,6 +127,7 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
     final_data.attrs["scatteringMethod"] = mieMethod
     final_data.attrs["DSDnormalizationMethod"] = normMethod
     final_data.attrs["beam_orientation"] = beam_orientation
+    final_data.attrs["multilambda"] = int(multilambda)
 
     final_data.to_netcdf(output_file)
 
