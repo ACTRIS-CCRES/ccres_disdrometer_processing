@@ -425,7 +425,7 @@ def reflectivity_model_multilambda(
     mparsivel,
     scatt_list,
     n,
-    freq,
+    freq_list,
     strMethod="GunAndKinzer",
     mieMethod="pymiecoated",
     normMethod="model",
@@ -435,7 +435,7 @@ def reflectivity_model_multilambda(
     # dt must remain at 60s)
     t = mparsivel.time_resolution.values  # s
     # wavelength
-    lambda_m = cst.c / freq
+    lambda_m = cst.c / freq_list
     F = mparsivel.F.data
     
     model = DATA()
@@ -520,7 +520,7 @@ def reflectivity_model_multilambda(
                     # because we want mm6 instead of m6 ; when pytmatrix,
                     # input is in mm so we don't have to apply this scale factor
                     * np.nansum(Ni[0:n] * scatt.bscat_mie / VDD[0:n])
-                    * (lambda_m**4 / (np.pi) ** 5.0)
+                    * (lambda_m[k]**4 / (np.pi) ** 5.0)
                     / 0.93  # squared water dielectric constant
                     / F
                     / t

@@ -104,7 +104,15 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
             mieMethod=mieMethod,
             )
             scatt_list.append(scatt)
-        disdro_xr = disdro.reflectivity_model_multilambda
+        disdro_xr = disdro.reflectivity_model_multilambda(
+            disdro_xr,
+            scatt_list,
+            len(disdro_xr.size_classes[0:-5]),
+            np.array(computed_frequencies),
+            strMethod=strMethod,
+            mieMethod=mieMethod,
+            normMethod=normMethod,
+        )
 
     # read weather-station data
     # ---------------------------------------------------------------------------------

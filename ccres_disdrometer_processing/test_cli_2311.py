@@ -11,7 +11,7 @@ disdro_file = f"{TEST_INPUT}/20210202_palaiseau_parsivel.nc"
 ws_file = f"{TEST_INPUT}/20210202_palaiseau_weather-station.nc"
 radar_file = f"{TEST_INPUT}/20210202_palaiseau_basta.nc"
 config_file = f"{TEST_INPUT}/CONFIG_test.toml"
-output_file = f"{TEST_OUT_DIR}/20210202_palaiseau_preprocessed_v0812.nc"
+output_file = f"{TEST_OUT_DIR}/20210202_palaiseau_preprocessed_v1112_multilambda.nc"
 
 # print(MAIN_DIR)
 # print(TEST_DIR)
@@ -31,3 +31,9 @@ if open :
     # print(list(ds.keys()))
     # print(ds.wd.dims)
     print(ds.Ze_tm.dims)
+
+
+ds_lamb = xr.open_dataset(f"{TEST_OUT_DIR}/20210202_palaiseau_preprocessed_v0812_multilambda.nc")
+ds = xr.open_dataset(f"{TEST_OUT_DIR}/20210202_palaiseau_preprocessed_v0812.nc")
+print(ds.Ze_tm.values[200:250])
+print(ds_lamb.Ze_tm.values[200:250,2])
