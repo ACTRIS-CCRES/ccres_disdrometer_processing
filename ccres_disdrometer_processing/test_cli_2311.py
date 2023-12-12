@@ -33,7 +33,7 @@ if open :
     print(ds.Ze_tm.dims)
 
 
-ds_lamb = xr.open_dataset(f"{TEST_OUT_DIR}/20210202_palaiseau_preprocessed_v0812_multilambda.nc")
+ds_lamb = xr.open_dataset(f"{TEST_OUT_DIR}/20210202_palaiseau_preprocessed_v1112_multilambda.nc")
 ds = xr.open_dataset(f"{TEST_OUT_DIR}/20210202_palaiseau_preprocessed_v0812.nc")
 print(ds.Ze_tm.values[200:250])
-print(ds_lamb.Ze_tm.values[200:250,2])
+print(ds_lamb.Ze_tm.values[200:250,3]) # 95GHz for BASTA
