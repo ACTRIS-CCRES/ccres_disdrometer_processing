@@ -8,7 +8,6 @@ import toml
 import xarray as xr
 import numpy as np
 
-
 sys.path.append(str(Path(__file__).parent.parent))
 
 import open_disdro_netcdf as disdro
@@ -49,7 +48,6 @@ def status():
 # path_type=True : va faire des path des objets "pathlib.Path"
 # readable=True, writeable ? doesn't matter
 # dir_ok=False, file_ok = True (I want a file and not a folder)
-
 def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
     """Command line interface for ccres_disdrometer_processing."""
     click.echo("CCRES disdrometer preprocessing : test CLI")
@@ -129,7 +127,6 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
 
     weather_avail = int((not (weather is None)))
     final_data.attrs["weather_data_avail"] = weather_avail
-
     final_data.attrs["axis_ratioMethod"] = axrMethod
     final_data.attrs["fallspeedFormula"] = strMethod
     final_data.attrs["scatteringMethod"] = mieMethod

@@ -159,7 +159,6 @@ def selection(
         ),
         header=True,
     )
-
     return Events
 
 

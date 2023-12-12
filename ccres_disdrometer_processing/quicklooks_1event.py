@@ -15,6 +15,7 @@ import scipy.stats as stats
 from create_input_files_quicklooks import get_data_event
 from matplotlib.gridspec import GridSpec
 from rain_event_selection import selection
+
 from scipy.optimize import curve_fit
 from scipy.stats import cumfreq
 from sklearn.linear_model import LinearRegression
@@ -655,6 +656,7 @@ def quicklooks(
             y += [disdro["speed_classes"][psd_nonzero[1][k]]] * int(
                 drop_density[psd_nonzero[0][k], psd_nonzero[1][k]]
             )
+
         X, Y = np.array(x), np.array(y)
 
         popt, pcov = curve_fit(f_fit, X, Y)
@@ -789,6 +791,7 @@ def quicklooks(
             x=0.5,
         )
         print("### QL4 OK ! ###")
+
         plt.savefig(
             output_path
             + "/{}/{}_quicklook4.png".format(
@@ -805,7 +808,6 @@ def quicklooks(
         return None
 
     return True
-
 
 if __name__ == "__main__":
     events = selection()

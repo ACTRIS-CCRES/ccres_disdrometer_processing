@@ -267,6 +267,7 @@ def read_parsivel_cloudnet_choice(filename: Union[str, Path], computed_frequenci
 
     # data = data.expand_dims("computed_frequencies").assign_coords(new_dim=("computed_frequencies", np.array(computed_frequencies)))
     data = data.assign_coords({"computed_frequencies": np.array(computed_frequencies)})
+
     return data
 
 
@@ -418,7 +419,6 @@ def reflectivity_model(
     mparsivel["re"] = xr.DataArray(0.5 * model.M3 / model.M2, dims=["time"])
 
     return mparsivel
-
 
 
 def reflectivity_model_multilambda(

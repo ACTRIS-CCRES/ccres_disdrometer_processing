@@ -31,7 +31,6 @@ EVENT_THRESHOLDS = [MIN_CUM, CUM_REL_ERROR]
 
 DELTA_DISDRO = dt.timedelta(minutes=MN)
 
-
 def get_valid_paths(
     start: dt.datetime, end: dt.datetime, path: str
 ) -> Optional[List[str]]:
@@ -144,6 +143,7 @@ def data_dcr_event(data_dir, start, end, r_type):
 
     if len(negative_time_diffs) > 0:
         lgr.critical("DCR : time index problem")
+
         return None
     return dcr_event
 
@@ -178,4 +178,5 @@ def get_data_event(
     weather = data_pluvio_event(data_dir, start, end, thresholds, main_wind_dir)
     dcr = data_dcr_event(data_dir, start, end)
     disdro = data_disdro_event(data_dir, start, end)
+
     return weather, dcr, disdro

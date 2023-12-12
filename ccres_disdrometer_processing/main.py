@@ -26,7 +26,6 @@ import xarray as xr
 #     open_weather_netcdf as weather,
 # )
 
-
 DISDRO_TYPES = ["parsivel_cloudnet"]
 AMS_TYPES = ["weather_station_cloudnet"]
 # RADAR_TYPES = ["basta-cloudnet"]
