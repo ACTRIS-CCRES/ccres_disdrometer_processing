@@ -7,23 +7,6 @@ import numpy as np
 import pandas as pd  # save list of events as a csv file
 import xarray as xr  # open CLU weather station data
 
-STATION_NAME = "palaiseau"  # mettre en fichier de config !
-
-DATA_PATH = (
-    "/home/ygrit/Documents/disdro_processing/ccres_disdrometer_processing/"
-    "daily_data/{}/weather-station".format(STATION_NAME)
-)
-# PATH_FILES_weather = DATA_PATH + "/*_{}_weather-station.nc".format(STATION_NAME)
-PATH_FILES_weather = DATA_PATH + "/*.nc"
-print(PATH_FILES_weather)
-DB_PATH = (
-    "/home/ygrit/Documents/disdro_processing/ccres_disdrometer_processing/"
-    "bdd_rain_events/{}".format(STATION_NAME)
-)
-
-# Faire des path, des choix de configuration !
-#  Pour rendre le code le plus générique possible.
-
 CLIC = 0.2  # mm/mn : pluvio sampling. Varies between the different weather stations ?
 RRMAX = 3  # mm/h
 MIN_CUM = 1  # mm/episode
@@ -35,13 +18,15 @@ DELTA_EVENT = 60
 DELTA_LENGTH = 180
 CHUNK_THICKNESS = 15  # mn
 
-FILES_weather = sorted(glob.glob(PATH_FILES_weather))
-print(len(FILES_weather))
 
+def selection(
+    station, ws_data_dir, db_dir, delta_length=DELTA_LENGTH, delta_event=DELTA_EVENT
+):
+    PATH_FILES_weather = ws_data_dir + "/*.nc"
+    FILES_weather = sorted(glob.glob(PATH_FILES_weather))
 
-def selection():
-    if not os.path.exists(DB_PATH):
-        os.makedirs(DB_PATH)
+    if not os.path.exists(db_dir):
+        os.makedirs(db_dir)
 
     weather_ds_full = xr.concat(
         (xr.open_dataset(file) for file in FILES_weather[:]), dim="time"
@@ -63,8 +48,8 @@ def selection():
     start_candidate = t[0]
 
     for i in range(len(t) - 1):
-        if t[i + 1] - t[i] >= np.timedelta64(DELTA_EVENT, "m"):
-            if t[i] - start_candidate >= np.timedelta64(DELTA_LENGTH, "m"):
+        if t[i + 1] - t[i] >= np.timedelta64(delta_event, "m"):
+            if t[i] - start_candidate >= np.timedelta64(delta_length, "m"):
                 start.append(start_candidate.values)
                 end.append(t[i].values)
             start_candidate = t[i + 1]
@@ -168,13 +153,15 @@ def selection():
 
     print(len(Events))
     Events.to_csv(
-        DB_PATH
+        db_dir
         + "/rain_events_{}_length{}_event{}.csv".format(
-            STATION_NAME, DELTA_LENGTH, DELTA_EVENT
+            station, delta_length, delta_event
         ),
         header=True,
     )
+    return Events
 
 
 if __name__ == "__main__":
-    selection()
+    # selection()
+    pass

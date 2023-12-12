@@ -29,6 +29,7 @@ def compute_fallspeed(d, strMethod="GunAndKinzer"):
 
 
 def axis_ratio(D, axrMethod="BeardChuang_PolynomialFit"):
+    # describe the shape of the droplet vs. its diameter
     if axrMethod == "BeardChuang_PolynomialFit":
         AR = 1.0 / (
             1.0048
