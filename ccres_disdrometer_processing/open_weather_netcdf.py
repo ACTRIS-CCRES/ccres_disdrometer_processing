@@ -17,7 +17,7 @@ def read_weather_cloudnet(filename):
     )
     time_index_offset = time_index - pd.Timedelta(30, "sec")
 
-    vars = [
+    vars = [#"longitude", "latitude", "altitude",
         "wind_speed",
         "wind_direction",
         "air_temperature",
@@ -31,6 +31,11 @@ def read_weather_cloudnet(filename):
         .groupby_bins("time", time_index_offset, labels=time_index[:-1])
         .first()
     )
+    print(data_nc_resampled)
+    # data_nc_resampled = (
+    #     data_nc[vars]
+    #     .groupby_bins("time", time_index_offset, labels=time_index[:-1]))
+    # print(data_nc_resampled.dims)
 
     data = xr.Dataset(coords=dict(time=(["time"], data_nc_resampled.time_bins.data)))
 
@@ -45,27 +50,30 @@ def read_weather_cloudnet(filename):
             dims=["time"],
             attrs=data_nc["wind_direction"].attrs,
         )
-        data["temp"] = xr.DataArray(
+        data["ta"] = xr.DataArray(
             data_nc_resampled["air_temperature"].values,
             dims=["time"],
             attrs=data_nc["air_temperature"].attrs,
         )
-        data["rh"] = xr.DataArray(
-            data_nc_resampled["relative_humidity"].values,
+        data["ta"].attrs["units"] = "Celsius"
+        data["hur"] = xr.DataArray(
+            data_nc_resampled["relative_humidity"].values * 100,
             dims=["time"],
             attrs=data_nc["relative_humidity"].attrs,
         )
-        data["pres"] = xr.DataArray(
-            data_nc_resampled["air_pressure"].values,
+        data["hur"].attrs["units"] = "%"
+        data["ps"] = xr.DataArray(
+            data_nc_resampled["air_pressure"].values / 100,
             dims=["time"],
             attrs=data_nc["air_pressure"].attrs,
         )
-        data["rain"] = xr.DataArray(
-            data_nc_resampled["rainfall_rate"].values * 60 * 1000,
+        data["ps"].attrs["units"] = "hPa"
+        data["pr"] = xr.DataArray(
+            data_nc_resampled["rainfall_rate"].values * 60 * 60 * 1000, # * 3600 to convert m/s to m/hr
             dims=["time"],
             attrs={
-                "units": "mm/mn",
-                "long_name": "Rainfall rate",
+                "units": "mm/hr",
+                "long_name": "Met station precipitation rate at 1m agl",
                 "standard_name": "rainfall_rate",
             },
         )
@@ -99,5 +107,9 @@ def read_weather_cloudnet(filename):
 
     data.attrs["weather_source"] = data_nc_resampled.attrs["source"]
     data.attrs["weather-station_pid"] = data_nc_resampled.attrs["instrument_pid"]
+
+    data["ams_longitude"] = data_nc["longitude"]
+    data["ams_latitude"] = data_nc["latitude"]
+    data["ams_altitude"] = data_nc["altitude"]
 
     return data

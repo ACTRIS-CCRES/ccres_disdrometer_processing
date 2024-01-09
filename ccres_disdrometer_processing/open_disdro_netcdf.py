@@ -90,7 +90,7 @@ def read_parsivel_cloudnet(
     )
     if data_nc.disdrometer_source == "OTT HydroMet Parsivel2":
         data["F"] = F[data_nc.disdrometer_source]
-        data["pr"] = xr.DataArray(
+        data["dd_pr"] = xr.DataArray(
             data_nc["rainfall_rate"].values * 1000 * 3600,
             dims=["time"],
             attrs={"units": "mm/h"},
@@ -148,7 +148,7 @@ def read_parsivel_cloudnet_bis(
 
     if data_nc.disdrometer_source == "OTT HydroMet Parsivel2":
         data["F"] = F[data_nc.disdrometer_source]
-        data["pr"] = xr.DataArray(
+        data["dd_pr"] = xr.DataArray(
             data_nc["rainfall_rate"].values * 1000 * 3600,
             dims=["time"],
             attrs={"units": "mm/h"},
@@ -207,7 +207,7 @@ def read_thies_cloudnet(
     )
 
     data["F"] = F[data_nc.disdrometer_source]
-    data["pr"] = xr.DataArray(
+    data["dd_pr"] = xr.DataArray(
         data_nc["rainfall_rate"].values * 1000 * 3600,
         dims=["time"],
         attrs={"units": "mm/h"},
@@ -515,7 +515,7 @@ def reflectivity_model_multilambda(
         ## Here begins the multilambda specific part 
         for k, scatt in enumerate(scatt_list):
             if mieMethod == "pymiecoated":
-                model.Ze_mie_lambda[ii,k] = (
+                model.Ze_mie[ii,k] = (
                     1e18
                     # because we want mm6 instead of m6 ; when pytmatrix,
                     # input is in mm so we don't have to apply this scale factor
@@ -581,6 +581,195 @@ def reflectivity_model_multilambda(
 
 
 
+def reflectivity_model_multilambda_measmodV_hvfov(
+    mparsivel,
+    scatt_list,
+    n,
+    freq_list,
+    strMethod="GunAndKinzer",
+    mieMethod="pymiecoated",
+    normMethod="model",
+):
+    # scatt_list : list of scattering_prop() objects : [(lambda1, vert), (lambda2, vert), ...(lambda1, hori), ...] -> 4 lambdas = 8 scatt objects
+
+    # integration time 
+    t = mparsivel.time_resolution.values  # s
+    # wavelength
+    lambda_m = cst.c / freq_list
+    F = mparsivel.F.data
+
+    fov = 2
+    meas_modV = 2
+    fr = len(mparsivel.computed_frequencies)
+    
+    model = DATA()
+
+    model.RR = np.zeros([len(mparsivel.time)])
+    model.VD = np.zeros([len(mparsivel.time), len(mparsivel.size_classes)])
+    model.M2 = np.zeros([len(mparsivel.time), meas_modV])
+    model.M3 = np.zeros([len(mparsivel.time), meas_modV])
+    model.M4 = np.zeros([len(mparsivel.time), meas_modV])
+    model.Ze_ray = np.zeros([len(mparsivel.time), meas_modV])
+
+    model.Ze_mie = np.zeros([len(mparsivel.time), len(mparsivel.computed_frequencies), fov, meas_modV])
+    model.Ze_tm = np.zeros([len(mparsivel.time), len(mparsivel.computed_frequencies), fov, meas_modV])
+    model.attenuation = np.zeros([len(mparsivel.time), len(mparsivel.computed_frequencies), fov, meas_modV])
+    model.V_tm = np.zeros([len(mparsivel.time), len(mparsivel.computed_frequencies), fov, meas_modV])
+    model.V_mie = np.zeros([len(mparsivel.time), len(mparsivel.computed_frequencies), fov, meas_modV])
+    model.dsd = np.zeros([len(mparsivel.time), len(mparsivel.size_classes)])
+
+    model.diameter_bin_width_mm = mparsivel.size_classes_width.values
+
+    # parameterisation for the velocity (Gun and Kinzer)
+    VDmodel = compute_fallspeed(mparsivel.size_classes.values, strMethod=strMethod)
+
+    for ii in range(len(mparsivel.time)):
+        Ni = np.nansum(
+            mparsivel.psd.values[ii, :, :], 1
+        )  # sum over speed axis -> number of drops per time and size # replace axis=1 by 0 if not transposed in parsivel
+
+        model.RR[ii] = (
+            (np.pi / 6.0)
+            * (1.0 / (F * t))
+            * np.nansum(Ni * (mparsivel.size_classes.values**3))
+            * (3.6 * 1e-3)  # get mm/h from m/s : k = 1e-9 * 3.6 * 1e6
+        )
+        # we need to derive V(D)
+        for i in range(len(mparsivel.size_classes)):
+            model.VD[ii, i] = np.nansum(
+                mparsivel.psd.values[ii, i, :] * mparsivel.speed_classes.values
+            ) / np.nansum(mparsivel.psd.values[ii, i, :])
+
+
+        VDD = np.vstack((model.VD[ii, :], VDmodel)).T # 1st col : VD measured, 2nd col : VD from model law
+
+        model.M2[ii,:] = (
+            (np.nansum(Ni * ((mparsivel.size_classes.values * 1.0e-3) ** 2) / VDD))
+            / F
+            / t
+        )
+        model.M3[ii,:] = (
+            (np.nansum(Ni * ((mparsivel.size_classes.values * 1.0e-3) ** 3) / VDD))
+            / F
+            / t
+        )
+        model.M4[ii,:] = (
+            (np.nansum(Ni * ((mparsivel.size_classes.values * 1.0e-3) ** 4) / VDD))
+            / F
+            / t
+        )
+        model.Ze_ray[ii,:] = (
+            (np.nansum(Ni * (mparsivel.size_classes.values**6) / VDD)) / F / t
+        )
+
+        # with velocity from parsivel
+        model.dsd[ii, :] = (
+            Ni / model.VD[ii, :] / F / t / (model.diameter_bin_width_mm * 1.0e-3)
+        )  # particles/m3 #normalised per diameter bin width
+
+
+        ## Here begins the multilambda specific part 
+        for k, scatt in enumerate(scatt_list):
+            if mieMethod == "pymiecoated":
+                model.Ze_mie_lambda[ii,k%fr,k//fr,:] = (
+                    1e18
+                    # because we want mm6 instead of m6 ; when pytmatrix,
+                    # input is in mm so we don't have to apply this scale factor
+                    * np.nansum(Ni[0:n] * scatt.bscat_mie / VDD[0:n,:])
+                    * (lambda_m[k%fr]**4 / (np.pi) ** 5.0)
+                    / 0.93  # squared water dielectric constant
+                    / F
+                    / t
+                )  # mm6/m3
+            elif mieMethod == "pytmatrix":
+                model.Ze_mie_lambda[ii,k%fr,k//fr,:] = (
+                    np.nansum(Ni[0:n] * scatt.bscat_mie / VDD[0:n,:]) / F / t
+                )  # mm6/m3
+
+            model.Ze_tm[ii,k%fr,k//fr,:] = (
+                np.nansum(Ni[0:n] * scatt.bscat_tmatrix / VDD[0:n,:]) / F / t
+            )  # mm6/m3
+
+            model.attenuation[ii,k%fr,k//fr,:] = (
+                np.nansum(Ni[0:n] * scatt.att_tmatrix / VDD[0:n,:]) / F / t
+            )  # dB/km
+            model.V_mie[ii,k%fr,k//fr,:] = np.nansum(Ni[0:n] * scatt.bscat_mie) / np.nansum(
+                Ni[0:n] * scatt.bscat_tmatrix / VDD[0:n,:]
+            )  # m/s
+            model.V_tm[ii,k%fr,k//fr,:] = np.nansum(Ni[0:n] * scatt.bscat_tmatrix) / np.nansum(
+                Ni[0:n] * scatt.bscat_tmatrix / VDD[0:n,:]
+            )  # m/s
+
+
+    DensityLiquidWater = 1000.0e3  # g/m3
+
+    # store results in parsivel object
+    mparsivel["dsd"] = xr.DataArray(model.dsd, dims=["time", "size_classes"])
+    mparsivel["RR"] = xr.DataArray(model.RR, dims=["time"])
+    mparsivel["VDmeas"] = xr.DataArray(model.VD, dims=["time", "size_classes"])
+    mparsivel["VDmodel"] = xr.DataArray(VDmodel, dims=["size_classes"])
+
+    mparsivel["Zdlin_hfov_measv_mie"] = xr.DataArray(model.Ze_mie[:,:,1,0], dims=["time", "computed_frequencies"], attrs = {"units": "mm^6.m^-3", "long_name":""})
+    mparsivel["Zdlog_hfov_measv_mie"] = xr.DataArray(10 * np.log10(model.Ze_mie[:,:,1,0]), dims=["time", "computed_frequencies"], attrs = {"units": "dBZ", "long_name":""})
+    mparsivel["Zdlin_hfov_modv_mie"] = xr.DataArray(model.Ze_mie[:,:,1,1], dims=["time", "computed_frequencies"], attrs = {"units": "mm^6.m^-3", "long_name":""})
+    mparsivel["Zdlog_hfov_modv_mie"] = xr.DataArray(10 * np.log10(model.Ze_mie[:,:,1,1]), dims=["time", "computed_frequencies"], attrs = {"units": "dBZ", "long_name":""})
+    mparsivel["Zdlin_vfov_measv_mie"] = xr.DataArray(model.Ze_mie[:,:,0,0], dims=["time", "computed_frequencies"], attrs = {"units": "mm^6.m^-3", "long_name":""})
+    mparsivel["Zdlog_vfov_measv_mie"] = xr.DataArray(10 * np.log10(model.Ze_mie[:,:,0,0]), dims=["time", "computed_frequencies"], attrs = {"units": "dBZ", "long_name":""})
+    mparsivel["Zdlin_vfov_modv_mie"] = xr.DataArray(model.Ze_mie[:,:,0,1], dims=["time", "computed_frequencies"], attrs = {"units": "mm^6.m^-3", "long_name":""})
+    mparsivel["Zdlog_vfov_modv_mie"] = xr.DataArray(10 * np.log10(model.Ze_mie[:,:,0,1]), dims=["time", "computed_frequencies"], attrs = {"units": "dBZ", "long_name":""})
+
+    mparsivel["Zdlin_hfov_measv_tm"] = xr.DataArray(model.Ze_tm[:,:,1,0], dims=["time", "computed_frequencies"], attrs = {"units": "mm^6.m^-3", "long_name":""})
+    mparsivel["Zdlog_hfov_measv_tm"] = xr.DataArray(10 * np.log10(model.Ze_tm[:,:,1,0]), dims=["time", "computed_frequencies"], attrs = {"units": "dBZ", "long_name":""})
+    mparsivel["Zdlin_hfov_modv_tm"] = xr.DataArray(model.Ze_tm[:,:,1,1], dims=["time", "computed_frequencies"], attrs = {"units": "mm^6.m^-3", "long_name":""})
+    mparsivel["Zdlog_hfov_modv_tm"] = xr.DataArray(10 * np.log10(model.Ze_tm[:,:,1,1]), dims=["time", "computed_frequencies"], attrs = {"units": "dBZ", "long_name":""})
+    mparsivel["Zdlin_vfov_measv_tm"] = xr.DataArray(model.Ze_tm[:,:,0,0], dims=["time", "computed_frequencies"], attrs = {"units": "mm^6.m^-3", "long_name":""})
+    mparsivel["Zdlog_vfov_measv_tm"] = xr.DataArray(10 * np.log10(model.Ze_tm[:,:,0,0]), dims=["time", "computed_frequencies"], attrs = {"units": "dBZ", "long_name":""})
+    mparsivel["Zdlin_vfov_modv_tm"] = xr.DataArray(model.Ze_tm[:,:,0,1], dims=["time", "computed_frequencies"], attrs = {"units": "mm^6.m^-3", "long_name":""})
+    mparsivel["Zdlog_vfov_modv_tm"] = xr.DataArray(10 * np.log10(model.Ze_tm[:,:,0,1]), dims=["time", "computed_frequencies"], attrs = {"units": "dBZ", "long_name":""})
+
+    mparsivel["Zdlin_measv_ray"] = xr.DataArray(model.Ze_ray[:,0], dims=["time"])
+    mparsivel["Zdlog_measv_ray"] = xr.DataArray(10 * np.log10(model.Ze_ray[:,0]), dims=["time"])
+    mparsivel["Zdlin_modv_ray"] = xr.DataArray(model.Ze_ray[:,1], dims=["time"])
+    mparsivel["Zdlog_modv_ray"] = xr.DataArray(10 * np.log10(model.Ze_ray[:,1]), dims=["time"])
+
+    mparsivel["attd_hfov_measv"] = xr.DataArray(model.attenuation[:,:,1,0], dims=["time", "computed_frequencies"], attrs = {"units": "", "long_name": ""})
+    mparsivel["attd_hfov_modv"] = xr.DataArray(model.attenuation[:,:,1,1], dims=["time", "computed_frequencies"], attrs = {"units": "", "long_name": ""})
+    mparsivel["attd_vfov_measv"] = xr.DataArray(model.attenuation[:,:,0,0], dims=["time", "computed_frequencies"], attrs = {"units": "", "long_name": ""})
+    mparsivel["attd_vfov_modv"] = xr.DataArray(model.attenuation[:,:,0,1], dims=["time", "computed_frequencies"], attrs = {"units": "", "long_name": ""})
+
+    mparsivel["DVd_hfov_measv_mie"] = xr.DataArray(model.V_mie[:,:,1,0], dims=["time", "computed_frequencies"], attrs = {"units": "m.s^-1", "long_name": ""})
+    mparsivel["DVd_hfov_modv_mie"] = xr.DataArray(model.V_mie[:,:,1,1], dims=["time", "computed_frequencies"], attrs = {"units": "m.s^-1", "long_name": ""})
+    mparsivel["DVd_vfov_measv_mie"] = xr.DataArray(model.V_mie[:,:,0,0], dims=["time", "computed_frequencies"], attrs = {"units": "m.s^-1", "long_name": ""})
+    mparsivel["DVd_vfov_modv_mie"] = xr.DataArray(model.V_mie[:,:,0,1], dims=["time", "computed_frequencies"], attrs = {"units": "m.s^-1", "long_name": ""})
+
+    mparsivel["DVd_hfov_measv_tm"] = xr.DataArray(model.V_tm[:,:,1,0], dims=["time", "computed_frequencies"], attrs = {"units": "m.s^-1", "long_name": ""})
+    mparsivel["DVd_hfov_modv_tm"] = xr.DataArray(model.V_tm[:,:,1,1], dims=["time", "computed_frequencies"], attrs = {"units": "m.s^-1", "long_name": ""})
+    mparsivel["DVd_vfov_measv_tm"] = xr.DataArray(model.V_tm[:,:,0,0], dims=["time", "computed_frequencies"], attrs = {"units": "m.s^-1", "long_name": ""})
+    mparsivel["DVd_vfov_modv_tm"] = xr.DataArray(model.V_tm[:,:,0,1], dims=["time", "computed_frequencies"], attrs = {"units": "m.s^-1", "long_name": ""})
+
+    mparsivel["m2_measv"] = xr.DataArray(model.M2[:,0], dims=["time"])
+    mparsivel["m2_modv"] = xr.DataArray(model.M2[:,1], dims=["time"])
+    mparsivel["m3_measv"] = xr.DataArray(model.M3[:,0], dims=["time"])
+    mparsivel["m3_modv"] = xr.DataArray(model.M3[:,1], dims=["time"])
+    mparsivel["m4_measv"] = xr.DataArray(model.M4[:,0], dims=["time"])
+    mparsivel["m4_modv"] = xr.DataArray(model.M4[:,1], dims=["time"])
+
+    # additional parameters
+
+    mparsivel["dm_measv"] = xr.DataArray(model.M4[:,0]/model.M3[:,0], dims=["time"])
+    mparsivel["dm_modv"] = xr.DataArray(model.M4[:,1]/model.M3[:,1], dims=["time"])
+    mparsivel["re_measv"] = xr.DataArray(0.5 * model.M3[:,0]/model.M2[:,0], dims=["time"])
+    mparsivel["re_modv"] = xr.DataArray(0.5 * model.M3[:,1]/model.M2[:,1], dims=["time"])
+    mparsivel["lwc_measv"] = xr.DataArray(DensityLiquidWater * (1.0 / 6.0) * np.pi * model.M3[:,0], dims=["time"])
+    mparsivel["lwc_modv"] = xr.DataArray(DensityLiquidWater * (1.0 / 6.0) * np.pi * model.M3[:,1], dims=["time"])
+    mparsivel["n0_measv"] = xr.DataArray((4.0**4 / (np.pi * DensityLiquidWater)) * mparsivel.lwc_measv.values / (mparsivel.dm_measv.values) ** 4, dims=["time"],)
+    mparsivel["n0_modv"] = xr.DataArray((4.0**4 / (np.pi * DensityLiquidWater)) * mparsivel.lwc_modv.values / (mparsivel.dm_modv.values) ** 4, dims=["time"],)
+
+    return mparsivel
+
+
+
+
 
 
 
@@ -591,3 +780,70 @@ def reflectivity_model_multilambda(
     mparsivel["attenuation_lambda"] = xr.DataArray(model.attenuation_lambda, dims=["time", "computed_frequencies"])
     mparsivel["V_tm_lambda"] = xr.DataArray(model.V_tm_lambda, dims=["time", "computed_frequencies"])
     mparsivel["V_mie_lambda"] = xr.DataArray(model.V_mie_lambda, dims=["time", "computed_frequencies"])
+
+    return 
+
+
+
+
+
+
+
+
+def assign(mparsivel):
+    model = DATA()
+    mparsivel["Zdlin_hfov_measv_tm"] = xr.DataArray(model.Ze_mie_lambda, dims=["time", "computed_frequencies"], attrs = {"units": "mm^6.m^-3", "long_name":"a"})
+    mparsivel["Zdlog_hfov_measv_tm"] = xr.DataArray(10 * np.log10(model.Ze_mie_lambda), dims=["time", "computed_frequencies"], attrs = {"units": "dBZ", "long_name":"a"})
+    mparsivel["Zdlin_vfov_measv_tm"]
+    mparsivel["Zdlog_vfov_measv_tm"]
+    mparsivel["Zdlin_vfov_modv_tm"]
+    mparsivel["Zdlog_vfov_modv_tm"]
+    mparsivel["Zdlin_hfov_modv_tm"]
+    mparsivel["Zdlog_hfov_modv_tm"]
+
+    mparsivel["Zdlog_hfov_measv_mie"]
+    mparsivel["Zdlin_hfov_measv_mie"]
+    mparsivel["Zdlog_vfov_measv_mie"]
+    mparsivel["Zdlin_vfov_measv_mie"]
+    mparsivel["Zdlog_vfov_modv_mie"]
+    mparsivel["Zdlin_vfov_modv_mie"]
+    mparsivel["Zdlog_hfov_modv_mie"]
+    mparsivel["Zdlin_hfov_modv_mie"]
+
+    mparsivel["Zdlog_measv_ray"]
+    mparsivel["Zdlin_measv_ray"]
+    mparsivel["Zdlog_modv_ray"]
+    mparsivel["Zdlin_modv_ray"]
+
+    mparsivel["attd_hfov_measv"]
+    mparsivel["attd_vfov_measv"]
+    mparsivel["attd_vfov_modv"]
+    mparsivel["attd_hfov_modv"]
+
+    mparsivel["DVd_hfov_measv_tm"]
+    mparsivel["DVd_vfov_measv_tm"]
+    mparsivel["DVd_vfov_modv_tm"]
+    mparsivel["DVd_hfov_modv_tm"]
+
+    mparsivel["DVd_hfov_measv_mie"]
+    mparsivel["DVd_vfov_measv_mie"]
+    mparsivel["DVd_vfov_modv_mie"]
+    mparsivel["DVd_hfov_modv_mie"]
+
+    mparsivel["m2_measv"] = xr.DataArray(model.M2[:,0], dims=["time"]) # 0 : measured V
+    mparsivel["m2_modv"] = xr.DataArray(model.M2[:,1], dims=["time"]) # 1 : modeled V
+    mparsivel["m3_measv"] = xr.DataArray(model.M3[:,0], dims=["time"])
+    mparsivel["m3_modv"] = xr.DataArray(model.M3[:,1], dims=["time"])
+    mparsivel["m4_measv"] = xr.DataArray(model.M4[:,0], dims=["time"])
+    mparsivel["m4_modv"] = xr.DataArray(model.M4[:,1], dims=["time"])
+
+    mparsivel["dm_measv"] = xr.DataArray(model.M4[:,0]/model.M3[:,0], dims=["time"])
+    mparsivel["dm_modv"] = xr.DataArray(model.M4[:,1]/model.M3[:,1], dims=["time"])
+    mparsivel["re_measv"] = xr.DataArray(0.5 * model.M3[:,0]/model.M2[:,0], dims=["time"])
+    mparsivel["re_modv"] = xr.DataArray(0.5 * model.M3[:,1]/model.M2[:,1], dims=["time"])
+    mparsivel["lwc_measv"] = xr.DataArray(model.M2[:,0], dims=["time"])
+    mparsivel["lwc_modv"] = xr.DataArray(model.M2[:,1], dims=["time"])
+    mparsivel["n0_measv"] = xr.DataArray(model.M2[:,0], dims=["time"])
+    mparsivel["n0_modv"] = xr.DataArray(model.M2[:,1], dims=["time"])
+
+    return mparsivel

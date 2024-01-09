@@ -135,5 +135,6 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
     final_data.attrs["multilambda"] = int(multilambda)
 
     final_data.to_netcdf(output_file)
+    print("OK")
 
     sys.exit(0) # Returns 0 if the code ran well
