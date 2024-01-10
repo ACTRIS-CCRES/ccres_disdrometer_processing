@@ -17,6 +17,9 @@ import scattering as scattering
 from constants import E
 from logger import LogLevels, init_logger
 
+import logging
+lgr = logging.getLogger(__name__)
+
 DISDRO_TYPES = ["OTT HydroMet Parsivel2"]
 WS_TYPES = ["Generic weather-station"]
 RADAR_TYPES = ["BASTA", "METEK MIRA-35"]
@@ -42,12 +45,7 @@ def status():
 @click.option("--radar-file", type=click.Path(exists=True, file_okay=True, dir_okay=False, path_type=Path, resolve_path=True, readable=True), required=True)
 @click.option("--config-file", type=click.Path(exists=True, file_okay=True, dir_okay=False, path_type=Path, resolve_path=True, readable=True), required=True)
 @click.argument("output-file", type=click.Path(file_okay=True, dir_okay=False, path_type=Path, resolve_path=True))
-# Add access controls so that click prépares the work ;
-# give default value for WS file which is not mandatory
-# resolve_path=True (chemin absolu) ; 
-# path_type=True : va faire des path des objets "pathlib.Path"
-# readable=True, writeable ? doesn't matter
-# dir_ok=False, file_ok = True (I want a file and not a folder)
+
 def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
     """Command line interface for ccres_disdrometer_processing."""
     click.echo("CCRES disdrometer preprocessing : test CLI")
@@ -65,7 +63,7 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
     # read doppler radar data
     # ---------------------------------------------------------------------------------
     radar_xr = radar.read_radar_cloudnet(radar_file)
-    radar_frequency = radar_xr.frequency  # value is given in Hz in radar_xr file
+    radar_frequency = radar_xr.radar_frequency  # value is given in Hz in radar_xr file
 
     # read and preprocess disdrometer data
     # ---------------------------------------------------------------------------------
@@ -135,6 +133,6 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
     final_data.attrs["multilambda"] = int(multilambda)
 
     final_data.to_netcdf(output_file)
-    print("OK")
+    lgr.info("Preprocessing : SUCCESS")
 
     sys.exit(0) # Returns 0 if the code ran well

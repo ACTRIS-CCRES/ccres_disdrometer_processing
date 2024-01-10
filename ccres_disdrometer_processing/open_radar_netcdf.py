@@ -1,7 +1,8 @@
 import pandas as pd
 import xarray as xr
+from scipy import constants
 
-LIST_VARIABLES = ["Zh", "v", "radar_frequency"]
+LIST_VARIABLES = ["Zh", "v", "radar_frequency", "latitude", "longitude", "altitude"]
 RANGE_BOUNDS = [0, 2500]
 
 
@@ -24,9 +25,21 @@ def read_radar_cloudnet(filename):  # daily radar file from cloudnet
             time=(["time"], time_index[:-1]), range=(["range"], data_nc.range.data)
         )
     )
-    radar_ds["frequency"] = (
+
+    radar_ds["radar_longitude"] = xr.DataArray(data_nc.longitude.values, attrs = data_nc.longitude.attrs)
+    radar_ds["radar_latitude"] = xr.DataArray(data_nc.latitude.values, attrs = data_nc.latitude.attrs)
+    radar_ds["radar_altitude"] = xr.DataArray(data_nc.altitude.values, attrs = data_nc.altitude.attrs)
+
+    radar_ds["radar_model"] = data_nc.attrs["source"]
+
+    radar_ds["radar_frequency"] = (
         data_nc.radar_frequency * 10**9
     )  # in GHz, so * 10**9 to get Hz
+    radar_ds["radar_frequency"].attrs["units"] = "Hz"
+
+    radar_ds["radar_wavelength"] = constants.c / radar_ds["radar_frequency"]
+    radar_ds["radar_wavelength"].attrs["units"] = "m"
+
 
     time_index_offset = time_index - pd.Timedelta(30, "sec")
 

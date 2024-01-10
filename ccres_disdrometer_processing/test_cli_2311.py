@@ -13,11 +13,9 @@ radar_file = f"{TEST_INPUT}/20210202_palaiseau_basta.nc"
 config_file = f"{TEST_INPUT}/CONFIG_test.toml"
 output_file = f"{TEST_OUT_DIR}/20210202_palaiseau_preprocessed_v1612.nc"
 
-# print(MAIN_DIR)
-# print(TEST_DIR)
 
 do = True
-open = False
+open = True
 
 if do :
     os.system("ccres_disdrometer_processing preprocess --disdro-file {} --ws-file {} --radar-file {} --config-file {} {}".format(disdro_file, ws_file, radar_file, config_file, output_file))
@@ -28,10 +26,12 @@ if do :
 if open : 
     ds = xr.open_dataset(output_file)
     # print(ds.attrs)
-    # print(ds.coords)
-    # print(list(ds.keys()))
-    # print(ds.wd.dims)
-    print(ds.Ze_tm.dims)
+    print(list(ds.keys()))
+    
+    radar = xr.open_dataset(radar_file)
+    print(list(radar.keys()))
+    print(radar.attrs)
+    print(radar.latitude.attrs)
 
 
 # ds_lamb = xr.open_dataset(f"{TEST_OUT_DIR}/20210202_palaiseau_preprocessed_v1612.nc")

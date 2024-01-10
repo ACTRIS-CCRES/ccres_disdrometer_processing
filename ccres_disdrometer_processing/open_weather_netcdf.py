@@ -17,8 +17,7 @@ def read_weather_cloudnet(filename):
     )
     time_index_offset = time_index - pd.Timedelta(30, "sec")
 
-    vars = [#"longitude", "latitude", "altitude",
-        "wind_speed",
+    vars_timedep = ["wind_speed",
         "wind_direction",
         "air_temperature",
         "relative_humidity",
@@ -26,16 +25,14 @@ def read_weather_cloudnet(filename):
         "rainfall_rate",
         "rainfall_amount",
     ]
+
+    # vars_notimedep = ["longitude", "latitude", "altitude"]
+
     data_nc_resampled = (
-        data_nc[vars]
+        data_nc[vars_timedep]
         .groupby_bins("time", time_index_offset, labels=time_index[:-1])
         .first()
     )
-    print(data_nc_resampled)
-    # data_nc_resampled = (
-    #     data_nc[vars]
-    #     .groupby_bins("time", time_index_offset, labels=time_index[:-1]))
-    # print(data_nc_resampled.dims)
 
     data = xr.Dataset(coords=dict(time=(["time"], data_nc_resampled.time_bins.data)))
 
