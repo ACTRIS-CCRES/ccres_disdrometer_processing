@@ -53,12 +53,14 @@ def read_weather_cloudnet(filename):
             attrs=data_nc["air_temperature"].attrs,
         )
         data["ta"].attrs["units"] = "Celsius"
+        data["ta"].attrs["Comment"] = "Inside no ventilated shelter"
         data["hur"] = xr.DataArray(
             data_nc_resampled["relative_humidity"].values * 100,
             dims=["time"],
             attrs=data_nc["relative_humidity"].attrs,
         )
         data["hur"].attrs["units"] = "%"
+        data["hur"].attrs["Comment"] = "Inside no ventilated shelter"
         data["ps"] = xr.DataArray(
             data_nc_resampled["air_pressure"].values / 100,
             dims=["time"],
@@ -72,6 +74,7 @@ def read_weather_cloudnet(filename):
                 "units": "mm/hr",
                 "long_name": "Met station precipitation rate at 1m agl",
                 "standard_name": "rainfall_rate",
+                "Comment":"The abbreviation 'lwe' means liquid water equivalent. 'Precipitation rate' means the depth or thickness of the layer formed by precipitation per unit time."
             },
         )
         data["rain_sum"] = xr.DataArray(
@@ -106,6 +109,7 @@ def read_weather_cloudnet(filename):
     data.attrs["weather-station_pid"] = data_nc_resampled.attrs["instrument_pid"]
 
     data["ams_longitude"] = data_nc["longitude"]
+    data["ams_longitude"].attrs["Comment"] = "AMS = Atmospheric Meteorological Station"
     data["ams_latitude"] = data_nc["latitude"]
     data["ams_altitude"] = data_nc["altitude"]
 

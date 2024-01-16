@@ -1,6 +1,7 @@
 import os 
 from pathlib import Path
 import xarray as xr
+import matplotlib.pyplot as plt
 
 MAIN_DIR = Path(__file__).parent.parent
 TEST_DIR = MAIN_DIR / "tests"
@@ -11,11 +12,15 @@ disdro_file = f"{TEST_INPUT}/20210202_palaiseau_parsivel.nc"
 ws_file = f"{TEST_INPUT}/20210202_palaiseau_weather-station.nc"
 radar_file = f"{TEST_INPUT}/20210202_palaiseau_basta.nc"
 config_file = f"{TEST_INPUT}/CONFIG_test.toml"
-output_file = f"{TEST_OUT_DIR}/20210202_palaiseau_preprocessed_v1612.nc"
+output_file = f"{TEST_OUT_DIR}/20210202_palaiseau_preprocessed_v1101.nc"
+print(config_file)
 
 
-do = True
-open = True
+do = 0
+open = False
+rad = 1
+dd = False
+compare_versions = 0
 
 if do :
     os.system("ccres_disdrometer_processing preprocess --disdro-file {} --ws-file {} --radar-file {} --config-file {} {}".format(disdro_file, ws_file, radar_file, config_file, output_file))
@@ -26,13 +31,38 @@ if do :
 if open : 
     ds = xr.open_dataset(output_file)
     # print(ds.attrs)
+    print(ds.dims)
     print(list(ds.keys()))
-    
+    print(ds.Ze_mie, ds.computed_frequencies.values)
+    print(ds.disdro_latitude.values)
+
+if rad : 
     radar = xr.open_dataset(radar_file)
     print(list(radar.keys()))
     print(radar.attrs)
     print(radar.latitude.attrs)
 
+if dd :
+    dd = xr.open_dataset(disdro_file)
+    print(dd.latitude.values)
+
+if compare_versions :
+    ds = xr.open_dataset(f"{TEST_OUT_DIR}/20210202_palaiseau_preprocessed_v1612.nc")
+    ds_fov = xr.open_dataset(f"{TEST_OUT_DIR}/20210202_palaiseau_preprocessed_v1101.nc")
+    ds_old = xr.open_dataset(f"{TEST_OUT_DIR}/20210202_palaiseau_preprocessed_monolambda.nc")
+    plt.figure()
+    # plt.plot(ds.time[100:300], ds.Ze_tm.values[100:300,-1], label='old file multilambda', lw=3)
+    # plt.plot(ds.time[100:300], ds.Ze_tm.values[100:300,-1], label='old file multilambda', lw=3)
+    plt.plot(ds_fov.time[100:300], ds_fov.attd_vfov_modv[100:300,-1], label='new file multilambda')
+    plt.plot(ds.time[100:300], ds.attenuation.values[100:300,-1], label='first file multilambda')
+    #plt.plot(ds_old.time[100:300], ds_old.M2.values[100:300], label="old monolambda ds")
+    plt.legend()
+    plt.show(block=True)
+    print(ds.Ze_tm.dims, ds.computed_frequencies.values)
+    print(ds_fov.Zdlin_vfov_modv_tm.dims, ds_fov.computed_frequencies.values)
+
+    print(ds.Ze_tm.values[150,:])
+    print(ds_fov.Zdlin_vfov_modv_tm.values[150,:])
 
 # ds_lamb = xr.open_dataset(f"{TEST_OUT_DIR}/20210202_palaiseau_preprocessed_v1612.nc")
 # ds = xr.open_dataset(f"{TEST_OUT_DIR}/20210202_palaiseau_preprocessed_v0812.nc")
