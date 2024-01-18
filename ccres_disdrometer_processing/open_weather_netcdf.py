@@ -67,7 +67,7 @@ def read_weather_cloudnet(filename):
             attrs=data_nc["air_pressure"].attrs,
         )
         data["ps"].attrs["units"] = "hPa"
-        data["pr"] = xr.DataArray(
+        data["ams_pr"] = xr.DataArray(
             data_nc_resampled["rainfall_rate"].values * 60 * 60 * 1000, # * 3600 to convert m/s to m/hr
             dims=["time"],
             attrs={
@@ -77,7 +77,7 @@ def read_weather_cloudnet(filename):
                 "Comment":"The abbreviation 'lwe' means liquid water equivalent. 'Precipitation rate' means the depth or thickness of the layer formed by precipitation per unit time."
             },
         )
-        data["rain_sum"] = xr.DataArray(
+        data["ams_cp"] = xr.DataArray(
             data_nc_resampled["rainfall_amount"].values * 1000,
             dims=["time"],
             attrs={

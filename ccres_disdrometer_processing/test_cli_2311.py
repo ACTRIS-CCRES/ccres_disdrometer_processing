@@ -16,10 +16,11 @@ output_file = f"{TEST_OUT_DIR}/20210202_palaiseau_preprocessed_v1101.nc"
 print(config_file)
 
 
-do = 0
-open = False
+do = 1
+open = 1
 rad = 1
-dd = False
+dd = 0
+weather = 0
 compare_versions = 0
 
 if do :
@@ -32,9 +33,10 @@ if open :
     ds = xr.open_dataset(output_file)
     # print(ds.attrs)
     print(ds.dims)
+    print(ds.attrs)
     print(list(ds.keys()))
-    print(ds.Ze_mie, ds.computed_frequencies.values)
-    print(ds.disdro_latitude.values)
+    # print(ds.computed_frequencies.values)
+    # print(ds.disdro_latitude.values)
 
 if rad : 
     radar = xr.open_dataset(radar_file)
@@ -44,7 +46,14 @@ if rad :
 
 if dd :
     dd = xr.open_dataset(disdro_file)
-    print(dd.latitude.values)
+    print("### DISDROMETER FILE ###")
+    print(dd.attrs)
+    print(list(dd.keys()))
+
+if weather : 
+    ws = xr.open_dataset(ws_file)
+    print(list(ws.keys()))
+    print(ws.wind_direction.attrs)
 
 if compare_versions :
     ds = xr.open_dataset(f"{TEST_OUT_DIR}/20210202_palaiseau_preprocessed_v1612.nc")

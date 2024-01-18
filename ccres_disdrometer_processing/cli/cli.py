@@ -71,47 +71,7 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
 
     disdro_xr = disdro.read_parsivel_cloudnet_choice(disdro_file, computed_frequencies)
 
-    if multilambda == False :
-        scatt = scattering.scattering_prop(
-            disdro_xr.size_classes[0:-5],
-            beam_orientation,
-            radar_frequency,
-            E,
-            axrMethod=axrMethod,
-            mieMethod=mieMethod,
-        )
-        disdro_xr = disdro.reflectivity_model(
-            disdro_xr,
-            scatt,
-            len(disdro_xr.size_classes[0:-5]),
-            radar_frequency,
-            strMethod=strMethod,
-            mieMethod=mieMethod,
-            normMethod=normMethod,
-        )
-    else : 
-        print(normMethod)
-        scatt_list = []
-        for frequency in computed_frequencies :
-            scatt = scattering.scattering_prop(
-            disdro_xr.size_classes[0:-5],
-            beam_orientation,
-            frequency,
-            E,
-            axrMethod=axrMethod,
-            mieMethod=mieMethod,
-            )
-            scatt_list.append(scatt)
-        disdro_xr = disdro.reflectivity_model_multilambda(
-            disdro_xr,
-            scatt_list,
-            len(disdro_xr.size_classes[0:-5]),
-            np.array(computed_frequencies),
-            strMethod=strMethod,
-            mieMethod=mieMethod,
-            normMethod=normMethod,
-        )
-
+    if multilambda == True : 
         scatt_list = []
         for fov in [1, 0]: # 1 : vertical fov, 0 : horizontal fov
             for frequency in computed_frequencies :
@@ -137,7 +97,6 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
     # ---------------------------------------------------------------------------------
     if not (ws_file is None):
         weather_xr = weather.read_weather_cloudnet(ws_file)
-        # print(list(weather_xr.keys()))
         final_data = xr.merge(
             [weather_xr, disdro_xr, radar_xr], combine_attrs="drop_conflicts"
         )
