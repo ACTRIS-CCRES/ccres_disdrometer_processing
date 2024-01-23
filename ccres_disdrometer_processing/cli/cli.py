@@ -17,6 +17,9 @@ import scattering as scattering
 from constants import E
 from logger import LogLevels, init_logger
 
+import logging
+lgr = logging.getLogger(__name__)
+
 DISDRO_TYPES = ["OTT HydroMet Parsivel2"]
 WS_TYPES = ["Generic weather-station"]
 RADAR_TYPES = ["BASTA", "METEK MIRA-35"]
@@ -42,12 +45,7 @@ def status():
 @click.option("--radar-file", type=click.Path(exists=True, file_okay=True, dir_okay=False, path_type=Path, resolve_path=True, readable=True), required=True)
 @click.option("--config-file", type=click.Path(exists=True, file_okay=True, dir_okay=False, path_type=Path, resolve_path=True, readable=True), required=True)
 @click.argument("output-file", type=click.Path(file_okay=True, dir_okay=False, path_type=Path, resolve_path=True))
-# Add access controls so that click prépares the work ;
-# give default value for WS file which is not mandatory
-# resolve_path=True (chemin absolu) ; 
-# path_type=True : va faire des path des objets "pathlib.Path"
-# readable=True, writeable ? doesn't matter
-# dir_ok=False, file_ok = True (I want a file and not a folder)
+
 def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
     """Command line interface for ccres_disdrometer_processing."""
     click.echo("CCRES disdrometer preprocessing : test CLI")
@@ -58,6 +56,7 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
     strMethod = config["methods"]["FALL_SPEED_METHOD"]
     mieMethod = config["methods"]["COMPUTE_MIE_METHOD"]  # pymiecoated OR pytmatrix
     normMethod = config["methods"]["NORMALIZATION_METHOD"]  # measurement OR model
+    print(config["methods"])
     beam_orientation = config["methods"]["BEAM_ORIENTATION"]
     computed_frequencies = config["methods"]["COMPUTED_FREQUENCIES"] # given in Hz -> ok for the scattering script
     multilambda = bool(config["methods"]["multilambda"]) # True if multi lambda needed, False if only computation at lambda_radar needed
@@ -65,58 +64,39 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
     # read doppler radar data
     # ---------------------------------------------------------------------------------
     radar_xr = radar.read_radar_cloudnet(radar_file)
-    radar_frequency = radar_xr.frequency  # value is given in Hz in radar_xr file
+    radar_frequency = radar_xr.radar_frequency  # value is given in Hz in radar_xr file
 
     # read and preprocess disdrometer data
     # ---------------------------------------------------------------------------------
 
     disdro_xr = disdro.read_parsivel_cloudnet_choice(disdro_file, computed_frequencies)
 
-    if multilambda == False :
-        scatt = scattering.scattering_prop(
-            disdro_xr.size_classes[0:-5],
-            beam_orientation,
-            radar_frequency,
-            E,
-            axrMethod=axrMethod,
-            mieMethod=mieMethod,
-        )
-        disdro_xr = disdro.reflectivity_model(
-            disdro_xr,
-            scatt,
-            len(disdro_xr.size_classes[0:-5]),
-            radar_frequency,
-            strMethod=strMethod,
-            mieMethod=mieMethod,
-            normMethod=normMethod,
-        )
-    else : 
+    if multilambda == True : 
         scatt_list = []
-        for frequency in computed_frequencies :
-            scatt = scattering.scattering_prop(
-            disdro_xr.size_classes[0:-5],
-            beam_orientation,
-            frequency,
-            E,
-            axrMethod=axrMethod,
-            mieMethod=mieMethod,
-            )
-            scatt_list.append(scatt)
-        disdro_xr = disdro.reflectivity_model_multilambda(
+        for fov in [1, 0]: # 1 : vertical fov, 0 : horizontal fov
+            for frequency in computed_frequencies :
+                scatt = scattering.scattering_prop(
+                disdro_xr.size_classes[0:-5],
+                fov,
+                frequency,
+                E,
+                axrMethod=axrMethod,
+                mieMethod=mieMethod,
+                )
+                scatt_list.append(scatt)
+        disdro_xr = disdro.reflectivity_model_multilambda_measmodV_hvfov(
             disdro_xr,
             scatt_list,
             len(disdro_xr.size_classes[0:-5]),
             np.array(computed_frequencies),
             strMethod=strMethod,
             mieMethod=mieMethod,
-            normMethod=normMethod,
         )
 
     # read weather-station data
     # ---------------------------------------------------------------------------------
     if not (ws_file is None):
         weather_xr = weather.read_weather_cloudnet(ws_file)
-        # print(list(weather_xr.keys()))
         final_data = xr.merge(
             [weather_xr, disdro_xr, radar_xr], combine_attrs="drop_conflicts"
         )
@@ -135,5 +115,6 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
     final_data.attrs["multilambda"] = int(multilambda)
 
     final_data.to_netcdf(output_file)
+    lgr.info("Preprocessing : SUCCESS")
 
     sys.exit(0) # Returns 0 if the code ran well
