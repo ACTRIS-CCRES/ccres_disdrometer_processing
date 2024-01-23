@@ -1,16 +1,25 @@
 import logging
-from enum import Enum
+from enum import Enum, auto
 
-LOG_FORMAT = r"%(levelname)s %(name)s %(message)s"
+LOG_FORMAT = r"%(levelname)s: [%(asctime)s] %(name)s %(message)s"
 
 
 class LogLevels(Enum):
-    NOTSET = 0
-    DEBUG = 10
-    INFO = 20
-    CRITICAL = 30
-    WARNING = 40
-    ERROR = 50
+    NOTSET = auto()
+    DEBUG = auto()
+    INFO = auto()
+    CRITICAL = auto()
+    WARNING = auto()
+    ERROR = auto()
+
+    @classmethod
+    def get_by_verbosity_count(cls, verbosity: int):
+        if verbosity == 0:
+            return cls.CRITICAL
+        elif verbosity == 1:
+            return cls.INFO
+        elif verbosity >= 2:
+            return cls.DEBUG
 
 
 def get_log_level_from_count(count: int) -> LogLevels:
@@ -53,9 +62,10 @@ def init_logger(level: LogLevels) -> None:
         Enum corresponding to the level we want
     """
     # Root logger
-    logger = logging.getLogger(name="ccres_disdrometer_processing")
+    logger = logging.getLogger()
     debug_level = logging.getLevelName(LogLevels.DEBUG.name)
     logger.setLevel(debug_level)
 
     # Need to set the root to debug to allow any level in stream
     logger = add_stream_logging(logger, level)
+    return logger

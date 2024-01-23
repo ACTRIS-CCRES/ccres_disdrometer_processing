@@ -1,8 +1,12 @@
+import logging
+
 import numpy as np
 from pymiecoated import Mie
 from pytmatrix import radar, tmatrix_aux
 from pytmatrix.tmatrix import Scatterer
 from scipy import constants
+
+lgr = logging.getLogger(__name__)
 
 
 class DATA:
@@ -25,6 +29,7 @@ def compute_fallspeed(d, strMethod="GunAndKinzer"):
 
 
 def axis_ratio(D, axrMethod="BeardChuang_PolynomialFit"):
+    # describe the shape of the droplet vs. its diameter
     if axrMethod == "BeardChuang_PolynomialFit":
         AR = 1.0 / (
             1.0048
@@ -97,7 +102,7 @@ def scattering_prop(
     # coef_ray = 1.0e18
 
     AXR = axis_ratio(D, axrMethod)
-    print(AXR)
+    lgr.debug(AXR)
     for i in range(len(D)):
         Diam = float(D[i] * 1e-3)
         bscat_tmat, att_tmat = compute_bscat_tmatrix(
@@ -111,6 +116,6 @@ def scattering_prop(
         )
         bscat_m = compute_bscat_tmatrix(Diam, lambda_m, e, 1, beam_orientation)[0]
         scatt.bscat_mie[i] = bscat_m
-        print(bscat_tmat, bscat_m)
+        lgr.debug(bscat_tmat, bscat_m)
 
     return scatt
