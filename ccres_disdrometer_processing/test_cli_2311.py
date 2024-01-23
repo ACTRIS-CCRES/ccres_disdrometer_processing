@@ -18,8 +18,8 @@ print(config_file)
 
 do = 1
 open = 1
-rad = 1
-dd = 0
+rad = 0
+dd = 1
 weather = 0
 compare_versions = 0
 
@@ -35,8 +35,10 @@ if open :
     print(ds.dims)
     print(ds.attrs)
     print(list(ds.keys()))
+    print(len(ds.time))
+    print(ds.disdro_pr.values[-1])
+    print(ds.disdro_cp.values[0:50], ds.ams_cp.values[-1])
     # print(ds.computed_frequencies.values)
-    # print(ds.disdro_latitude.values)
 
 if rad : 
     radar = xr.open_dataset(radar_file)
@@ -47,8 +49,10 @@ if rad :
 if dd :
     dd = xr.open_dataset(disdro_file)
     print("### DISDROMETER FILE ###")
-    print(dd.attrs)
-    print(list(dd.keys()))
+    # print(dd.attrs)
+    # print(list(dd.keys()))
+    print(len(dd.time))
+    print(dd.rainfall_rate.values[0:50])
 
 if weather : 
     ws = xr.open_dataset(ws_file)

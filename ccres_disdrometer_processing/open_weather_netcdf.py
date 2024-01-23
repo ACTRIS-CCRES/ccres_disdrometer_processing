@@ -48,7 +48,7 @@ def read_weather_cloudnet(filename):
             attrs=data_nc["wind_direction"].attrs,
         )
         data["ta"] = xr.DataArray(
-            data_nc_resampled["air_temperature"].values,
+            data_nc_resampled["air_temperature"].values - 273.15,
             dims=["time"],
             attrs=data_nc["air_temperature"].attrs,
         )

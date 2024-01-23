@@ -14,28 +14,30 @@ F = {
 }
 
 KEYS = [
-    "visibility",
-    "sig_laser",
+    # "visibility",
+    # "sig_laser",
     "n_particles",
+    """
     "T_sensor",
     "I_heating",
     "V_power_supply",
-    "kinetic_energy",
-    "snowfall_rate",
-    "synop_WaWa",
+    """
+    # "kinetic_energy",
+    # "snowfall_rate",
+    # "synop_WaWa",
     # "diameter_spread",
     # "velocity_spread",
 ]
 NEW_KEYS = [
-    "visi",
-    "sa",
+    # "visi",
+    # "sa",
     "particles_count",
     "sensor_temp",
     "heating_current",
     "sensor_volt",
-    "KE",
-    "sr",
-    "SYNOP_code",
+    # "KE",
+    # "sr",
+    # "SYNOP_code",
     # "size_classes_width",
     # "speed_classes_width",
 ]
@@ -96,20 +98,22 @@ def read_parsivel_cloudnet(
             attrs={"units": "mm/h"},
         )
         data["disdro_cp"] = xr.DataArray(
-            np.cumsum(data_nc["rainfall_rate"].values * 60 * 1000),
+            np.nancumsum(data_nc["rainfall_rate"].values * 60 * 1000),
             dims=["time"],
             attrs={"units": "mm"},
         )
-        data["Z"] = xr.DataArray(
-            data_nc["radar_reflectivity"].values, dims=["time"], attrs={"units": "dBZ"}
-        )
+        # data["Z"] = xr.DataArray(
+        #     data_nc["radar_reflectivity"].values, dims=["time"], attrs={"units": "dBZ"}
+        # )
+
+        data["time_resolution"] = (
+            data.time.values[1] - data.time.values[0]
+        ) / np.timedelta64(1, "s")
+
         data["psd"] = xr.DataArray(
             np.transpose(data_nc["data_raw"].values, axes=(0, 2, 1)),
             dims=["time", "size_classes", "speed_classes"],
         )
-        data["time_resolution"] = (
-            data.time.values[1] - data.time.values[0]
-        ) / np.timedelta64(1, "s")
 
         for i in range(len(KEYS)):
             if KEYS[i] in list(data_nc.keys()):
@@ -149,24 +153,30 @@ def read_thies_cloudnet(
         dims=["time"],
         attrs={"units": "mm"},
     )
-    data["Z"] = xr.DataArray(
-        data_nc["radar_reflectivity"].values, dims=["time"], attrs={"units": "dBZ"}
-    )
-    data["visi"] = xr.DataArray(data_nc["visibility"].values, dims=["time"])
+    # data["Z"] = xr.DataArray(
+    #     data_nc["radar_reflectivity"].values, dims=["time"], attrs={"units": "dBZ"}
+    # )
+    # data["visi"] = xr.DataArray(data_nc["visibility"].values, dims=["time"])
     # data["sa"] = xr.DataArray(data_nc["sig_laser"].values, dims=["time"])
-    data["particles_count"] = xr.DataArray(data_nc["n_particles"].values, dims=["time"])
+
+    """
     data["sensor_temp"] = xr.DataArray(data_nc["T_interior"].values, dims=["time"])
     data["heating_current"] = xr.DataArray(
         data_nc["I_heating_laser_head"].values, dims=["time"]
     )
     data["sensor_volt"] = xr.DataArray(data_nc["V_sensor_supply"].values, dims=["time"])
-    data["SYNOP_code"] = xr.DataArray(data_nc["synop_WaWa"].values, dims=["time"])
+    """
+
+    # data["SYNOP_code"] = xr.DataArray(data_nc["synop_WaWa"].values, dims=["time"])
     data["time_resolution"] = (
         data.time.values[1] - data.time.values[0]
     ) / np.timedelta64(1, "s")
     data["psd"] = xr.DataArray(
         data_nc["data_raw"].values, dims=["time", "size_classes", "speed_classes"]
     )
+
+    data["particles_count"] = xr.DataArray(data_nc["n_particles"].values, dims=["time"])
+
     data["size_classes_width"] = xr.DataArray(
         data_nc["diameter_spread"].values * 1000, dims=["size_classes"]
     )
