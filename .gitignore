@@ -115,10 +115,14 @@ daily_data/
 quicklooks/
 bdd_rain_events
 
-# config files, slurm issues, tools to explore data files
+# config files, slurm issues, tools to explore data files, processing files not used anymore
 slurm*.out
-*.toml
+CONFIG*.toml
 script_*.sh
 explore_input_ncfiles.py
 test_ql.py
 xarray_perfect_timesteps.ipynb
+compute_dz_1event.py
+explore_norunda_files.py
+disdro_lindenberg.py
+main.py
