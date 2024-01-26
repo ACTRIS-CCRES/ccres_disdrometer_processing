@@ -114,6 +114,94 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
     final_data.attrs["beam_orientation"] = beam_orientation
     final_data.attrs["multilambda"] = int(multilambda)
 
+    # Add global attributes specified in the file format
+    final_data.attrs["title"] = ""
+    final_data.attrs["summary"] = ""
+    final_data.attrs["keywords"] = ""
+    final_data.attrs["keywords_vocabulary"] = ""
+    final_data.attrs["Conventions"] = "CF-1.8, ACDD-1.3, GEOMS"
+    final_data.attrs["id"] = ""
+    final_data.attrs["naming_authority"] = ""
+    final_data.attrs["history"] = ""
+    final_data.attrs["source"] = ""
+    final_data.attrs["processing_level"] = ""
+    final_data.attrs["comment"] = ""
+    final_data.attrs["acknowledgement"] = ""
+    final_data.attrs["license"] = ""
+    final_data.attrs["standard_name_vocabulary"] = ""
+    final_data.attrs["date_created"] = ""
+    final_data.attrs["creator_name"] = ""
+    final_data.attrs["creator_email"] = ""
+    final_data.attrs["creator_url"] = ""
+    final_data.attrs["creator_type"] = ""
+    final_data.attrs["creator_institution"] = ""
+    final_data.attrs["institution"] = ""
+    final_data.attrs["project"] = ""
+    final_data.attrs["publisher_name"] = ""
+    final_data.attrs["publisher_email"] = ""
+    final_data.attrs["publisher_url"] = ""
+    final_data.attrs["publisher_type"] = ""
+    final_data.attrs["publisher_institution"] = ""
+    final_data.attrs["contributor_name"] = ""
+    final_data.attrs["contributor_role"] = ""
+    final_data.attrs["geospatial_bounds"] = ""
+    final_data.attrs["geospatial_bounds_crs"] = ""
+    final_data.attrs["geospatial_bounds_vertical_crs"] = ""
+    final_data.attrs["geospatial_lat_min"] = ""
+    final_data.attrs["geospatial_lat_max"] = ""
+    final_data.attrs["geospatial_lat_units"] = "degree_north"
+    final_data.attrs["geospatial_lat_resolution"] = ""
+    final_data.attrs["geospatial_lon_min"] = ""
+    final_data.attrs["geospatial_lon_max"] = ""
+    final_data.attrs["geospatial_lon_units"] = "degree_east"
+    final_data.attrs["geospatial_lon_resolution"] = ""
+    final_data.attrs["geospatial_vertical_min"] = ""
+    final_data.attrs["geospatial_vertical_max"] = ""
+    final_data.attrs["geospatial_vertical_units"] = "m"
+    final_data.attrs["geospatial_vertical_resolution"] = ""
+    final_data.attrs["geospatial_vertical_positive"] = "up"
+    final_data.attrs["time_coverage_start"] = ""
+    final_data.attrs["time_coverage_end"] = ""
+    final_data.attrs["time_coverage_duration"] = ""
+    final_data.attrs["time_coverage_resolution"] = ""
+    final_data.attrs["program"] = "ACTRIS, CloudNet, CCRES"
+    final_data.attrs["date_modified"] = ""
+    final_data.attrs["date_issued"] = ""
+    final_data.attrs["date_metadata_modified"] = ""
+    final_data.attrs["product_version"] = ""
+    final_data.attrs["platform"] = ""
+    final_data.attrs["platform_vocabulary"] = ""
+    final_data.attrs["instrument"] = ""
+    final_data.attrs["instrument_vocabulary"] = ""
+    final_data.attrs["cdm_data_type"] = ""
+    final_data.attrs["metadata_link"] = ""
+    final_data.attrs["references"] = ""
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     final_data.to_netcdf(output_file)
     lgr.info("Preprocessing : SUCCESS")
 

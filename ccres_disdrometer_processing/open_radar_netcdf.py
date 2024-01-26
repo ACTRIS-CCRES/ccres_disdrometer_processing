@@ -31,14 +31,17 @@ def read_radar_cloudnet(filename):  # daily radar file from cloudnet
     radar_ds["radar_altitude"] = xr.DataArray(data_nc.altitude.values, attrs = data_nc.altitude.attrs)
 
     radar_ds["radar_model"] = data_nc.attrs["source"]
+    radar_ds["radar_model"].attrs = {"long_name":"Radar model", "comment":"Radar model"}
 
     radar_ds["radar_frequency"] = (
         data_nc.radar_frequency * 10**9
     )  # in GHz, so * 10**9 to get Hz
     radar_ds["radar_frequency"].attrs["units"] = "Hz"
+    radar_ds["radar_frequency"].attrs["long_name"] = "Frequency of the DCR, in Hertz"
 
     radar_ds["radar_wavelength"] = constants.c / radar_ds["radar_frequency"]
     radar_ds["radar_wavelength"].attrs["units"] = "m"
+    radar_ds["radar_wavelength"].attrs["long_name"] = "Wavelength of the DCR, in meter"
 
 
     time_index_offset = time_index - pd.Timedelta(30, "sec")

@@ -73,8 +73,8 @@ def read_weather_cloudnet(filename):
             attrs={
                 "units": "mm/hr",
                 "long_name": "Met station precipitation rate at 1m agl",
-                "standard_name": "rainfall_rate",
-                "Comment":"The abbreviation 'lwe' means liquid water equivalent. 'Precipitation rate' means the depth or thickness of the layer formed by precipitation per unit time."
+                "standard_name": "lwe_precipitation_rate",
+                "Comment":"Weather-station based precipitation rate. The abbreviation 'lwe' means liquid water equivalent. 'Precipitation rate' means the depth or thickness of the layer formed by precipitation per unit time."
             },
         )
         data["ams_cp"] = xr.DataArray(
@@ -84,7 +84,7 @@ def read_weather_cloudnet(filename):
                 "units": "mm",
                 "long_name": "Rainfall amount",
                 "standard_name": "thickness_of_rainfall_amount",
-                "comment": "Cumulated precipitation since 00:00 UTC",
+                "comment": "Weather-station based cumulated precipitation since 00:00 UTC",
             },
         )
 

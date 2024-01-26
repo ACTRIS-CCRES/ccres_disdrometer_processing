@@ -67,7 +67,7 @@ def resample_data_perfect_timesteps(filename: Union[str, Path]) -> xr.Dataset:
         .first()
     )
     data_notime = data_nc[notime_var]
-    data_perfect_timesteps = xr.merge((data_time_resampled, data_notime), combine_attrs="drop")
+    data_perfect_timesteps = xr.merge((data_time_resampled, data_notime), combine_attrs="drop_conflicts")
     # print("#############", data_perfect_timesteps.attrs)
     data_perfect_timesteps["time_bins"] = data_perfect_timesteps.time_bins.dt.round(
         freq="1S"
@@ -92,27 +92,25 @@ def read_parsivel_cloudnet(
     )
     if data_nc.disdrometer_source == "OTT HydroMet Parsivel2":
         data["F"] = F[data_nc.disdrometer_source]
+        data["F"].attrs["long_name"] = "Disdrometer sampling area"
+        data["F"].attrs["units"] = "m^2"
         data["disdro_pr"] = xr.DataArray(
             data_nc["rainfall_rate"].values * 1000 * 3600,
             dims=["time"],
-            attrs={"units": "mm/h"},
+            attrs={"units": "mm/h", "long_name":"Disdrometer-based precipitation rate", "comment":"Calculated with disdrometer, from rainfall rate data"},
         )
         data["disdro_cp"] = xr.DataArray(
             np.nancumsum(data_nc["rainfall_rate"].values * 60 * 1000),
             dims=["time"],
-            attrs={"units": "mm"},
+            attrs={"units": "mm", "long_name":"Disdrometer-based cumulated precipitation since 00:00 UTC", "comment":"Calculated with disdrometer"},
         )
         # data["Z"] = xr.DataArray(
         #     data_nc["radar_reflectivity"].values, dims=["time"], attrs={"units": "dBZ"}
         # )
 
-        data["time_resolution"] = (
-            data.time.values[1] - data.time.values[0]
-        ) / np.timedelta64(1, "s")
-
         data["psd"] = xr.DataArray(
             np.transpose(data_nc["data_raw"].values, axes=(0, 2, 1)),
-            dims=["time", "size_classes", "speed_classes"],
+            dims=["time", "size_classes", "speed_classes"], attrs={"units":"#/bin/mn", "long_name":"Number of droplets per diameter and fall speed bins"}
         )
 
         for i in range(len(KEYS)):
@@ -122,10 +120,10 @@ def read_parsivel_cloudnet(
                 )
 
         data["size_classes_width"] = xr.DataArray(
-            data_nc["diameter_spread"].values * 1000, dims=["size_classes"]
+            data_nc["diameter_spread"].values * 1000, dims=["size_classes"], attrs={"units":"m", "long_name":"Width of the diameter bins"}
         )  # mm
         data["speed_classes_width"] = xr.DataArray(
-            data_nc["velocity_spread"].values, dims=["speed_classes"]
+            data_nc["velocity_spread"].values, dims=["speed_classes"], attrs={"units":"m", "long_name":"Width of the speed bins"}
         )
     return data
 
@@ -143,15 +141,18 @@ def read_thies_cloudnet(
     )
 
     data["F"] = F[data_nc.disdrometer_source] # later : dict with F <-> (station, instrument) (Because F varies between two different Thies)
+    data["F"].attrs["long_name"] = "Disdrometer sampling area"
+    data["F"].attrs["units"] = "m^2"
+    data["F"].attrs["comment"] = "Varies from one instrument to another for Thies LNM disdrometers"
     data["disdro_pr"] = xr.DataArray(
         data_nc["rainfall_rate"].values * 1000 * 3600,
         dims=["time"],
-        attrs={"units": "mm/h"},
+        attrs={"units": "mm/h", "long_name":"Disdrometer-based precipitation rate", "comment":"Calculated with disdrometer, from rainfall rate data"},
     )
     data["disdro_cp"] = xr.DataArray(
         np.cumsum(data_nc["rainfall_rate"].values * 60 * 1000),
         dims=["time"],
-        attrs={"units": "mm"},
+        attrs={"units": "mm", "long_name":"Disdrometer-based cumulated precipitation since 00:00 UTC", "comment":"Calculated with disdrometer"},
     )
     # data["Z"] = xr.DataArray(
     #     data_nc["radar_reflectivity"].values, dims=["time"], attrs={"units": "dBZ"}
@@ -168,20 +169,18 @@ def read_thies_cloudnet(
     """
 
     # data["SYNOP_code"] = xr.DataArray(data_nc["synop_WaWa"].values, dims=["time"])
-    data["time_resolution"] = (
-        data.time.values[1] - data.time.values[0]
-    ) / np.timedelta64(1, "s")
+
     data["psd"] = xr.DataArray(
-        data_nc["data_raw"].values, dims=["time", "size_classes", "speed_classes"]
+        data_nc["data_raw"].values, dims=["time", "size_classes", "speed_classes"], attrs={"units":"#/bin/mn", "long_name":"Number of droplets per diameter and fall speed bins"}
     )
 
-    data["particles_count"] = xr.DataArray(data_nc["n_particles"].values, dims=["time"])
+    data["particles_count"] = xr.DataArray(data_nc["n_particles"].values, dims=["time"], attrs=data_nc["n_particles"].attrs)
 
     data["size_classes_width"] = xr.DataArray(
-        data_nc["diameter_spread"].values * 1000, dims=["size_classes"]
+        data_nc["diameter_spread"].values * 1000, dims=["size_classes"], attrs={"units":"m", "long_name":"Width of the diameter bins"}
     )
     data["speed_classes_width"] = xr.DataArray(
-        data_nc["velocity_spread"].values, dims=["speed_classes"]
+        data_nc["velocity_spread"].values, dims=["speed_classes"], attrs={"units":"m", "long_name":"Width of the speed bins"}
     )
     return data
 
@@ -202,8 +201,14 @@ def read_parsivel_cloudnet_choice(filename: Union[str, Path], computed_frequenci
     if not (data is None):
         for latlon_nc, latlon in zip(["longitude", "latitude", "altitude"], ["disdro_longitude", "disdro_latitude", "disdro_altitude"]) :
             data[latlon] = data_nc[latlon_nc]
+            data[latlon].attrs["long_name"] = f"{latlon_nc} of disdrometer set-up"
         data.attrs = data_nc.attrs
         data["disdro_model"] = source
+        data["disdro_model"].attrs = {"long_name":"Disdrometer model", "comment":"Disdrometer model"}
+        data["time_resolution"] = (
+        data.time.values[1] - data.time.values[0]
+    ) / np.timedelta64(1, "s")
+        data["time_resolution"].attrs={"units":"s", "long_name":"Time resolution of the preprocessed file"}
 
     data = data.assign_coords({"computed_frequencies": np.array(computed_frequencies)})
 
@@ -353,9 +358,12 @@ def reflectivity_model_multilambda_measmodV_hvfov(
 
     # store results in parsivel object
     # mparsivel["dsd"] = xr.DataArray(model.dsd, dims=["time", "size_classes"])
-    mparsivel["disdro_pr_from_raw"] = xr.DataArray(model.RR, dims=["time"])
-    mparsivel["measV"] = xr.DataArray(model.VD, dims=["time", "size_classes"])
-    mparsivel["modV"] = xr.DataArray(VDmodel, dims=["size_classes"])
+    mparsivel["disdro_pr_from_raw"] = xr.DataArray(model.RR, dims=["time"], attrs={"units":"mm/h", "long_name":"Disdrometer-based precipitation rate from raw data", "comment":"Calculated with disdrometer, rainfall rate is computed from droplet diameter distribution"})
+    mparsivel["measV"] = xr.DataArray(model.VD, dims=["time", "size_classes"], attrs={"units":"m/s", "long_name":"measured fall speed at each timestep as a function of the diameter"})
+    mparsivel["modV"] = xr.DataArray(VDmodel, dims=["size_classes"], attrs={"units":"m/s", "long_name":"modeled droplet fall speed as a function of the diameter"})
+
+    mparsivel["psd_sum_n"] = xr.DataArray(model.psd_sum_n, dims=["size_classes", "speed_classes"], attrs={"units":"#/cm^3/mm", "long_name":"Normalized precipitation size distribution"})
+    mparsivel["psd_sum"] = xr.DataArray(model.psd_sum, dims=["size_classes", "speed_classes"], attrs={"units":"#/cm^3/bin", "long_name":"Normalized precipitation size distribution"})
 
     mparsivel["Zdlin_hfov_measv_mie"] = xr.DataArray(model.Ze_mie[:,:,1,0], dims=["time", "computed_frequencies"], attrs = {"units": "mm^6.m^-3", "long_name":"Disdrometer Mie reflectivity in lin scale for measured fall drop velocity and horizontal field of view", "comment":"Calculated with disdrometer"})
     mparsivel["Zdlog_hfov_measv_mie"] = xr.DataArray(10 * np.log10(model.Ze_mie[:,:,1,0]), dims=["time", "computed_frequencies"], attrs = {"units": "dBZ", "long_name":"Disdrometer Mie reflectivity in log scale for measured fall drop velocity and horizontal field of view", "comment":"Calculated with disdrometer"})
