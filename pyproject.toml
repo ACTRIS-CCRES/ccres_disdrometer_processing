@@ -74,8 +74,7 @@ dev = [
     # Bump2version
     "bump2version",
     # Formatting
-    "black",
-    "flake8",
+    "ruff",
 
     # Typing
     "mypy",
@@ -102,3 +101,19 @@ exclude = ['build/', 'venv', "ccres_disdrometer_processing/tests", "tests"]
 recursive = true
 blank = true
 syntax = "numpy"
+
+[tool.ruff.lint]
+select = [
+    # pycodestyle
+    "E",
+    # Pyflakes
+    "F",
+    # pyupgrade
+    "UP",
+    # flake8-bugbear
+    "B",
+    # flake8-simplify
+    "SIM",
+    # isort
+    "I",
+]
