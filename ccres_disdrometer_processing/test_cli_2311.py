@@ -16,7 +16,7 @@ output_file = f"{TEST_OUT_DIR}/20210202_palaiseau_preprocessed_v1101.nc"
 print(config_file)
 
 
-do = 1
+do = 0
 open = 1
 rad = 0
 dd = 1
@@ -36,8 +36,14 @@ if open :
     print(ds.attrs)
     print(list(ds.keys()))
     print(len(ds.time))
-    print(ds.disdro_pr.values[-1])
-    print(ds.disdro_cp.values[0:50], ds.ams_cp.values[-1])
+    print(ds.size_classes.attrs)
+    print(ds.measV.attrs)
+
+    for k in list(ds.keys()):
+        try:
+            a = ds[k].attrs["long_name"]
+        except KeyError:
+            print(k)
     # print(ds.computed_frequencies.values)
 
 if rad : 
