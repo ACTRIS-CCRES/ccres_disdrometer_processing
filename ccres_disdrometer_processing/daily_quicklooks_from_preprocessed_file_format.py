@@ -118,7 +118,7 @@ def daily_quicklooks(preprocessed_file):
 
     ax4.grid()
     ax4.set_title("Timeseries for Wind speed and direction")
-    lines = temperature + humidity
+    lines = wind_speed + wind_direction
     line_labels = [l.get_label() for l in lines]
     ax4.legend(lines, line_labels, loc='best')
 
@@ -137,12 +137,69 @@ def daily_quicklooks(preprocessed_file):
     ax5.set_title("Disdrometer and weather station-based cumulated precipitation over the day")
     ax5.grid()
 
-    ax6
+    
+    # 4.3. Plot relationship Fallspeed(Diameter) and compare it to theoretical value
+    def f_th(x):
+        return 9.40 * (
+            1 - np.exp(-1.57 * (10**3) * np.power(x * (10**-3), 1.15))
+        )  # Gun and Kinzer (th.)
 
-    # ax5.plot(weather.time, weather["wind_speed"])
-    # ax5.set_title("Wind Speed")
-    # ax5.set_ylabel("wind speed [m/s]")
-    # ax5.grid()
+    def f_fit(x, a, b, c):
+        return a * (1 - np.exp(-b * np.power(x * (10**-3), c)))  # target shape
+
+    drop_density = np.nansum(
+        disdro_tr, axis=0
+    )  # sum over time dim  # transpose if data is switched
+    psd_nonzero = np.where(drop_density != 0)
+    x, y = [], []
+
+    print(np.where(np.isnan(disdro_tr)))  ## à minuit !
+    for k in range(
+        len(psd_nonzero[0])
+    ):  # add observations (size, speed) in the proportions described by the psd
+        x += [disdro["size_classes"][psd_nonzero[0][k]]] * int(
+            drop_density[psd_nonzero[0][k], psd_nonzero[1][k]]
+        )
+        y += [disdro["speed_classes"][psd_nonzero[1][k]]] * int(
+            drop_density[psd_nonzero[0][k], psd_nonzero[1][k]]
+        )
+
+    X, Y = np.array(x), np.array(y)
+
+    popt, pcov = curve_fit(f_fit, X, Y)
+    y_hat = f_fit(disdro["size_classes"], popt[0], popt[1], popt[2])
+    y_th = f_th(disdro["size_classes"])
+    y_th_disdro = y_th.copy()
+
+    h2 = ax3.hist2d(
+        X,
+        Y,
+        cmin=len(X) / 1000,
+        bins=[disdro["size_classes"], disdro["speed_classes"]],
+        density=False,
+    )
+    ax3.plot(
+        disdro["size_classes"],
+        y_hat,
+        c="green",
+        label="Fit on DD measurements",
+    )
+    ax3.plot(
+        disdro["size_classes"],
+        y_th,
+        c="C1",
+        label="Fall speed model (Gun and Kinzer)",
+    )
+    fig.colorbar(h2[3], ax=ax3)
+    ax3.legend(loc="best")
+    ax3.grid()
+    ax3.set_xlabel("Diameter (mm)")
+    ax3.set_ylabel("Fall speed (m/s)")
+    # ax3.set_xlim(disdro["size_classes"].min(), disdro["size_classes"].max())
+    # ax3.set_ylim(disdro["speed_classes"].min(), disdro["speed_classes"].max())
+    ax3.set_xlim(0, 5)
+    ax3.set_ylim(0, 10)
+    ax3.set_title("Relationship disdrometer fall speed / drop size ")
 
     # plt.show()
 
