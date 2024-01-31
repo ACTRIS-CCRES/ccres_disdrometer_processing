@@ -41,6 +41,7 @@ jobs:
 
       - name: Install dependencies
         run: |
+          python -m pip freeze
           python -m pip install numpy
           python -m pip install -U .[dev]
 
