@@ -26,6 +26,10 @@ jobs:
         with:
           lfs: true
 
+      - name: install ubuntu dependencies
+        run: |
+          sudo apt-get install -y gfortran
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
@@ -41,7 +45,6 @@ jobs:
 
       - name: Install dependencies
         run: |
-          apt install -y gfortran
           python -m pip install numpy 'setuptools<60.0.0'
           python -m pip install -U .[dev]
 
