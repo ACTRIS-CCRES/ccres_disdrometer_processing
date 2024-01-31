@@ -41,8 +41,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install numpy
-          pip install -U .[dev]
+          python -m pip install numpy
+          python -m pip install -U .[dev]
 
       - name: Cache pre-commits
         id: cache-pre-commits
