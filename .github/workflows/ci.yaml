@@ -41,7 +41,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip freeze
+          apt install -y gfortran
           python -m pip install numpy 'setuptools<60.0.0'
           python -m pip install -U .[dev]
 
