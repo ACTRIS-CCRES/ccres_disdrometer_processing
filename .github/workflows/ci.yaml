@@ -42,7 +42,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip freeze
-          python -m pip install numpy
+          python -m pip install numpy 'setuptools<60.0.0'
           python -m pip install -U .[dev]
 
       - name: Cache pre-commits
