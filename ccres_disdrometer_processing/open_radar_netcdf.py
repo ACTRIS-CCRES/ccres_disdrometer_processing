@@ -25,10 +25,12 @@ def read_radar_cloudnet(filename):  # daily radar file from cloudnet
             time=(["time"], time_index[:-1]), range=(["range"], data_nc.range.data)
         )
     )
+    radar_ds.range.attrs = {"units":"m", "long_name":"Range of each gate"}
 
     radar_ds["radar_longitude"] = xr.DataArray(data_nc.longitude.values, attrs = data_nc.longitude.attrs)
     radar_ds["radar_latitude"] = xr.DataArray(data_nc.latitude.values, attrs = data_nc.latitude.attrs)
     radar_ds["radar_altitude"] = xr.DataArray(data_nc.altitude.values, attrs = data_nc.altitude.attrs)
+    radar_ds["radar_altitude"].attrs["positive"] = "up"
 
     radar_ds["radar_model"] = data_nc.attrs["source"]
     radar_ds["radar_model"].attrs = {"long_name":"Radar model", "comment":"Radar model"}
@@ -58,6 +60,7 @@ def read_radar_cloudnet(filename):  # daily radar file from cloudnet
         data_nc.range.values, dims=["range"], attrs=data_nc["range"].attrs
     )
     radar_ds["alt"].attrs["Comment"] = "Altitude above ground level"
+    radar_ds["alt"].attrs["positive"] = "up"
     radar_ds["Zdcr"] = xr.DataArray(
         Z_dcr_resampled.values,
         dims=["time", "range"],

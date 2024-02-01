@@ -105,12 +105,13 @@ def read_weather_cloudnet(filename):
             },
         )
 
-    data.attrs["weather_source"] = data_nc_resampled.attrs["source"]
-    data.attrs["weather-station_pid"] = data_nc_resampled.attrs["instrument_pid"]
+    data.attrs["ams_source"] = data_nc_resampled.attrs["source"]
+    data.attrs["ams_pid"] = data_nc_resampled.attrs["instrument_pid"]
 
     data["ams_longitude"] = data_nc["longitude"]
     data["ams_longitude"].attrs["Comment"] = "AMS = Atmospheric Meteorological Station"
     data["ams_latitude"] = data_nc["latitude"]
     data["ams_altitude"] = data_nc["altitude"]
+    data["ams_altitude"].attrs["positive"]="up"
 
     return data

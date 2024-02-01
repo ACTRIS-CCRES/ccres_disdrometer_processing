@@ -55,11 +55,7 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
     axrMethod = config["methods"]["AXIS_RATIO_METHOD"]
     strMethod = config["methods"]["FALL_SPEED_METHOD"]
     mieMethod = config["methods"]["COMPUTE_MIE_METHOD"]  # pymiecoated OR pytmatrix
-    normMethod = config["methods"]["NORMALIZATION_METHOD"]  # measurement OR model
-    print(config["methods"])
-    beam_orientation = config["methods"]["BEAM_ORIENTATION"]
     computed_frequencies = config["methods"]["COMPUTED_FREQUENCIES"] # given in Hz -> ok for the scattering script
-    multilambda = bool(config["methods"]["multilambda"]) # True if multi lambda needed, False if only computation at lambda_radar needed
 
     # read doppler radar data
     # ---------------------------------------------------------------------------------
@@ -69,29 +65,28 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
     # read and preprocess disdrometer data
     # ---------------------------------------------------------------------------------
 
-    disdro_xr = disdro.read_parsivel_cloudnet_choice(disdro_file, computed_frequencies)
-
-    if multilambda == True : 
-        scatt_list = []
-        for fov in [1, 0]: # 1 : vertical fov, 0 : horizontal fov
-            for frequency in computed_frequencies :
-                scatt = scattering.scattering_prop(
-                disdro_xr.size_classes[0:-5],
-                fov,
-                frequency,
-                E,
-                axrMethod=axrMethod,
-                mieMethod=mieMethod,
-                )
-                scatt_list.append(scatt)
-        disdro_xr = disdro.reflectivity_model_multilambda_measmodV_hvfov(
-            disdro_xr,
-            scatt_list,
-            len(disdro_xr.size_classes[0:-5]),
-            np.array(computed_frequencies),
-            strMethod=strMethod,
+    disdro_xr = disdro.read_parsivel_cloudnet_choice(disdro_file, computed_frequencies, config)
+ 
+    scatt_list = []
+    for fov in [1, 0]: # 1 : vertical fov, 0 : horizontal fov
+        for frequency in computed_frequencies :
+            scatt = scattering.scattering_prop(
+            disdro_xr.size_classes[0:-5],
+            fov,
+            frequency,
+            E,
+            axrMethod=axrMethod,
             mieMethod=mieMethod,
-        )
+            )
+            scatt_list.append(scatt)
+    disdro_xr = disdro.reflectivity_model_multilambda_measmodV_hvfov(
+        disdro_xr,
+        scatt_list,
+        len(disdro_xr.size_classes[0:-5]),
+        np.array(computed_frequencies),
+        strMethod=strMethod,
+        mieMethod=mieMethod,
+    )
 
     # read weather-station data
     # ---------------------------------------------------------------------------------
@@ -105,14 +100,12 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
             [disdro_xr, radar_xr], combine_attrs="drop_conflicts"
         )
 
+    final_data.time.attrs["standard_name"] = "time"
     weather_avail = int((not (weather is None)))
     final_data.attrs["weather_data_avail"] = weather_avail
     final_data.attrs["axis_ratioMethod"] = axrMethod
     final_data.attrs["fallspeedFormula"] = strMethod
     final_data.attrs["scatteringMethod"] = mieMethod
-    final_data.attrs["DSDnormalizationMethod"] = normMethod
-    final_data.attrs["beam_orientation"] = beam_orientation
-    final_data.attrs["multilambda"] = int(multilambda)
 
     # Add global attributes specified in the file format
     final_data.attrs["title"] = ""

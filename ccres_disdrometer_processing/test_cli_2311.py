@@ -11,7 +11,7 @@ TEST_OUT_DIR = TEST_DIR / "data/outputs"
 disdro_file = f"{TEST_INPUT}/20210202_palaiseau_parsivel.nc"
 ws_file = f"{TEST_INPUT}/20210202_palaiseau_weather-station.nc"
 radar_file = f"{TEST_INPUT}/20210202_palaiseau_basta.nc"
-config_file = f"{TEST_INPUT}/CONFIG_test.toml"
+config_file = f"{TEST_INPUT}/CONFIG_preprocessing_processing.toml"
 output_file = f"{TEST_OUT_DIR}/20210202_palaiseau_preprocessed_v1101.nc"
 print(config_file)
 
@@ -35,13 +35,12 @@ if open :
     print(ds.dims)
     print(ds.attrs)
     print(list(ds.keys()))
-    # print(ds.computed_frequencies.values)
     for var in list(ds.keys()):
         try :
             x = ds[var].attrs["units"]
         except KeyError :
             print(var)
-    print(ds.disdro_latitude.attrs)
+    print(ds.F.data, ds.F.attrs)
 
 if rad : 
     radar = xr.open_dataset(radar_file)

@@ -8,10 +8,11 @@ import xarray as xr
 from scattering import DATA, compute_fallspeed
 from scipy import constants as cst
 
-F = {
-    "OTT HydroMet Parsivel2": constants.F_PARSIVEL,
-    "Thies Clima LNM": constants.F_THIES,
-}
+# F = {
+#     "OTT HydroMet Parsivel2": constants.F_PARSIVEL,
+#     "Thies Clima LNM": constants.F_THIES,
+# }
+# F should be got from a configuration file
 
 KEYS = [
     # "visibility",
@@ -43,7 +44,7 @@ NEW_KEYS = [
 ]
 
 
-def resample_data_perfect_timesteps(filename: Union[str, Path]) -> xr.Dataset:
+def resample_data_perfect_timesteps(filename: Union[str, Path], config) -> xr.Dataset:
     data_nc = xr.open_dataset(filename)
     start_time = pd.Timestamp(data_nc.time.values[0]).replace(
         hour=0, minute=0, second=0, microsecond=0, nanosecond=0
@@ -72,6 +73,7 @@ def resample_data_perfect_timesteps(filename: Union[str, Path]) -> xr.Dataset:
     data_perfect_timesteps["time_bins"] = data_perfect_timesteps.time_bins.dt.round(
         freq="1S"
     )
+    data_perfect_timesteps["F"] = config["methods"]["SAMPLING_AREA"]
 
     for key in ["year", "month", "day", "location"]:
         data_perfect_timesteps.attrs[key] = data_nc.attrs[key]
@@ -90,8 +92,11 @@ def read_parsivel_cloudnet(
             speed_classes=(["speed_classes"], data_nc.velocity.data),
         )
     )
+    data.size_classes.attrs = {"units":"mm", "long_name":"Center of the diameter bins"}
+    data.speed_classes.attrs = {"units":"m/s", "long_name":"Center of the velocity bins"}
+
     if data_nc.disdrometer_source == "OTT HydroMet Parsivel2":
-        data["F"] = F[data_nc.disdrometer_source]
+        data["F"] = data_nc["F"]
         data["F"].attrs["long_name"] = "Disdrometer sampling area"
         data["F"].attrs["units"] = "m^2"
         data["disdro_pr"] = xr.DataArray(
@@ -120,10 +125,10 @@ def read_parsivel_cloudnet(
                 )
 
         data["size_classes_width"] = xr.DataArray(
-            data_nc["diameter_spread"].values * 1000, dims=["size_classes"], attrs={"units":"m", "long_name":"Width of the diameter bins"}
+            data_nc["diameter_spread"].values * 1000, dims=["size_classes"], attrs={"units":"mm", "long_name":"Width of the diameter bins"}
         )  # mm
         data["speed_classes_width"] = xr.DataArray(
-            data_nc["velocity_spread"].values, dims=["speed_classes"], attrs={"units":"m", "long_name":"Width of the speed bins"}
+            data_nc["velocity_spread"].values, dims=["speed_classes"], attrs={"units":"m/s", "long_name":"Width of the speed bins"}
         )
     return data
 
@@ -139,8 +144,10 @@ def read_thies_cloudnet(
             speed_classes=(["speed_classes"], data_nc.velocity.data),
         )
     )
+    data.size_classes.attrs = {"units":"mm", "long_name":"Center of the diameter bins"}
+    data.speed_classes.attrs = {"units":"m/s", "long_name":"Center of the velocity bins"}
 
-    data["F"] = F[data_nc.disdrometer_source] # later : dict with F <-> (station, instrument) (Because F varies between two different Thies)
+    data["F"] = data_nc["F"]
     data["F"].attrs["long_name"] = "Disdrometer sampling area"
     data["F"].attrs["units"] = "m^2"
     data["F"].attrs["comment"] = "Varies from one instrument to another for Thies LNM disdrometers"
@@ -177,16 +184,16 @@ def read_thies_cloudnet(
     data["particles_count"] = xr.DataArray(data_nc["n_particles"].values, dims=["time"], attrs=data_nc["n_particles"].attrs)
 
     data["size_classes_width"] = xr.DataArray(
-        data_nc["diameter_spread"].values * 1000, dims=["size_classes"], attrs={"units":"m", "long_name":"Width of the diameter bins"}
+        data_nc["diameter_spread"].values * 1000, dims=["size_classes"], attrs={"units":"mm", "long_name":"Width of the diameter bins"}
     )
     data["speed_classes_width"] = xr.DataArray(
-        data_nc["velocity_spread"].values, dims=["speed_classes"], attrs={"units":"m", "long_name":"Width of the speed bins"}
+        data_nc["velocity_spread"].values, dims=["speed_classes"], attrs={"units":"m/s", "long_name":"Width of the speed bins"}
     )
     return data
 
 
-def read_parsivel_cloudnet_choice(filename: Union[str, Path], computed_frequencies:list) -> xr.Dataset:
-    data_nc = resample_data_perfect_timesteps(filename=filename)
+def read_parsivel_cloudnet_choice(filename: Union[str, Path], computed_frequencies:list, config) -> xr.Dataset:
+    data_nc = resample_data_perfect_timesteps(filename=filename, config=config)
     station = data_nc.location
     source = data_nc.disdrometer_source
     if station == "Palaiseau":
@@ -202,6 +209,8 @@ def read_parsivel_cloudnet_choice(filename: Union[str, Path], computed_frequenci
         for latlon_nc, latlon in zip(["longitude", "latitude", "altitude"], ["disdro_longitude", "disdro_latitude", "disdro_altitude"]) :
             data[latlon] = data_nc[latlon_nc]
             data[latlon].attrs["long_name"] = f"{latlon_nc} of disdrometer set-up"
+        data["disdro_altitude"].attrs["positive"] = "up"
+
         data.attrs = data_nc.attrs
         data["disdro_model"] = source
         data["disdro_model"].attrs = {"long_name":"Disdrometer model", "comment":"Disdrometer model"}
@@ -211,6 +220,7 @@ def read_parsivel_cloudnet_choice(filename: Union[str, Path], computed_frequenci
         data["time_resolution"].attrs={"units":"s", "long_name":"Time resolution of the preprocessed file"}
 
     data = data.assign_coords({"computed_frequencies": np.array(computed_frequencies)})
+    data["computed_frequencies"].attrs.update({"units":"Hz", "long_name":"Frequencies at which scattering-related variables are computed in the file"})
 
     return data
 
