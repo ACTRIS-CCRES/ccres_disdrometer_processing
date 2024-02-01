@@ -119,9 +119,8 @@ jobs:
 
       - name: Upgrade pip
         run: |
-          pip install numpy
-          pip install pip
-          pip --version
+          python -m pip install pip
+          python -m pip --version
 
       - name: Cache python environment
         uses: actions/cache@v3
@@ -133,8 +132,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install numpy
-          pip install -U .[dev]
+          python -m pip install numpy wheel
+          python -m pip install -U .[dev]
 
       - name: Run tests
         run: |
@@ -171,8 +170,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install numpy
-          pip install .[dev]
+          python -m pip install numpy wheel
+          python -m pip install .[dev]
 
       - name: Run tests
         run: |
@@ -249,23 +248,12 @@ jobs:
           python-version: "3.10"
 
       - name: Install pypa/build
-        run: >-
-          python -m pip install numpy
-          python -m
-          pip install
-          --upgrade
-          build
-          --user
+        run: |
+          python -m pip install --upgrade build --user
 
       - name: Build a binary wheel and a source tarball
-        run: >-
-          pip install numpy
-          python -m
-          build
-          --sdist
-          --wheel
-          --outdir dist/
-          .
+        run: |
+          python -m build --sdist --wheel --outdir dist/ .
 
       - name: Publish package to TestPyPI
         uses: pypa/gh-action-pypi-publish@release/v1
@@ -293,21 +281,12 @@ jobs:
           python-version: "3.10"
 
       - name: Install pypa/build
-        run: >-
-          python -m
-          pip install
-          --upgrade
-          build
-          --user
+        run: |
+          python -m pip install --upgrade build --user
 
       - name: Build a binary wheel and a source tarball
-        run: >-
-          python -m
-          build
-          --sdist
-          --wheel
-          --outdir dist/
-          .
+        run: |
+          python -m build --sdist --wheel --outdir dist/ .
 
       - name: Publish package to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
