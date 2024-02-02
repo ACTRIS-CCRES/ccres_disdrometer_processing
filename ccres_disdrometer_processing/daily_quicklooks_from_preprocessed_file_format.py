@@ -75,18 +75,19 @@ def panel1(ds, locator, formatter) :
     cmap=cmap,
     shading="nearest",
 )
-    ax1.set_ylabel(f"{ds.alt.attrs['long_name']} ({ds.alt.attrs['units']})")
+    ax1.set_ylabel(f"{ds.alt.attrs['long_name']} [{ds.alt.attrs['units']}]")
     ax1.set_title("DCR {:.0f} GHz reflectivity".format(ds.radar_frequency*1e-9))
     pos = ax1.get_position()
     cb_ax = fig.add_axes([pos.x1 + 0.005, pos.y0, 0.015, pos.y1 - pos.y0])
     cb = fig.colorbar(pc, orientation="vertical", cax=cb_ax)
-    cb.set_label(f"{ds.Zdcr.attrs['long_name']} ({ds.Zdcr.attrs['units']})")
+    cb.set_label(f"{ds.Zdcr.attrs['long_name']} [{ds.Zdcr.attrs['units']}]")
 
     # Plot 2D DCR Doppler velocity
     cmap = plt.get_cmap("rainbow").copy()
-    vmin_dv, vmax_dv = -5, 5
-    cmap.set_under("w")
+    vmin_dv, vmax_dv = -5, 0
+    # cmap.set_under("w")
     cmap.set_over("w")
+    
 
     pc = ax2.pcolormesh(
     ds.time.values,
@@ -97,20 +98,20 @@ def panel1(ds, locator, formatter) :
     cmap=cmap,
     shading="nearest",
 )
-    ax2.set_ylabel(f"{ds.alt.attrs['long_name']} ({ds.alt.attrs['units']})")
+    ax2.set_ylabel(f"{ds.alt.attrs['long_name']} [{ds.alt.attrs['units']}]")
     ax2.set_title("DCR {:.0f} GHz Doppler Velocity".format(ds.radar_frequency*1e-9))
     pos = ax2.get_position()
     cb_ax = fig.add_axes([pos.x1 + 0.005, pos.y0, 0.015, pos.y1 - pos.y0])
     cb = fig.colorbar(pc, orientation="vertical", cax=cb_ax)
-    cb.set_label(f"{ds.DVdcr.attrs['long_name']} ({ds.DVdcr.attrs['units']})")
+    cb.set_label(f"{ds.DVdcr.attrs['long_name']} [{ds.DVdcr.attrs['units']}]")
 
     # 1.4. Air temperature / relative humidity time series
     ax3b = ax3.twinx()
     temperature = ax3.plot(ds.time, ds["ta"].values, label = ds["ta"].attrs["long_name"], color = "red")
-    ax3.set_ylabel(f"{ds['ta'].attrs['long_name']} ({ds['ta'].attrs['units']})")
+    ax3.set_ylabel(f"{ds['ta'].attrs['long_name']} [{ds['ta'].attrs['units']}]")
 
     humidity = ax3b.plot(ds.time, ds["hur"].values, label = ds["hur"].attrs["long_name"], color = "green")
-    ax3b.set_ylabel(f"{ds['hur'].attrs['long_name']} ({ds['hur'].attrs['units']})")
+    ax3b.set_ylabel(f"{ds['hur'].attrs['long_name']} [{ds['hur'].attrs['units']}]")
 
     ax3.grid()
     ax3.set_title("Timeseries for Air temperature and Relative humidity")
@@ -121,10 +122,10 @@ def panel1(ds, locator, formatter) :
     # Wind speed / wind direction time series
     ax4b = ax4.twinx()
     wind_speed = ax4.plot(ds.time, ds["ws"].values, label = ds["ws"].attrs["long_name"], color = "red")
-    ax4.set_ylabel(f"{ds['ws'].attrs['long_name']} ({ds['ws'].attrs['units']})")
+    ax4.set_ylabel(f"{ds['ws'].attrs['long_name']} [{ds['ws'].attrs['units']}]")
 
     wind_direction = ax4b.plot(ds.time, ds["wd"].values, label = ds["wd"].attrs["long_name"], color = "green")
-    ax4b.set_ylabel(f"{ds['wd'].attrs['long_name']} ({ds['wd'].attrs['units']})")
+    ax4b.set_ylabel(f"{ds['wd'].attrs['long_name']} [{ds['wd'].attrs['units']}]")
 
     ax4.grid()
     ax4.set_title("Timeseries for Wind speed and direction")
@@ -199,16 +200,20 @@ def panel1(ds, locator, formatter) :
         c="C1",
         label="Fall speed model (Gun and Kinzer)",
     )
-    fig.colorbar(h[3], ax=ax6)
+    print(np.nansum(drop_density), np.nanmax(drop_density))
+    cbar = fig.colorbar(h[3], ax=ax6)
+    cbar.ax.set_yticklabels(np.round(100*cbar.ax.get_yticks()/np.nansum(drop_density),2))
+    cbar.set_label("% of total")
     ax6.legend(loc="best")
     ax6.grid()
-    ax6.set_xlabel("Diameter (mm)")
-    ax6.set_ylabel("Fall speed (m/s)")
+    ax6.set_xlabel("Diameter [mm]")
+    ax6.set_ylabel("Fall speed [m/s]")
     # ax6.set_xlim(disdro["size_classes"].min(), disdro["size_classes"].max())
     # ax6.set_ylim(disdro["speed_classes"].min(), disdro["speed_classes"].max())
     ax6.set_xlim(0, 5)
     ax6.set_ylim(0, 10)
     ax6.set_title("Relationship disdrometer fall speed / drop size ")
+
 
     # plt.show()
 
@@ -236,7 +241,7 @@ def panel2(ds, locator, formatter, gate):
         axe.xaxis.set_major_formatter(formatter)
         axe.set_xlabel("Time (UTC)")
 
-    Zd = ds.Zdlog_vfov_modv_tm.sel(computed_frequencies=ds.radar_frequency.data, method="nearest").values
+    Zd = ds.Zdlog_vfov_modv_tm.sel(computed_frequencies=ds.radar_frequency.data, method="nearest")
     plotted_alt = np.array([50, 100, 150, 300])
 
     # Plot Z from DCR at different gates
@@ -244,7 +249,7 @@ def panel2(ds, locator, formatter, gate):
         Zr = ds.Zdcr.sel(range=r, method="nearest")
         r_near = Zr.range.values
         ax1.plot(time, Zr, label=f"Z from DCR @ {r_near:.0f}m", lw=0.75)
-    ax1.plot(time, Zd, label = "Z modeled from DD", lw=1.5)
+    ax1.plot(time, Zd.values, color="green", label="Z modeled from DD", lw=1.5)
     ax1.grid()
     ax1.legend()
     ax1.set_ylabel("Z [dBZ]")
@@ -262,7 +267,7 @@ def panel2(ds, locator, formatter, gate):
         ax2.plot(time, dZr, label="$\Delta Z_{DCR/DD}$" f" @ {r_near:.0f}m", lw=1)
     ax2.grid()
     ax2.legend()
-    ax2.set_ylabel("$\Delta_{Z}$ [dBZ]")
+    ax2.set_ylabel("$\Delta Z$ [dBZ]")
     ax2.set_title("Reflectivity differences between DCR and disdrometer")
     ax2.set_xlim(
         left=time.min(),
@@ -271,7 +276,8 @@ def panel2(ds, locator, formatter, gate):
     ax2.set_ylim(top=10, bottom=-10)
 
     # Plot Delta Z pdf at a defined range (given in a configuration file)
-    dZ_conf = ds.Zdcr.sel(range=gate, method="nearest") - Zd
+    Zgate = ds.Zdcr.sel(range=gate, method="nearest")
+    dZ_conf = Zgate.values - Zd.values
 
     f = np.where((np.isfinite(dZ_conf)))[0]
     dZ_conf = dZ_conf[f]
@@ -315,6 +321,17 @@ def panel2(ds, locator, formatter, gate):
     ax3.set_title(
         "pdf of differences $Z_{{DCR}} - Z_{{DD}}$ @ {}m".format(gate)
     )
+
+    ax4.scatter(Zd, Zgate)
+    ax4.plot([-10, 25], [-10, 25], color = "green", label = "Id")
+    ax4.set_xlabel(f"{Zd.attrs['long_name']} [{Zd.attrs['units']}]")
+    ax4.set_ylabel(f"{Zgate.attrs['long_name']} [{Zgate.attrs['units']}]")
+    ax4.grid()
+    ax4.legend()
+    ax4.set_xlim(-10, 25)
+    ax4.set_ylim(-10, 25)
+    ax4.set_title(f"Scatterplot : $Z_{{DCR}} @ {gate:.0f}m$ vs $Z_{{DD}}$")
+    ax4.set_aspect("equal", anchor="C")
 
     return fig
 
