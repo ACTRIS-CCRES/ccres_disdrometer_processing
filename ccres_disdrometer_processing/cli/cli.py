@@ -7,6 +7,8 @@ import click
 import toml
 import xarray as xr
 import numpy as np
+import datetime
+import subprocess
 
 sys.path.append(str(Path(__file__).parent.parent))
 
@@ -14,6 +16,7 @@ import open_disdro_netcdf as disdro
 import open_radar_netcdf as radar
 import open_weather_netcdf as weather
 import scattering as scattering
+from __init__ import __version__
 from constants import E
 from logger import LogLevels, init_logger
 
@@ -115,7 +118,10 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
     final_data.attrs["Conventions"] = "CF-1.8, ACDD-1.3, GEOMS"
     final_data.attrs["id"] = config["nc_meta"]["id"]
     final_data.attrs["naming_authority"] = config["nc_meta"]["naming_authority"]
-    final_data.attrs["history"] = "created on {} by {}, {}, {}".format("","","","") # get commit short id : subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD']).decode('ascii').strip()
+    date_created = datetime.now().isoformat()
+    script_name = ""
+    commit_id = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD']).decode('ascii').strip()
+    final_data.attrs["history"] = "created on {} by {}, {}, {}".format(date_created,script_name,__version__,commit_id)
     final_data.attrs["source"] = "surface observation from {} DCR, {} disdrometer {}, processed by CloudNet".format(final_data.radar_source, final_data.disdro_source, "and AMS" * weather_avail)
     final_data.attrs["processing_level"] = "2a"
     final_data.attrs["comment"] = config["nc_meta"]["comment"]
@@ -161,7 +167,7 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
     final_data.attrs["date_modified"] = ""
     final_data.attrs["date_issued"] = ""
     final_data.attrs["date_metadata_modified"] = ""
-    final_data.attrs["product_version"] = ""
+    final_data.attrs["product_version"] = __version__
     final_data.attrs["platform"] = "GCMD:In Situ Land-based Platforms, GCMD:OBSERVATORIES"
     final_data.attrs["platform_vocabulary"] = "GCMD:GCMD Keywords"
     final_data.attrs["instrument"] = ""
