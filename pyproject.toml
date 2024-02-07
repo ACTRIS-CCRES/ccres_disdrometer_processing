@@ -56,6 +56,8 @@ dev = [
     "pytest-cov>=2.10.1",
     "pytest-mock>=3.6.1",
     "coverage>=5.3",
+    "requests",
+
 
     # Documentation
     "sphinx>=4.5.0",
@@ -93,7 +95,7 @@ include = ["ccres_disdrometer_processing", "ccres_disdrometer_processing.*"]
 explicit_package_bases = true
 disallow_untyped_defs = true
 ignore_missing_imports = true
-exclude = ['build/', 'venv', "ccres_disdrometer_processing/tests", "tests"]
+exclude = ['^build/', 'venv', "tests/*.py"]
 
 [tool.docformatter]
 recursive = true
@@ -117,4 +119,13 @@ select = [
     "SIM",
     # isort
     "I",
+]
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-vv --cov-config=.coveragerc --cov-report html:.coverage/html --cov-report xml:.coverage/coverage.xml --cov-report term --cov="
+testpaths = ["tests"]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "default:::ccres_disdrometer_processing.*",
 ]
