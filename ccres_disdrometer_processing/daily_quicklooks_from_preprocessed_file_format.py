@@ -34,6 +34,9 @@ def daily_quicklooks(preprocessed_file, config_file):
     # Date format for plots
     locator = mpl.dates.AutoDateLocator()
     formatter = mpl.dates.ConciseDateFormatter(locator)
+    mpl.rcParams['axes.labelsize'] = 14
+    mpl.rcParams['axes.labelweight'] = "bold"
+    mpl.rcParams['axes.titlesize'] = 16
 
     fig1 = panel1(ds, locator, formatter)
     fig2 = panel2(ds, locator, formatter, gate)
@@ -48,7 +51,7 @@ def panel1(ds, locator, formatter) :
     plt.subplots_adjust(0.06, 0.06, 0.93, 0.9, hspace=0.25, wspace=0.3)
 
     fig.text(
-    s=pd.Timestamp(ds.time.values[0]).to_pydatetime().strftime("%Y-%m-%d") + " : Daily data overview",
+    s=pd.Timestamp(ds.time.values[0]).to_pydatetime().strftime("%Y-%m-%d") + f" {ds.attrs['location']}: Daily data overview",
     fontsize=18,
     horizontalalignment="center",
     verticalalignment="center",
@@ -76,7 +79,7 @@ def panel1(ds, locator, formatter) :
     shading="nearest",
 )
     ax1.set_ylabel(f"{ds.alt.attrs['long_name']} [{ds.alt.attrs['units']}]")
-    ax1.set_title("DCR {:.0f} GHz reflectivity".format(ds.radar_frequency*1e-9))
+    ax1.set_title("{} {:.0f} GHz reflectivity".format(ds.attrs["radar_source"], ds.radar_frequency*1e-9))
     pos = ax1.get_position()
     cb_ax = fig.add_axes([pos.x1 + 0.005, pos.y0, 0.015, pos.y1 - pos.y0])
     cb = fig.colorbar(pc, orientation="vertical", cax=cb_ax)
@@ -99,7 +102,7 @@ def panel1(ds, locator, formatter) :
     shading="nearest",
 )
     ax2.set_ylabel(f"{ds.alt.attrs['long_name']} [{ds.alt.attrs['units']}]")
-    ax2.set_title("DCR {:.0f} GHz Doppler Velocity".format(ds.radar_frequency*1e-9))
+    ax2.set_title("{} {:.0f} GHz Doppler Velocity".format(ds.attrs["radar_source"], ds.radar_frequency*1e-9))
     pos = ax2.get_position()
     cb_ax = fig.add_axes([pos.x1 + 0.005, pos.y0, 0.015, pos.y1 - pos.y0])
     cb = fig.colorbar(pc, orientation="vertical", cax=cb_ax)
@@ -107,10 +110,10 @@ def panel1(ds, locator, formatter) :
 
     # 1.4. Air temperature / relative humidity time series
     ax3b = ax3.twinx()
-    temperature = ax3.plot(ds.time, ds["ta"].values, label = ds["ta"].attrs["long_name"], color = "red")
+    temperature = ax3.plot(ds.time, ds["ta"].values, label = ds["ta"].attrs["long_name"], color = "orange")
     ax3.set_ylabel(f"{ds['ta'].attrs['long_name']} [{ds['ta'].attrs['units']}]")
 
-    humidity = ax3b.plot(ds.time, ds["hur"].values, label = ds["hur"].attrs["long_name"], color = "green")
+    humidity = ax3b.plot(ds.time, ds["hur"].values, label = ds["hur"].attrs["long_name"], color = "blue")
     ax3b.set_ylabel(f"{ds['hur'].attrs['long_name']} [{ds['hur'].attrs['units']}]")
 
     ax3.grid()
@@ -121,11 +124,12 @@ def panel1(ds, locator, formatter) :
 
     # Wind speed / wind direction time series
     ax4b = ax4.twinx()
-    wind_speed = ax4.plot(ds.time, ds["ws"].values, label = ds["ws"].attrs["long_name"], color = "red")
+    wind_speed = ax4.plot(ds.time, ds["ws"].values, label=ds["ws"].attrs["long_name"], color="red")
     ax4.set_ylabel(f"{ds['ws'].attrs['long_name']} [{ds['ws'].attrs['units']}]")
 
-    wind_direction = ax4b.plot(ds.time, ds["wd"].values, label = ds["wd"].attrs["long_name"], color = "green")
+    wind_direction = ax4b.plot(ds.time, ds["wd"].values, label=ds["wd"].attrs["long_name"], color="green", linestyle="", marker=".")
     ax4b.set_ylabel(f"{ds['wd'].attrs['long_name']} [{ds['wd'].attrs['units']}]")
+    ax4b.set_ylim(bottom=0, top=360)
 
     ax4.grid()
     ax4.set_title("Timeseries for Wind speed and direction")
@@ -135,17 +139,17 @@ def panel1(ds, locator, formatter) :
 
     # Disdrometer-related data : rain accumulation and 2D plot for the Speed/Diameter relationship
     ax5.plot(
-        ds.time, ds["disdro_cp"], color="red", label="Disdrometer"
+        ds.time, ds["disdro_cp"], color="k", label=f"{ds.attrs['disdrometer_source']}"
     )
     ax5.plot(
         ds.time[:],
         ds["ams_cp"][:],
-        color="green",
+        color="C0",
         label="Weather station",
     ) 
     ax5.legend()
     ax5.set_ylabel("Cumulated precipitation [mm]")
-    ax5.set_title("Disdrometer and weather station-based cumulated precipitation over the day")
+    ax5.set_title("Disdrometer and weather station-based cumulated precipitation")
     ax5.grid()
 
     def f_th(x):
@@ -192,7 +196,7 @@ def panel1(ds, locator, formatter) :
         ds["size_classes"],
         y_hat,
         c="green",
-        label="Fit on DD measurements",
+        label=f"Fit on {ds.attrs['disdrometer_source']} measurements",
     )
     ax6.plot(
         ds["size_classes"],
@@ -203,7 +207,7 @@ def panel1(ds, locator, formatter) :
     print(np.nansum(drop_density), np.nanmax(drop_density))
     cbar = fig.colorbar(h[3], ax=ax6)
     cbar.ax.set_yticklabels(np.round(100*cbar.ax.get_yticks()/np.nansum(drop_density),2))
-    cbar.set_label("% of total")
+    cbar.set_label("% of droplets total")
     ax6.legend(loc="best")
     ax6.grid()
     ax6.set_xlabel("Diameter [mm]")
@@ -228,7 +232,7 @@ def panel2(ds, locator, formatter, gate):
     plt.subplots_adjust(0.06, 0.06, 0.93, 0.9, hspace=0.2, wspace=0.3)
 
     fig.text(
-    s=pd.Timestamp(ds.time.values[0]).to_pydatetime().strftime("%Y-%m-%d") + " : Daily reflectivity data",
+    s=pd.Timestamp(ds.time.values[0]).to_pydatetime().strftime("%Y-%m-%d") + f" {ds.attrs['location']} : Daily reflectivity data",
     fontsize=18,
     horizontalalignment="center",
     verticalalignment="center",
@@ -253,7 +257,7 @@ def panel2(ds, locator, formatter, gate):
     ax1.grid()
     ax1.legend()
     ax1.set_ylabel("Z [dBZ]")
-    ax1.set_title("Reflectivity from DCR and disdrometer")
+    ax1.set_title(f"Reflectivity from {ds.attrs['radar_source']} DCR and {ds.attrs['disdrometer_source']} disdrometer")
     ax1.set_xlim(
         left=time.min(),
         right=time.max(),
@@ -265,10 +269,11 @@ def panel2(ds, locator, formatter, gate):
         dZr = ds.Zdcr.sel(range=r, method="nearest") - Zd
         r_near = dZr.range.values
         ax2.plot(time, dZr, label="$\Delta Z_{DCR/DD}$" f" @ {r_near:.0f}m", lw=1)
+    ax2.axhline(y=0, ls="dashed", color="k")
     ax2.grid()
     ax2.legend()
     ax2.set_ylabel("$\Delta Z$ [dBZ]")
-    ax2.set_title("Reflectivity differences between DCR and disdrometer")
+    ax2.set_title(f"Reflectivity differences between {ds.attrs['radar_source']} DCR and {ds.attrs['disdrometer_source']} disdrometer")
     ax2.set_xlim(
         left=time.min(),
         right=time.max(),
@@ -294,7 +299,7 @@ def panel2(ds, locator, formatter, gate):
         marker="o",
         color="green",
     )
-    print(np.nanmax(dZ_conf), np.nanmin(dZ_conf))
+    bin_width = 0.5
     ax3.hist(
         dZ_conf,
         label="$Z_{{DCR}}$ - $Z_{{Disdrometer}}$, $Med = ${:.1f} $dBZ$, $\sigma = ${:.1f} $dBZ$".format(
@@ -307,30 +312,32 @@ def panel2(ds, locator, formatter, gate):
             (
                 np.nanmax(dZ_conf) - np.nanmin(dZ_conf)
             )
-            / 0.5
+            / bin_width
         ),
     )
     ax3.axvline(x=np.nanmedian(dZ_conf), color="green")
+    ax3.axvline(x=0, color="k", ls="--")
     ax3.legend(loc="upper left")
     ax3.grid()
     ax3.set_xlim(left=-15, right=15)
     ax3_cdf.set_ylim(bottom=0, top=1)
+    ax3.set_yticklabels(np.round(bin_width * ax3.get_yticks(), 2))
     ax3.set_xlabel(r"$\Delta Z [dBZ]$")
-    ax3.set_ylabel("pdf")
+    ax3.set_ylabel("fraction of point total")
     ax3_cdf.set_ylabel("cdf %")
     ax3.set_title(
-        "pdf of differences $Z_{{DCR}} - Z_{{DD}}$ @ {}m".format(gate)
+        "pdf of differences : Z from {} @ {}m - Z from {}".format(ds.attrs['radar_source'], gate, ds.attrs['disdrometer_source'])
     )
 
     ax4.scatter(Zd, Zgate)
-    ax4.plot([-10, 25], [-10, 25], color = "green", label = "Id")
-    ax4.set_xlabel(f"{Zd.attrs['long_name']} [{Zd.attrs['units']}]")
-    ax4.set_ylabel(f"{Zgate.attrs['long_name']} [{Zgate.attrs['units']}]")
+    ax4.plot([-10, 25], [-10, 25], color = "k", label = "Id")
+    ax4.set_xlabel(f"Reflectivity modeled from {ds.attrs['disdrometer_source']} data [{Zd.attrs['units']}]")
+    ax4.set_ylabel(f"{ds.attrs['radar_source']} DCR reflectivity [{Zgate.attrs['units']}]")
     ax4.grid()
     ax4.legend()
     ax4.set_xlim(-10, 25)
     ax4.set_ylim(-10, 25)
-    ax4.set_title(f"Scatterplot : $Z_{{DCR}} @ {gate:.0f}m$ vs $Z_{{DD}}$")
+    ax4.set_title(f"Scatterplot : $Z_{{DCR}} @ {gate:.0f}m$ vs $Z_{{disdrometer}}$")
     ax4.set_aspect("equal", anchor="C")
 
     return fig
