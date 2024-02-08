@@ -12,7 +12,7 @@ disdro_file = f"{TEST_INPUT}/20210202_palaiseau_parsivel.nc"
 ws_file = f"{TEST_INPUT}/20210202_palaiseau_weather-station.nc"
 radar_file = f"{TEST_INPUT}/20210202_palaiseau_basta.nc"
 config_file = f"{TEST_INPUT}/CONFIG_preprocessing_processing.toml"
-output_file = f"{TEST_OUT_DIR}/20210202_palaiseau_preprocessed_v1101.nc"
+output_file = f"{TEST_OUT_DIR}/20210202_palaiseau_preprocessed_v0802.nc"
 print(config_file)
 
 
@@ -41,6 +41,10 @@ if open :
         except KeyError :
             print(var)
     print(ds.F.data, ds.F.attrs)
+    print(ds.disdro_longitude.values, ds.radar_longitude.values, ds.ams_longitude.values)
+    print(ds.disdro_latitude.values, ds.radar_latitude.values, ds.ams_latitude.values)
+    print(ds.disdro_altitude.values, ds.radar_altitude.values, ds.ams_altitude.values)
+
 
 if rad : 
     radar = xr.open_dataset(radar_file)
