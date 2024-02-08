@@ -119,7 +119,7 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
     final_data.attrs["Conventions"] = "CF-1.8, ACDD-1.3, GEOMS"
     final_data.attrs["id"] = config["nc_meta"]["id"]
     final_data.attrs["naming_authority"] = config["nc_meta"]["naming_authority"]
-    date_created = datetime.datetime.now().isoformat()
+    date_created = datetime.datetime.utcnow().isoformat()
     script_name = ""
     commit_id = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD']).decode('ascii').strip()
     final_data.attrs["history"] = "created on {} by {}, {}, {}".format(date_created,script_name,__version__,commit_id)
