@@ -1,14 +1,14 @@
-import numpy as np
-import pandas as pd
-
-pd.options.mode.chained_assignment = None  # default='warn'
 import datetime as dt
 import glob
 import logging
 import os
 from typing import List, Optional
 
+import numpy as np
+import pandas as pd
 import xarray as xr
+
+pd.options.mode.chained_assignment = None  # default='warn'
 
 lgr = logging.getLogger(__name__)
 
@@ -30,6 +30,7 @@ TIMESTAMP_THRESHOLDS = [MIN_T, MAX_WS, MAX_RR, FALLSPEED_REL_ERROR]
 EVENT_THRESHOLDS = [MIN_CUM, CUM_REL_ERROR]
 
 DELTA_DISDRO = dt.timedelta(minutes=MN)
+
 
 def get_valid_paths(
     start: dt.datetime, end: dt.datetime, path: str

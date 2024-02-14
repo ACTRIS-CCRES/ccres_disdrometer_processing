@@ -1,27 +1,24 @@
 """Console script for ccres_disdrometer_processing."""
 
+import datetime
+import logging
+import subprocess
 import sys
 from pathlib import Path
 
 import click
-import toml
-import xarray as xr
 import numpy as np
 import pandas as pd
-import netCDF4 as nc4
-import datetime
-import subprocess
+import toml
+import xarray as xr
 
-sys.path.append(str(Path(__file__).parent.parent))
+import ccres_disdrometer_processing.open_disdro_netcdf as disdro
+import ccres_disdrometer_processing.open_radar_netcdf as radar
+import ccres_disdrometer_processing.open_weather_netcdf as weather
+import ccres_disdrometer_processing.scattering as scattering
+from ccres_disdrometer_processing.__init__ import __version__
+from ccres_disdrometer_processing.logger import LogLevels, init_logger
 
-import open_disdro_netcdf as disdro
-import open_radar_netcdf as radar
-import open_weather_netcdf as weather
-import scattering as scattering
-from __init__ import __version__
-from logger import LogLevels, init_logger
-
-import logging
 lgr = logging.getLogger(__name__)
 
 DISDRO_TYPES = ["OTT HydroMet Parsivel2"]
@@ -47,13 +44,60 @@ def status():
 
 @cli.command()
 # @click.option("--disdro-type", type=click.Choice(DISDRO_TYPES), required=True)
-@click.option("--disdro-file", type=click.Path(exists=True, file_okay=True, dir_okay=False, path_type=Path, resolve_path=True, readable=True), required=True)
+@click.option(
+    "--disdro-file",
+    type=click.Path(
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        path_type=Path,
+        resolve_path=True,
+        readable=True,
+    ),
+    required=True,
+)
 # @click.option("--ws-type", type=click.Choice(WS_TYPES), required=True)
-@click.option("--ws-file", type=click.Path(exists=True, file_okay=True, dir_okay=False, path_type=Path, resolve_path=True, readable=True), required=False, default=None) 
-@click.option("--radar-file", type=click.Path(exists=True, file_okay=True, dir_okay=False, path_type=Path, resolve_path=True, readable=True), required=True)
-@click.option("--config-file", type=click.Path(exists=True, file_okay=True, dir_okay=False, path_type=Path, resolve_path=True, readable=True), required=True)
-@click.argument("output-file", type=click.Path(file_okay=True, dir_okay=False, path_type=Path, resolve_path=True))
-
+@click.option(
+    "--ws-file",
+    type=click.Path(
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        path_type=Path,
+        resolve_path=True,
+        readable=True,
+    ),
+    required=False,
+    default=None,
+)
+@click.option(
+    "--radar-file",
+    type=click.Path(
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        path_type=Path,
+        resolve_path=True,
+        readable=True,
+    ),
+    required=True,
+)
+@click.option(
+    "--config-file",
+    type=click.Path(
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        path_type=Path,
+        resolve_path=True,
+        readable=True,
+    ),
+    required=True,
+)
+@click.argument(
+    "output-file",
+    type=click.Path(file_okay=True, dir_okay=False, path_type=Path, resolve_path=True),
+)
 def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
     """Command line interface for ccres_disdrometer_processing."""
     click.echo("CCRES disdrometer preprocessing : test CLI")
@@ -66,28 +110,31 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
     E = config["methods"]["REFRACTION_INDEX"]
     E = complex(E[0], E[1])
     print(E)
-    computed_frequencies = config["methods"]["RADAR_FREQUENCIES"] # given in Hz -> ok for the scattering script
+    computed_frequencies = config["methods"][
+        "RADAR_FREQUENCIES"
+    ]  # given in Hz -> ok for the scattering script
 
     # read doppler radar data
     # ---------------------------------------------------------------------------------
     radar_xr = radar.read_radar_cloudnet(radar_file)
-    radar_frequency = radar_xr.radar_frequency  # value is given in Hz in radar_xr file
 
     # read and preprocess disdrometer data
     # ---------------------------------------------------------------------------------
 
-    disdro_xr = disdro.read_parsivel_cloudnet_choice(disdro_file, computed_frequencies, config)
- 
+    disdro_xr = disdro.read_parsivel_cloudnet_choice(
+        disdro_file, computed_frequencies, config
+    )
+
     scatt_list = []
-    for fov in [1, 0]: # 1 : vertical fov, 0 : horizontal fov
-        for frequency in computed_frequencies :
+    for fov in [1, 0]:  # 1 : vertical fov, 0 : horizontal fov
+        for frequency in computed_frequencies:
             scatt = scattering.scattering_prop(
-            disdro_xr.size_classes[0:-5],
-            fov,
-            frequency,
-            E,
-            axrMethod=axrMethod,
-            mieMethod=mieMethod,
+                disdro_xr.size_classes[0:-5],
+                fov,
+                frequency,
+                E,
+                axrMethod=axrMethod,
+                mieMethod=mieMethod,
             )
             scatt_list.append(scatt)
     disdro_xr = disdro.reflectivity_model_multilambda_measmodV_hvfov(
@@ -101,37 +148,52 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
 
     # read weather-station data
     # ---------------------------------------------------------------------------------
-    if not (ws_file is None):
+    if ws_file is not None:
         weather_xr = weather.read_weather_cloudnet(ws_file)
         final_data = xr.merge(
             [weather_xr, disdro_xr, radar_xr], combine_attrs="drop_conflicts"
         )
-    else :
-        final_data = xr.merge(
-            [disdro_xr, radar_xr], combine_attrs="drop_conflicts"
-        )
+    else:
+        final_data = xr.merge([disdro_xr, radar_xr], combine_attrs="drop_conflicts")
 
     final_data.attrs["station_name"] = config["location"]["STATION"]
 
     final_data.time.attrs["standard_name"] = "time"
-    weather_avail = int((not (weather is None)))
-    final_data.attrs["weather_data_avail"] = weather_avail
+    weather_avail = weather is not None
+    final_data.attrs["weather_data_avail"] = int(weather_avail)
     final_data.attrs["axis_ratioMethod"] = axrMethod
     final_data.attrs["fallspeedFormula"] = strMethod
 
     # Add global attributes specified in the file format
     final_data.attrs["title"] = ""
     final_data.attrs["summary"] = ""
-    final_data.attrs["keywords"] = "GCMD:EARTH SCIENCE, GCMD:ATMOSPHERE, GCMD:CLOUDS, GCMD:CLOUD DROPLET DISTRIBUTION, GCMD:CLOUD RADIATIVE TRANSFER, GCMD:CLOUD REFLECTANCE, GCMD:SCATTERING, GCMD:PRECIPITATION, GCMD:ATMOSPHERIC PRECIPITATION INDICES, GCMD:DROPLET SIZE, GCMD:HYDROMETEORS, GCMD:LIQUID PRECIPITATION, GCMD:RAIN, GCMD:LIQUID WATER EQUIVALENT, GCMD:PRECIPITATION AMOUNT, GCMD:PRECIPITATION RATE, GCMD:SURFACE PRECIPITATION"
-    final_data.attrs["keywords_vocabulary"] = "GCMD:GCMD Keywords, CF:NetCDF COARDS Climate and Forecast Standard Names"
+    final_data.attrs[
+        "keywords"
+    ] = "GCMD:EARTH SCIENCE, GCMD:ATMOSPHERE, GCMD:CLOUDS, GCMD:CLOUD DROPLET DISTRIBUTION, GCMD:CLOUD RADIATIVE TRANSFER, GCMD:CLOUD REFLECTANCE, GCMD:SCATTERING, GCMD:PRECIPITATION, GCMD:ATMOSPHERIC PRECIPITATION INDICES, GCMD:DROPLET SIZE, GCMD:HYDROMETEORS, GCMD:LIQUID PRECIPITATION, GCMD:RAIN, GCMD:LIQUID WATER EQUIVALENT, GCMD:PRECIPITATION AMOUNT, GCMD:PRECIPITATION RATE, GCMD:SURFACE PRECIPITATION"  # noqa
+    final_data.attrs[
+        "keywords_vocabulary"
+    ] = "GCMD:GCMD Keywords, CF:NetCDF COARDS Climate and Forecast Standard Names"
     final_data.attrs["Conventions"] = "CF-1.8, ACDD-1.3, GEOMS"
     final_data.attrs["id"] = config["nc_meta"]["id"]
     final_data.attrs["naming_authority"] = config["nc_meta"]["naming_authority"]
     date_created = datetime.datetime.utcnow().strftime(ISO_DATE_FORMAT)
-    script_name = toml.load(f"{Path(__file__).parent.parent.parent}/pyproject.toml")["project"]["name"]
-    commit_id = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD']).decode('ascii').strip()
-    final_data.attrs["history"] = "created on {} by {}, v{}, commit {}".format(date_created,script_name,__version__,commit_id)
-    final_data.attrs["source"] = "surface observation from {} DCR, {} disdrometer {}, processed by CloudNet".format(final_data.radar_source, final_data.disdrometer_source, "and AMS" * weather_avail)
+    script_name = toml.load(f"{Path(__file__).parent.parent.parent}/pyproject.toml")[
+        "project"
+    ]["name"]
+    commit_id = (
+        subprocess.check_output(["git", "rev-parse", "--short", "HEAD"])
+        .decode("ascii")
+        .strip()
+    )
+    final_data.attrs["history"] = "created on {} by {}, v{}, commit {}".format(
+        date_created, script_name, __version__, commit_id
+    )
+    weather_str = ""
+    if weather_avail:
+        weather_str = " and AMS"
+    final_data.attrs[
+        "source"
+    ] = f"surface observation from {final_data.radar_source} DCR, {final_data.disdrometer_source} disdrometer{weather_str}, processed by CloudNet"  # noqa
     final_data.attrs["processing_level"] = "2a"
     final_data.attrs["comment"] = config["nc_meta"]["comment"]
     final_data.attrs["acknowledgement"] = ""
@@ -149,34 +211,144 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
     final_data.attrs["publisher_email"] = config["nc_meta"]["publisher_email"]
     final_data.attrs["publisher_url"] = config["nc_meta"]["publisher_url"]
     final_data.attrs["publisher_type"] = config["nc_meta"]["publisher_type"]
-    final_data.attrs["publisher_institution"] = config["nc_meta"]["publisher_institution"]
+    final_data.attrs["publisher_institution"] = config["nc_meta"][
+        "publisher_institution"
+    ]
     final_data.attrs["contributor_name"] = config["nc_meta"]["contributor_name"]
     final_data.attrs["contributor_role"] = config["nc_meta"]["contributor_role"]
 
     def precision(nb):
-        return str(nb)[::-1].find('.')   
-    if weather_avail :
-        geospatial_lat_min = np.min(np.array([final_data.disdro_latitude.values, final_data.radar_latitude.values, final_data.ams_latitude.values]))
-        geospatial_lat_max = np.max(np.array([final_data.disdro_latitude.values, final_data.radar_latitude.values, final_data.ams_latitude.values]))
-        geospatial_lon_min = np.min(np.array([final_data.disdro_longitude.values, final_data.radar_longitude.values, final_data.ams_longitude.values]))
-        geospatial_lon_max = np.max(np.array([final_data.disdro_longitude.values, final_data.radar_longitude.values, final_data.ams_longitude.values]))
-        geospatial_lat_res = 10**-(min(precision(final_data.disdro_latitude.values), precision(final_data.radar_latitude.values), precision(final_data.ams_latitude.values)))
-        geospatial_lon_res = 10**-(min(precision(final_data.disdro_longitude.values), precision(final_data.radar_longitude.values), precision(final_data.ams_longitude.values)))
-        geospatial_vert_min = np.min(np.array([final_data.disdro_altitude.values, final_data.radar_altitude.values, final_data.ams_altitude.values]))
-        geospatial_vert_max = np.max(np.array([final_data.disdro_altitude.values, final_data.radar_altitude.values, final_data.ams_altitude.values]))
-        geospatial_vert_res = 10**-(min(precision(final_data.disdro_altitude.values), precision(final_data.radar_altitude.values), precision(final_data.ams_altitude.values)))
-    else :
-        geospatial_lat_min = np.min(np.array([final_data.disdro_latitude.values, final_data.radar_latitude.values]))
-        geospatial_lat_max = np.max(np.array([final_data.disdro_latitude.values, final_data.radar_latitude.values]))
-        geospatial_lon_min = np.min(np.array([final_data.disdro_longitude.values, final_data.radar_longitude.values]))
-        geospatial_lon_max = np.max(np.array([final_data.disdro_longitude.values, final_data.radar_longitude.values]))
-        geospatial_lat_res = 10**-(min(precision(final_data.disdro_latitude.values), precision(final_data.radar_latitude.values)))
-        geospatial_lon_res = 10**-(min(precision(final_data.disdro_longitude.values), precision(final_data.radar_longitude.values)))
-        geospatial_vert_min = np.min(np.array([final_data.disdro_altitude.values, final_data.radar_altitude.values]))
-        geospatial_vert_max = np.max(np.array([final_data.disdro_altitude.values, final_data.radar_altitude.values]))
-        geospatial_vert_res = 10**-(min(precision(final_data.disdro_altitude.values), precision(final_data.radar_altitude.values)))   
-    final_data.attrs["geospatial_bounds"] = f"POLYGON (({geospatial_lat_min}{geospatial_lon_min}), ({geospatial_lat_min}{geospatial_lon_max}), ({geospatial_lat_max}{geospatial_lon_max}), ({geospatial_lat_max}{geospatial_lon_min}))"
-    final_data.attrs["geospatial_bounds_crs"] = "EPSG:4326" # WGS84
+        return str(nb)[::-1].find(".")
+
+    if weather_avail:
+        geospatial_lat_min = np.min(
+            np.array(
+                [
+                    final_data.disdro_latitude.values,
+                    final_data.radar_latitude.values,
+                    final_data.ams_latitude.values,
+                ]
+            )
+        )
+        geospatial_lat_max = np.max(
+            np.array(
+                [
+                    final_data.disdro_latitude.values,
+                    final_data.radar_latitude.values,
+                    final_data.ams_latitude.values,
+                ]
+            )
+        )
+        geospatial_lon_min = np.min(
+            np.array(
+                [
+                    final_data.disdro_longitude.values,
+                    final_data.radar_longitude.values,
+                    final_data.ams_longitude.values,
+                ]
+            )
+        )
+        geospatial_lon_max = np.max(
+            np.array(
+                [
+                    final_data.disdro_longitude.values,
+                    final_data.radar_longitude.values,
+                    final_data.ams_longitude.values,
+                ]
+            )
+        )
+        geospatial_lat_res = 10 ** -(
+            min(
+                precision(final_data.disdro_latitude.values),
+                precision(final_data.radar_latitude.values),
+                precision(final_data.ams_latitude.values),
+            )
+        )
+        geospatial_lon_res = 10 ** -(
+            min(
+                precision(final_data.disdro_longitude.values),
+                precision(final_data.radar_longitude.values),
+                precision(final_data.ams_longitude.values),
+            )
+        )
+        geospatial_vert_min = np.min(
+            np.array(
+                [
+                    final_data.disdro_altitude.values,
+                    final_data.radar_altitude.values,
+                    final_data.ams_altitude.values,
+                ]
+            )
+        )
+        geospatial_vert_max = np.max(
+            np.array(
+                [
+                    final_data.disdro_altitude.values,
+                    final_data.radar_altitude.values,
+                    final_data.ams_altitude.values,
+                ]
+            )
+        )
+        geospatial_vert_res = 10 ** -(
+            min(
+                precision(final_data.disdro_altitude.values),
+                precision(final_data.radar_altitude.values),
+                precision(final_data.ams_altitude.values),
+            )
+        )
+    else:
+        geospatial_lat_min = np.min(
+            np.array(
+                [final_data.disdro_latitude.values, final_data.radar_latitude.values]
+            )
+        )
+        geospatial_lat_max = np.max(
+            np.array(
+                [final_data.disdro_latitude.values, final_data.radar_latitude.values]
+            )
+        )
+        geospatial_lon_min = np.min(
+            np.array(
+                [final_data.disdro_longitude.values, final_data.radar_longitude.values]
+            )
+        )
+        geospatial_lon_max = np.max(
+            np.array(
+                [final_data.disdro_longitude.values, final_data.radar_longitude.values]
+            )
+        )
+        geospatial_lat_res = 10 ** -(
+            min(
+                precision(final_data.disdro_latitude.values),
+                precision(final_data.radar_latitude.values),
+            )
+        )
+        geospatial_lon_res = 10 ** -(
+            min(
+                precision(final_data.disdro_longitude.values),
+                precision(final_data.radar_longitude.values),
+            )
+        )
+        geospatial_vert_min = np.min(
+            np.array(
+                [final_data.disdro_altitude.values, final_data.radar_altitude.values]
+            )
+        )
+        geospatial_vert_max = np.max(
+            np.array(
+                [final_data.disdro_altitude.values, final_data.radar_altitude.values]
+            )
+        )
+        geospatial_vert_res = 10 ** -(
+            min(
+                precision(final_data.disdro_altitude.values),
+                precision(final_data.radar_altitude.values),
+            )
+        )
+    final_data.attrs[
+        "geospatial_bounds"
+    ] = f"POLYGON (({geospatial_lat_min}{geospatial_lon_min}), ({geospatial_lat_min}{geospatial_lon_max}), ({geospatial_lat_max}{geospatial_lon_max}), ({geospatial_lat_max}{geospatial_lon_min}))"  # noqa
+    final_data.attrs["geospatial_bounds_crs"] = "EPSG:4326"  # WGS84
     final_data.attrs["geospatial_bounds_vertical_crs"] = "EPSG:5829"
     final_data.attrs["geospatial_lat_min"] = geospatial_lat_min
     final_data.attrs["geospatial_lat_max"] = geospatial_lat_max
@@ -190,29 +362,45 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
     final_data.attrs["geospatial_vertical_max"] = geospatial_vert_max
     final_data.attrs["geospatial_vertical_units"] = "m"
     final_data.attrs["geospatial_vertical_resolution"] = geospatial_vert_res
-    final_data.attrs["geospatial_vertical_positive"] = "up"     
+    final_data.attrs["geospatial_vertical_positive"] = "up"
 
-    final_data.attrs["time_coverage_start"] = pd.Timestamp(final_data.time.values[0]).strftime(ISO_DATE_FORMAT)
-    final_data.attrs["time_coverage_end"] = pd.Timestamp(final_data.time.values[-1]).strftime(ISO_DATE_FORMAT)
-    final_data.attrs["time_coverage_duration"] = pd.Timedelta(final_data.time.values[-1] - final_data.time.values[0]).isoformat()
-    final_data.attrs["time_coverage_resolution"] = pd.Timedelta(final_data.time.values[1] - final_data.time.values[0]).isoformat() # PT60S here
+    final_data.attrs["time_coverage_start"] = pd.Timestamp(
+        final_data.time.values[0]
+    ).strftime(ISO_DATE_FORMAT)
+    final_data.attrs["time_coverage_end"] = pd.Timestamp(
+        final_data.time.values[-1]
+    ).strftime(ISO_DATE_FORMAT)
+    final_data.attrs["time_coverage_duration"] = pd.Timedelta(
+        final_data.time.values[-1] - final_data.time.values[0]
+    ).isoformat()
+    final_data.attrs["time_coverage_resolution"] = pd.Timedelta(
+        final_data.time.values[1] - final_data.time.values[0]
+    ).isoformat()  # PT60S here
     final_data.attrs["program"] = "ACTRIS, CloudNet, CCRES"
     final_data.attrs["date_modified"] = date_created
-    final_data.attrs["date_issued"] = date_created # made available immediately to the users after ceration
-    final_data.attrs["date_metadata_modified"] = "" # will be set when everything will be of ; modify it if some fields evolve
+    final_data.attrs[
+        "date_issued"
+    ] = date_created  # made available immediately to the users after ceration
+    final_data.attrs[
+        "date_metadata_modified"
+    ] = ""  # will be set when everything will be of ; modify it if some fields evolve
     final_data.attrs["product_version"] = __version__
-    final_data.attrs["platform"] = "GCMD:In Situ Land-based Platforms, GCMD:OBSERVATORIES"
+    final_data.attrs[
+        "platform"
+    ] = "GCMD:In Situ Land-based Platforms, GCMD:OBSERVATORIES"
     final_data.attrs["platform_vocabulary"] = "GCMD:GCMD Keywords"
-    final_data.attrs["instrument"] = "GCMD:Earth Remote Sensing Instruments, GCMD:Active Remote Sensing, GCMD:Profilers/Sounders, GCMD:Radar Sounders, GCMD:DOPPLER RADAR, GCMD:FMCWR, GCMD:VERTICAL POINTING RADAR, GCMD:In Situ/Laboratory Instruments, GCMD:Gauges, GCMD:RAIN GAUGES, GCMD:Recorders/Loggers, GCMD:DISDROMETERS, GCMD:Temperature/Humidity Sensors, GCMD:TEMPERATURE SENSORS, GCMD:HUMIDITY SENSORS, GCMD:Current/Wind Meters, GCMD:WIND MONITOR, GCMD:Pressure/Height Meters, GCMD:BAROMETERS"
+    final_data.attrs[
+        "instrument"
+    ] = "GCMD:Earth Remote Sensing Instruments, GCMD:Active Remote Sensing, GCMD:Profilers/Sounders, GCMD:Radar Sounders, GCMD:DOPPLER RADAR, GCMD:FMCWR, GCMD:VERTICAL POINTING RADAR, GCMD:In Situ/Laboratory Instruments, GCMD:Gauges, GCMD:RAIN GAUGES, GCMD:Recorders/Loggers, GCMD:DISDROMETERS, GCMD:Temperature/Humidity Sensors, GCMD:TEMPERATURE SENSORS, GCMD:HUMIDITY SENSORS, GCMD:Current/Wind Meters, GCMD:WIND MONITOR, GCMD:Pressure/Height Meters, GCMD:BAROMETERS"  # noqa
     final_data.attrs["instrument_vocabulary"] = "GCMD:GCMD Keywords"
-    final_data.attrs["cdm_data_type"] = config["nc_meta"]["cdm_data_type"] # empty
-    final_data.attrs["metadata_link"] = config["nc_meta"]["cdm_data_type"] # empty
-    final_data.attrs["references"] = "" # empty for the moment ; add the reference quotation to the code if an article is published
+    final_data.attrs["cdm_data_type"] = config["nc_meta"]["cdm_data_type"]  # empty
+    final_data.attrs["metadata_link"] = config["nc_meta"]["cdm_data_type"]  # empty
+    # TODO: add the reference quotation to the code if an article is published
+    final_data.attrs["references"] = ""
 
-    # final_data.convert_calendar("standard", use_cftime=True)
-    # final_data.time = nc4.date2num(final_data.time.to_pydatetime(), units=TIME_UNITS, calendar=TIME_CALENDAR)
-
-    final_data.to_netcdf(output_file, encoding={"time":{"units":TIME_UNITS, "calendar":"standard"}})
+    final_data.to_netcdf(
+        output_file, encoding={"time": {"units": TIME_UNITS, "calendar": "standard"}}
+    )
     lgr.info("Preprocessing : SUCCESS")
 
-    sys.exit(0) # Returns 0 if the code ran well
+    sys.exit(0)  # Returns 0 if the code ran well

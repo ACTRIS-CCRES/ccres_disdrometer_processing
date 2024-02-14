@@ -40,30 +40,12 @@ def test_command_line_interface_help():
 
 def test_command_line_interface():
     """Test the CLI."""
-    disdro_type = "parsivel-cloudnet"
     disdro_file = f"{TEST_INPUT}/20210202_palaiseau_parsivel.nc"
-    ws_type = "sirta-cloudnet"
     ws_file = f"{TEST_INPUT}/20210202_palaiseau_weather-station.nc"
     radar_file = f"{TEST_INPUT}/20210202_palaiseau_basta.nc"
     config_file = f"{TEST_INPUT}/CONFIG_test.toml"
     output_file = f"{TEST_OUT_DIR}/20210202_palaiseau_preprocessed_v2311.nc"
     runner = CliRunner()
-    # result = runner.invoke(
-    #     cli.main,
-    #     [
-    #         "--disdro-type",
-    #         disdro_type,
-    #         "--disdro-file",
-    #         disdro_file,
-    #         "--ws-type",
-    #         ws_type,
-    #         "--ws-file",
-    #         ws_file,
-    #         "--config-file",
-    #         config_file,
-    #         output_file,
-    #     ],
-    # )
     result = runner.invoke(
         cli.main,
         [

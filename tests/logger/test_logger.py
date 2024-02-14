@@ -9,10 +9,10 @@ from ccres_disdrometer_processing.logger import (
 
 
 def test_log_level_from_count():
-    assert LogLevels.ERROR == get_log_level_from_count(0)
-    assert LogLevels.INFO == get_log_level_from_count(1)
-    assert LogLevels.DEBUG == get_log_level_from_count(2)
-    assert LogLevels.DEBUG == get_log_level_from_count(1000)
+    assert get_log_level_from_count(0) == LogLevels.ERROR
+    assert get_log_level_from_count(1) == LogLevels.INFO
+    assert get_log_level_from_count(2) == LogLevels.DEBUG
+    assert get_log_level_from_count(1000) == LogLevels.DEBUG
 
 
 def test_init_logger():
