@@ -8,6 +8,7 @@ import toml
 import xarray as xr
 import numpy as np
 import pandas as pd
+import netCDF4 as nc4
 import datetime
 import subprocess
 
@@ -18,7 +19,6 @@ import open_radar_netcdf as radar
 import open_weather_netcdf as weather
 import scattering as scattering
 from __init__ import __version__
-from constants import E
 from logger import LogLevels, init_logger
 
 import logging
@@ -27,6 +27,10 @@ lgr = logging.getLogger(__name__)
 DISDRO_TYPES = ["OTT HydroMet Parsivel2"]
 WS_TYPES = ["Generic weather-station"]
 RADAR_TYPES = ["BASTA", "METEK MIRA-35"]
+
+ISO_DATE_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
+TIME_UNITS = "seconds since 2000-01-01T00:00:00.0Z"
+TIME_CALENDAR = "standard"
 
 
 @click.group()
@@ -59,7 +63,10 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
     axrMethod = config["methods"]["AXIS_RATIO_METHOD"]
     strMethod = config["methods"]["FALL_SPEED_METHOD"]
     mieMethod = config["methods"]["COMPUTE_MIE_METHOD"]  # pymiecoated OR pytmatrix
-    computed_frequencies = config["methods"]["COMPUTED_FREQUENCIES"] # given in Hz -> ok for the scattering script
+    E = config["methods"]["REFRACTION_INDEX"]
+    E = complex(E[0], E[1])
+    print(E)
+    computed_frequencies = config["methods"]["RADAR_FREQUENCIES"] # given in Hz -> ok for the scattering script
 
     # read doppler radar data
     # ---------------------------------------------------------------------------------
@@ -104,6 +111,8 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
             [disdro_xr, radar_xr], combine_attrs="drop_conflicts"
         )
 
+    final_data.attrs["station_name"] = config["location"]["STATION"]
+
     final_data.time.attrs["standard_name"] = "time"
     weather_avail = int((not (weather is None)))
     final_data.attrs["weather_data_avail"] = weather_avail
@@ -119,10 +128,10 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
     final_data.attrs["Conventions"] = "CF-1.8, ACDD-1.3, GEOMS"
     final_data.attrs["id"] = config["nc_meta"]["id"]
     final_data.attrs["naming_authority"] = config["nc_meta"]["naming_authority"]
-    date_created = datetime.datetime.utcnow().isoformat()
-    script_name = ""
+    date_created = datetime.datetime.utcnow().strftime(ISO_DATE_FORMAT)
+    script_name = toml.load(f"{Path(__file__).parent.parent.parent}/pyproject.toml")["project"]["name"]
     commit_id = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD']).decode('ascii').strip()
-    final_data.attrs["history"] = "created on {} by {}, {}, {}".format(date_created,script_name,__version__,commit_id)
+    final_data.attrs["history"] = "created on {} by {}, v{}, commit {}".format(date_created,script_name,__version__,commit_id)
     final_data.attrs["source"] = "surface observation from {} DCR, {} disdrometer {}, processed by CloudNet".format(final_data.radar_source, final_data.disdrometer_source, "and AMS" * weather_avail)
     final_data.attrs["processing_level"] = "2a"
     final_data.attrs["comment"] = config["nc_meta"]["comment"]
@@ -144,26 +153,48 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
     final_data.attrs["publisher_institution"] = config["nc_meta"]["publisher_institution"]
     final_data.attrs["contributor_name"] = config["nc_meta"]["contributor_name"]
     final_data.attrs["contributor_role"] = config["nc_meta"]["contributor_role"]
-    final_data.attrs["geospatial_bounds"] = "POLYGON"
+
+    def precision(nb):
+        return str(nb)[::-1].find('.')   
+    if weather_avail :
+        geospatial_lat_min = np.min(np.array([final_data.disdro_latitude.values, final_data.radar_latitude.values, final_data.ams_latitude.values]))
+        geospatial_lat_max = np.max(np.array([final_data.disdro_latitude.values, final_data.radar_latitude.values, final_data.ams_latitude.values]))
+        geospatial_lon_min = np.min(np.array([final_data.disdro_longitude.values, final_data.radar_longitude.values, final_data.ams_longitude.values]))
+        geospatial_lon_max = np.max(np.array([final_data.disdro_longitude.values, final_data.radar_longitude.values, final_data.ams_longitude.values]))
+        geospatial_lat_res = 10**-(min(precision(final_data.disdro_latitude.values), precision(final_data.radar_latitude.values), precision(final_data.ams_latitude.values)))
+        geospatial_lon_res = 10**-(min(precision(final_data.disdro_longitude.values), precision(final_data.radar_longitude.values), precision(final_data.ams_longitude.values)))
+        geospatial_vert_min = np.min(np.array([final_data.disdro_altitude.values, final_data.radar_altitude.values, final_data.ams_altitude.values]))
+        geospatial_vert_max = np.max(np.array([final_data.disdro_altitude.values, final_data.radar_altitude.values, final_data.ams_altitude.values]))
+        geospatial_vert_res = 10**-(min(precision(final_data.disdro_altitude.values), precision(final_data.radar_altitude.values), precision(final_data.ams_altitude.values)))
+    else :
+        geospatial_lat_min = np.min(np.array([final_data.disdro_latitude.values, final_data.radar_latitude.values]))
+        geospatial_lat_max = np.max(np.array([final_data.disdro_latitude.values, final_data.radar_latitude.values]))
+        geospatial_lon_min = np.min(np.array([final_data.disdro_longitude.values, final_data.radar_longitude.values]))
+        geospatial_lon_max = np.max(np.array([final_data.disdro_longitude.values, final_data.radar_longitude.values]))
+        geospatial_lat_res = 10**-(min(precision(final_data.disdro_latitude.values), precision(final_data.radar_latitude.values)))
+        geospatial_lon_res = 10**-(min(precision(final_data.disdro_longitude.values), precision(final_data.radar_longitude.values)))
+        geospatial_vert_min = np.min(np.array([final_data.disdro_altitude.values, final_data.radar_altitude.values]))
+        geospatial_vert_max = np.max(np.array([final_data.disdro_altitude.values, final_data.radar_altitude.values]))
+        geospatial_vert_res = 10**-(min(precision(final_data.disdro_altitude.values), precision(final_data.radar_altitude.values)))   
+    final_data.attrs["geospatial_bounds"] = f"POLYGON (({geospatial_lat_min}{geospatial_lon_min}), ({geospatial_lat_min}{geospatial_lon_max}), ({geospatial_lat_max}{geospatial_lon_max}), ({geospatial_lat_max}{geospatial_lon_min}))"
     final_data.attrs["geospatial_bounds_crs"] = "EPSG:4326" # WGS84
     final_data.attrs["geospatial_bounds_vertical_crs"] = "EPSG:5829"
-    final_data.attrs["geospatial_lat_min"] = np.min(np.array([final_data.disdro_latitude.values, final_data.radar_latitude.values, final_data.ams_latitude.values]))
-    final_data.attrs["geospatial_lat_max"] = np.max(np.array([final_data.disdro_latitude.values, final_data.radar_latitude.values, final_data.ams_latitude.values]))
+    final_data.attrs["geospatial_lat_min"] = geospatial_lat_min
+    final_data.attrs["geospatial_lat_max"] = geospatial_lat_max
     final_data.attrs["geospatial_lat_units"] = "degree_north"
-    def precision(nb):
-        return str(nb)[::-1].find('.')
-    final_data.attrs["geospatial_lat_resolution"] = 10**-(min(precision(final_data.disdro_latitude.values), precision(final_data.radar_latitude.values), precision(final_data.ams_latitude.values)))
-    final_data.attrs["geospatial_lon_min"] = np.min(np.array([final_data.disdro_longitude.values, final_data.radar_longitude.values, final_data.ams_longitude.values]))
-    final_data.attrs["geospatial_lon_max"] = np.max(np.array([final_data.disdro_longitude.values, final_data.radar_longitude.values, final_data.ams_longitude.values]))
+    final_data.attrs["geospatial_lat_resolution"] = geospatial_lat_res
+    final_data.attrs["geospatial_lon_min"] = geospatial_lon_min
+    final_data.attrs["geospatial_lon_max"] = geospatial_lon_max
     final_data.attrs["geospatial_lon_units"] = "degree_east"
-    final_data.attrs["geospatial_lon_resolution"] = 10**-(min(precision(final_data.disdro_longitude.values), precision(final_data.radar_longitude.values), precision(final_data.ams_longitude.values)))
-    final_data.attrs["geospatial_vertical_min"] = np.min(np.array([final_data.disdro_altitude.values, final_data.radar_altitude.values, final_data.ams_altitude.values]))
-    final_data.attrs["geospatial_vertical_max"] = np.max(np.array([final_data.disdro_altitude.values, final_data.radar_altitude.values, final_data.ams_altitude.values]))
+    final_data.attrs["geospatial_lon_resolution"] = geospatial_lon_res
+    final_data.attrs["geospatial_vertical_min"] = geospatial_vert_min
+    final_data.attrs["geospatial_vertical_max"] = geospatial_vert_max
     final_data.attrs["geospatial_vertical_units"] = "m"
-    final_data.attrs["geospatial_vertical_resolution"] = 10**-(min(precision(final_data.disdro_altitude.values), precision(final_data.radar_altitude.values), precision(final_data.ams_altitude.values)))
-    final_data.attrs["geospatial_vertical_positive"] = "up"
-    final_data.attrs["time_coverage_start"] = pd.Timestamp(final_data.time.values[0]).isoformat()
-    final_data.attrs["time_coverage_end"] = pd.Timestamp(final_data.time.values[-1]).isoformat()
+    final_data.attrs["geospatial_vertical_resolution"] = geospatial_vert_res
+    final_data.attrs["geospatial_vertical_positive"] = "up"     
+
+    final_data.attrs["time_coverage_start"] = pd.Timestamp(final_data.time.values[0]).strftime(ISO_DATE_FORMAT)
+    final_data.attrs["time_coverage_end"] = pd.Timestamp(final_data.time.values[-1]).strftime(ISO_DATE_FORMAT)
     final_data.attrs["time_coverage_duration"] = pd.Timedelta(final_data.time.values[-1] - final_data.time.values[0]).isoformat()
     final_data.attrs["time_coverage_resolution"] = pd.Timedelta(final_data.time.values[1] - final_data.time.values[0]).isoformat() # PT60S here
     final_data.attrs["program"] = "ACTRIS, CloudNet, CCRES"
@@ -179,32 +210,10 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
     final_data.attrs["metadata_link"] = config["nc_meta"]["cdm_data_type"] # empty
     final_data.attrs["references"] = "" # empty for the moment ; add the reference quotation to the code if an article is published
 
+    # final_data.convert_calendar("standard", use_cftime=True)
+    # final_data.time = nc4.date2num(final_data.time.to_pydatetime(), units=TIME_UNITS, calendar=TIME_CALENDAR)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    final_data.to_netcdf(output_file)
+    final_data.to_netcdf(output_file, encoding={"time":{"units":TIME_UNITS, "calendar":"standard"}})
     lgr.info("Preprocessing : SUCCESS")
 
     sys.exit(0) # Returns 0 if the code ran well

@@ -33,9 +33,11 @@ NEW_KEYS = [
     # "visi",
     # "sa",
     "particles_count",
+    """
     "sensor_temp",
     "heating_current",
     "sensor_volt",
+    """
     # "KE",
     # "sr",
     # "SYNOP_code",
@@ -68,7 +70,9 @@ def resample_data_perfect_timesteps(filename: Union[str, Path], config) -> xr.Da
         .first()
     )
     data_notime = data_nc[notime_var]
+    # data_perfect_timesteps = xr.merge((data_time_resampled, data_notime), combine_attrs="drop_conflicts")
     data_perfect_timesteps = xr.merge((data_time_resampled, data_notime), combine_attrs="drop_conflicts")
+    data_perfect_timesteps.attrs = {}
     # print("#############", data_perfect_timesteps.attrs)
     data_perfect_timesteps["time_bins"] = data_perfect_timesteps.time_bins.dt.round(
         freq="1S"
@@ -192,17 +196,26 @@ def read_thies_cloudnet(
     return data
 
 
-def read_parsivel_cloudnet_choice(filename: Union[str, Path], computed_frequencies:list, config) -> xr.Dataset:
+def read_parsivel_cloudnet_choice(filename: Union[str, Path], radar_frequencies:list, config) -> xr.Dataset:
     data_nc = resample_data_perfect_timesteps(filename=filename, config=config)
     station = data_nc.location
     source = data_nc.disdrometer_source
-    if station == "Palaiseau":
-        data = read_parsivel_cloudnet(data_nc)
-    elif station == "Jülich" or station == "Norunda":
-        # data = read_parsivel_cloudnet_bis(data_nc)
+
+    if source == "OTT HydroMet Parsivel2":
         data = read_parsivel_cloudnet(data_nc)
     elif source == "Thies Clima LNM":
         data = read_thies_cloudnet(data_nc)
+
+    # if station == "Palaiseau":
+    #     if source == "OTT HydroMet Parsivel2":
+    #         data = read_parsivel_cloudnet(data_nc)
+    #     elif source == "Thies Clima LNM":
+    #         data = read_thies_cloudnet(data_nc)
+    # elif station == "Jülich" or station == "Norunda":
+    #     # data = read_parsivel_cloudnet_bis(data_nc)
+    #     data = read_parsivel_cloudnet(data_nc)
+    # elif source == "Thies Clima LNM":
+    #     data = read_thies_cloudnet(data_nc)
     else:
         data = None
     if not (data is None):
@@ -219,8 +232,8 @@ def read_parsivel_cloudnet_choice(filename: Union[str, Path], computed_frequenci
     ) / np.timedelta64(1, "s")
         data["time_resolution"].attrs={"units":"s", "long_name":"Time resolution of the preprocessed file"}
 
-    data = data.assign_coords({"computed_frequencies": np.array(computed_frequencies)})
-    data["computed_frequencies"].attrs.update({"units":"Hz", "long_name":"Frequencies at which scattering-related variables are computed in the file"})
+    data = data.assign_coords({"radar_frequencies": np.array(radar_frequencies)})
+    data["radar_frequencies"].attrs.update({"units":"Hz", "long_name":"Frequencies at which scattering-related variables are computed in the file"})
 
     return data
 
@@ -244,7 +257,7 @@ def reflectivity_model_multilambda_measmodV_hvfov(
 
     fov = 2
     meas_modV = 2
-    fr = len(mparsivel.computed_frequencies)
+    fr = len(mparsivel.radar_frequencies)
     
     model = DATA()
 
@@ -255,11 +268,11 @@ def reflectivity_model_multilambda_measmodV_hvfov(
     model.M4 = np.zeros([len(mparsivel.time), meas_modV])
     model.Ze_ray = np.zeros([len(mparsivel.time), meas_modV])
 
-    model.Ze_mie = np.zeros([len(mparsivel.time), len(mparsivel.computed_frequencies), fov, meas_modV])
-    model.Ze_tm = np.zeros([len(mparsivel.time), len(mparsivel.computed_frequencies), fov, meas_modV])
-    model.attenuation = np.zeros([len(mparsivel.time), len(mparsivel.computed_frequencies), fov, meas_modV])
-    model.V_tm = np.zeros([len(mparsivel.time), len(mparsivel.computed_frequencies), fov, meas_modV])
-    model.V_mie = np.zeros([len(mparsivel.time), len(mparsivel.computed_frequencies), fov, meas_modV])
+    model.Ze_mie = np.zeros([len(mparsivel.time), len(mparsivel.radar_frequencies), fov, meas_modV])
+    model.Ze_tm = np.zeros([len(mparsivel.time), len(mparsivel.radar_frequencies), fov, meas_modV])
+    model.attenuation = np.zeros([len(mparsivel.time), len(mparsivel.radar_frequencies), fov, meas_modV])
+    model.V_tm = np.zeros([len(mparsivel.time), len(mparsivel.radar_frequencies), fov, meas_modV])
+    model.V_mie = np.zeros([len(mparsivel.time), len(mparsivel.radar_frequencies), fov, meas_modV])
     # model.dsd = np.zeros([len(mparsivel.time), len(mparsivel.size_classes)])
     model.psd_sum = np.zeros([len(mparsivel.size_classes), len(mparsivel.speed_classes)]) # time-integrated psd 
     model.psd_sum_n = np.zeros([len(mparsivel.size_classes), len(mparsivel.speed_classes)]) # time-integrated psd 
@@ -375,43 +388,43 @@ def reflectivity_model_multilambda_measmodV_hvfov(
     mparsivel["psd_sum_n"] = xr.DataArray(model.psd_sum_n, dims=["size_classes", "speed_classes"], attrs={"units":"#/cm^3/mm", "long_name":"Normalized precipitation size distribution"})
     mparsivel["psd_sum"] = xr.DataArray(model.psd_sum, dims=["size_classes", "speed_classes"], attrs={"units":"#/cm^3/bin", "long_name":"Normalized precipitation size distribution"})
 
-    mparsivel["Zdlin_hfov_measv_mie"] = xr.DataArray(model.Ze_mie[:,:,1,0], dims=["time", "computed_frequencies"], attrs = {"units": "mm^6.m^-3", "long_name":"Disdrometer Mie reflectivity in lin scale for measured fall drop velocity and horizontal field of view", "comment":"Calculated with disdrometer"})
-    mparsivel["Zdlog_hfov_measv_mie"] = xr.DataArray(10 * np.log10(model.Ze_mie[:,:,1,0]), dims=["time", "computed_frequencies"], attrs = {"units": "dBZ", "long_name":"Disdrometer Mie reflectivity in log scale for measured fall drop velocity and horizontal field of view", "comment":"Calculated with disdrometer"})
-    mparsivel["Zdlin_hfov_modv_mie"] = xr.DataArray(model.Ze_mie[:,:,1,1], dims=["time", "computed_frequencies"], attrs = {"units": "mm^6.m^-3", "long_name":"Disdrometer Mie reflectivity in lin scale for modeled fall drop velocity and horizontal field of view", "comment":"Calculated with disdrometer"})
-    mparsivel["Zdlog_hfov_modv_mie"] = xr.DataArray(10 * np.log10(model.Ze_mie[:,:,1,1]), dims=["time", "computed_frequencies"], attrs = {"units": "dBZ", "long_name":"Disdrometer Mie reflectivity in log scale for modeled fall drop velocity and horizontal field of view", "comment":"Calculated with disdrometer"})
-    mparsivel["Zdlin_vfov_measv_mie"] = xr.DataArray(model.Ze_mie[:,:,0,0], dims=["time", "computed_frequencies"], attrs = {"units": "mm^6.m^-3", "long_name":"Disdrometer Mie reflectivity in lin scale for measured fall drop velocity and vertical field of view", "comment":"Calculated with disdrometer"})
-    mparsivel["Zdlog_vfov_measv_mie"] = xr.DataArray(10 * np.log10(model.Ze_mie[:,:,0,0]), dims=["time", "computed_frequencies"], attrs = {"units": "dBZ", "long_name":"Disdrometer Mie reflectivity in log scale for measured fall drop velocity and vertical field of view", "comment":"Calculated with disdrometer"})
-    mparsivel["Zdlin_vfov_modv_mie"] = xr.DataArray(model.Ze_mie[:,:,0,1], dims=["time", "computed_frequencies"], attrs = {"units": "mm^6.m^-3", "long_name":"Disdrometer Mie reflectivity in lin scale for modeled fall drop velocity and vertical field of view", "comment":"Calculated with disdrometer"})
-    mparsivel["Zdlog_vfov_modv_mie"] = xr.DataArray(10 * np.log10(model.Ze_mie[:,:,0,1]), dims=["time", "computed_frequencies"], attrs = {"units": "dBZ", "long_name":"Disdrometer Mie reflectivity in log scale for modeled fall drop velocity and vertical field of view", "comment":"Calculated with disdrometer"})
+    mparsivel["Zdlin_hfov_measv_mie"] = xr.DataArray(model.Ze_mie[:,:,1,0], dims=["time", "radar_frequencies"], attrs = {"units": "mm^6.m^-3", "long_name":"Disdrometer Mie reflectivity in lin scale for measured fall drop velocity and horizontal field of view", "comment":"Calculated with disdrometer"})
+    mparsivel["Zdlog_hfov_measv_mie"] = xr.DataArray(10 * np.log10(model.Ze_mie[:,:,1,0]), dims=["time", "radar_frequencies"], attrs = {"units": "dBZ", "long_name":"Disdrometer Mie reflectivity in log scale for measured fall drop velocity and horizontal field of view", "comment":"Calculated with disdrometer"})
+    mparsivel["Zdlin_hfov_modv_mie"] = xr.DataArray(model.Ze_mie[:,:,1,1], dims=["time", "radar_frequencies"], attrs = {"units": "mm^6.m^-3", "long_name":"Disdrometer Mie reflectivity in lin scale for modeled fall drop velocity and horizontal field of view", "comment":"Calculated with disdrometer"})
+    mparsivel["Zdlog_hfov_modv_mie"] = xr.DataArray(10 * np.log10(model.Ze_mie[:,:,1,1]), dims=["time", "radar_frequencies"], attrs = {"units": "dBZ", "long_name":"Disdrometer Mie reflectivity in log scale for modeled fall drop velocity and horizontal field of view", "comment":"Calculated with disdrometer"})
+    mparsivel["Zdlin_vfov_measv_mie"] = xr.DataArray(model.Ze_mie[:,:,0,0], dims=["time", "radar_frequencies"], attrs = {"units": "mm^6.m^-3", "long_name":"Disdrometer Mie reflectivity in lin scale for measured fall drop velocity and vertical field of view", "comment":"Calculated with disdrometer"})
+    mparsivel["Zdlog_vfov_measv_mie"] = xr.DataArray(10 * np.log10(model.Ze_mie[:,:,0,0]), dims=["time", "radar_frequencies"], attrs = {"units": "dBZ", "long_name":"Disdrometer Mie reflectivity in log scale for measured fall drop velocity and vertical field of view", "comment":"Calculated with disdrometer"})
+    mparsivel["Zdlin_vfov_modv_mie"] = xr.DataArray(model.Ze_mie[:,:,0,1], dims=["time", "radar_frequencies"], attrs = {"units": "mm^6.m^-3", "long_name":"Disdrometer Mie reflectivity in lin scale for modeled fall drop velocity and vertical field of view", "comment":"Calculated with disdrometer"})
+    mparsivel["Zdlog_vfov_modv_mie"] = xr.DataArray(10 * np.log10(model.Ze_mie[:,:,0,1]), dims=["time", "radar_frequencies"], attrs = {"units": "dBZ", "long_name":"Disdrometer Mie reflectivity in log scale for modeled fall drop velocity and vertical field of view", "comment":"Calculated with disdrometer"})
 
-    mparsivel["Zdlin_hfov_measv_tm"] = xr.DataArray(model.Ze_tm[:,:,1,0], dims=["time", "computed_frequencies"], attrs = {"units": "mm^6.m^-3", "long_name":"Disdrometer geometric reflectivity in lin scale for measured fall drop velocity and horizontal field of view", "comment":"Calculated with disdrometer"})
-    mparsivel["Zdlog_hfov_measv_tm"] = xr.DataArray(10 * np.log10(model.Ze_tm[:,:,1,0]), dims=["time", "computed_frequencies"], attrs = {"units": "dBZ", "long_name":"Disdrometer geometric reflectivity in log scale for measured fall drop velocity and horizontal field of view", "comment":"Calculated with disdrometer"})
-    mparsivel["Zdlin_hfov_modv_tm"] = xr.DataArray(model.Ze_tm[:,:,1,1], dims=["time", "computed_frequencies"], attrs = {"units": "mm^6.m^-3", "long_name":"Disdrometer geometric reflectivity in lin scale for modeled fall drop velocity and horizontal field of view", "comment":"Calculated with disdrometer"})
-    mparsivel["Zdlog_hfov_modv_tm"] = xr.DataArray(10 * np.log10(model.Ze_tm[:,:,1,1]), dims=["time", "computed_frequencies"], attrs = {"units": "dBZ", "long_name":"Disdrometer geometric reflectivity in log scale for modeled fall drop velocity and horizontal field of view", "comment":"Calculated with disdrometer"})
-    mparsivel["Zdlin_vfov_measv_tm"] = xr.DataArray(model.Ze_tm[:,:,0,0], dims=["time", "computed_frequencies"], attrs = {"units": "mm^6.m^-3", "long_name":"Disdrometer geometric reflectivity in lin scale for measured fall drop velocity and vertical field of view", "comment":"Calculated with disdrometer"})
-    mparsivel["Zdlog_vfov_measv_tm"] = xr.DataArray(10 * np.log10(model.Ze_tm[:,:,0,0]), dims=["time", "computed_frequencies"], attrs = {"units": "dBZ", "long_name":"Disdrometer geometric reflectivity in log scale for measured fall drop velocity and vertical field of view", "comment":"Calculated with disdrometer"})
-    mparsivel["Zdlin_vfov_modv_tm"] = xr.DataArray(model.Ze_tm[:,:,0,1], dims=["time", "computed_frequencies"], attrs = {"units": "mm^6.m^-3", "long_name":"Disdrometer geometric reflectivity in lin scale for modeled fall drop velocity and vertical field of view", "comment":"Calculated with disdrometer"})
-    mparsivel["Zdlog_vfov_modv_tm"] = xr.DataArray(10 * np.log10(model.Ze_tm[:,:,0,1]), dims=["time", "computed_frequencies"], attrs = {"units": "dBZ", "long_name":"Disdrometer geometric reflectivity in log scale for modeled fall drop velocity and vertical field of view", "comment":"Calculated with disdrometer", "coverage_content_type":"modelResult"})
+    mparsivel["Zdlin_hfov_measv_tm"] = xr.DataArray(model.Ze_tm[:,:,1,0], dims=["time", "radar_frequencies"], attrs = {"units": "mm^6.m^-3", "long_name":"Disdrometer geometric reflectivity in lin scale for measured fall drop velocity and horizontal field of view", "comment":"Calculated with disdrometer"})
+    mparsivel["Zdlog_hfov_measv_tm"] = xr.DataArray(10 * np.log10(model.Ze_tm[:,:,1,0]), dims=["time", "radar_frequencies"], attrs = {"units": "dBZ", "long_name":"Disdrometer geometric reflectivity in log scale for measured fall drop velocity and horizontal field of view", "comment":"Calculated with disdrometer"})
+    mparsivel["Zdlin_hfov_modv_tm"] = xr.DataArray(model.Ze_tm[:,:,1,1], dims=["time", "radar_frequencies"], attrs = {"units": "mm^6.m^-3", "long_name":"Disdrometer geometric reflectivity in lin scale for modeled fall drop velocity and horizontal field of view", "comment":"Calculated with disdrometer"})
+    mparsivel["Zdlog_hfov_modv_tm"] = xr.DataArray(10 * np.log10(model.Ze_tm[:,:,1,1]), dims=["time", "radar_frequencies"], attrs = {"units": "dBZ", "long_name":"Disdrometer geometric reflectivity in log scale for modeled fall drop velocity and horizontal field of view", "comment":"Calculated with disdrometer"})
+    mparsivel["Zdlin_vfov_measv_tm"] = xr.DataArray(model.Ze_tm[:,:,0,0], dims=["time", "radar_frequencies"], attrs = {"units": "mm^6.m^-3", "long_name":"Disdrometer geometric reflectivity in lin scale for measured fall drop velocity and vertical field of view", "comment":"Calculated with disdrometer"})
+    mparsivel["Zdlog_vfov_measv_tm"] = xr.DataArray(10 * np.log10(model.Ze_tm[:,:,0,0]), dims=["time", "radar_frequencies"], attrs = {"units": "dBZ", "long_name":"Disdrometer geometric reflectivity in log scale for measured fall drop velocity and vertical field of view", "comment":"Calculated with disdrometer"})
+    mparsivel["Zdlin_vfov_modv_tm"] = xr.DataArray(model.Ze_tm[:,:,0,1], dims=["time", "radar_frequencies"], attrs = {"units": "mm^6.m^-3", "long_name":"Disdrometer geometric reflectivity in lin scale for modeled fall drop velocity and vertical field of view", "comment":"Calculated with disdrometer"})
+    mparsivel["Zdlog_vfov_modv_tm"] = xr.DataArray(10 * np.log10(model.Ze_tm[:,:,0,1]), dims=["time", "radar_frequencies"], attrs = {"units": "dBZ", "long_name":"Disdrometer geometric reflectivity in log scale for modeled fall drop velocity and vertical field of view", "comment":"Calculated with disdrometer", "coverage_content_type":"modelResult"})
 
     mparsivel["Zdlin_measv_ray"] = xr.DataArray(model.Ze_ray[:,0], dims=["time"], attrs = {"units": "mm^6.m^-3", "long_name":"Disdrometer Rayleigh reflectivity in lin scale for measured fall drop velocity and horizontal field of view", "comment":"Calculated with disdrometer"})
     mparsivel["Zdlog_measv_ray"] = xr.DataArray(10 * np.log10(model.Ze_ray[:,0]), dims=["time"], attrs = {"units": "dBZ", "long_name":"Disdrometer Rayleigh reflectivity in log scale for measured fall drop velocity and horizontal field of view", "comment":"Calculated with disdrometer"})
     mparsivel["Zdlin_modv_ray"] = xr.DataArray(model.Ze_ray[:,1], dims=["time"], attrs = {"units": "mm^6.m^-3", "long_name":"Disdrometer Rayleigh reflectivity in lin scale for modeled fall drop velocity and vertical field of view", "comment":"Calculated with disdrometer"})
     mparsivel["Zdlog_modv_ray"] = xr.DataArray(10 * np.log10(model.Ze_ray[:,1]), dims=["time"], attrs = {"units": "dBZ", "long_name":"Disdrometer Rayleigh reflectivity in log scale for modeled fall drop velocity and vertical field of view", "comment":"Calculated with disdrometer"})
 
-    mparsivel["attd_hfov_measv"] = xr.DataArray(model.attenuation[:,:,1,0], dims=["time", "computed_frequencies"], attrs = {"units": "dB/km", "long_name": "Disdrometer attenuation for measured fall drop velocity and horizontal field of view", "comment":"Calculated with disdrometer"})
-    mparsivel["attd_hfov_modv"] = xr.DataArray(model.attenuation[:,:,1,1], dims=["time", "computed_frequencies"], attrs = {"units": "dB/km", "long_name": "Disdrometer attenuation for modeled fall drop velocity and horizontal field of view", "comment":"Calculated with disdrometer"})
-    mparsivel["attd_vfov_measv"] = xr.DataArray(model.attenuation[:,:,0,0], dims=["time", "computed_frequencies"], attrs = {"units": "dB/km", "long_name": "Disdrometer attenuation for measured fall drop velocity and vertical field of view", "comment":"Calculated with disdrometer"})
-    mparsivel["attd_vfov_modv"] = xr.DataArray(model.attenuation[:,:,0,1], dims=["time", "computed_frequencies"], attrs = {"units": "dB/km", "long_name": "Disdrometer attenuation for modeled fall drop velocity and vertical field of view", "comment":"Calculated with disdrometer"})
+    mparsivel["attd_hfov_measv"] = xr.DataArray(model.attenuation[:,:,1,0], dims=["time", "radar_frequencies"], attrs = {"units": "dB/km", "long_name": "Disdrometer attenuation for measured fall drop velocity and horizontal field of view", "comment":"Calculated with disdrometer"})
+    mparsivel["attd_hfov_modv"] = xr.DataArray(model.attenuation[:,:,1,1], dims=["time", "radar_frequencies"], attrs = {"units": "dB/km", "long_name": "Disdrometer attenuation for modeled fall drop velocity and horizontal field of view", "comment":"Calculated with disdrometer"})
+    mparsivel["attd_vfov_measv"] = xr.DataArray(model.attenuation[:,:,0,0], dims=["time", "radar_frequencies"], attrs = {"units": "dB/km", "long_name": "Disdrometer attenuation for measured fall drop velocity and vertical field of view", "comment":"Calculated with disdrometer"})
+    mparsivel["attd_vfov_modv"] = xr.DataArray(model.attenuation[:,:,0,1], dims=["time", "radar_frequencies"], attrs = {"units": "dB/km", "long_name": "Disdrometer attenuation for modeled fall drop velocity and vertical field of view", "comment":"Calculated with disdrometer"})
 
-    mparsivel["DVd_hfov_measv_mie"] = xr.DataArray(model.V_mie[:,:,1,0], dims=["time", "computed_frequencies"], attrs = {"units": "m.s^-1", "long_name": "Disdrometer Mie Doppler velocity for measured fall drop velocity and horizontal field of view"})
-    mparsivel["DVd_hfov_modv_mie"] = xr.DataArray(model.V_mie[:,:,1,1], dims=["time", "computed_frequencies"], attrs = {"units": "m.s^-1", "long_name": "Disdrometer Mie Doppler velocity for modeled fall drop velocity and horizontal field of view"})
-    mparsivel["DVd_vfov_measv_mie"] = xr.DataArray(model.V_mie[:,:,0,0], dims=["time", "computed_frequencies"], attrs = {"units": "m.s^-1", "long_name": "Disdrometer Mie Doppler velocity for measured fall drop velocity and vertical field of view"})
-    mparsivel["DVd_vfov_modv_mie"] = xr.DataArray(model.V_mie[:,:,0,1], dims=["time", "computed_frequencies"], attrs = {"units": "m.s^-1", "long_name": "Disdrometer Mie Doppler velocity for modeled fall drop velocity and vertical field of view"})
+    mparsivel["DVd_hfov_measv_mie"] = xr.DataArray(model.V_mie[:,:,1,0], dims=["time", "radar_frequencies"], attrs = {"units": "m.s^-1", "long_name": "Disdrometer Mie Doppler velocity for measured fall drop velocity and horizontal field of view"})
+    mparsivel["DVd_hfov_modv_mie"] = xr.DataArray(model.V_mie[:,:,1,1], dims=["time", "radar_frequencies"], attrs = {"units": "m.s^-1", "long_name": "Disdrometer Mie Doppler velocity for modeled fall drop velocity and horizontal field of view"})
+    mparsivel["DVd_vfov_measv_mie"] = xr.DataArray(model.V_mie[:,:,0,0], dims=["time", "radar_frequencies"], attrs = {"units": "m.s^-1", "long_name": "Disdrometer Mie Doppler velocity for measured fall drop velocity and vertical field of view"})
+    mparsivel["DVd_vfov_modv_mie"] = xr.DataArray(model.V_mie[:,:,0,1], dims=["time", "radar_frequencies"], attrs = {"units": "m.s^-1", "long_name": "Disdrometer Mie Doppler velocity for modeled fall drop velocity and vertical field of view"})
 
-    mparsivel["DVd_hfov_measv_tm"] = xr.DataArray(model.V_tm[:,:,1,0], dims=["time", "computed_frequencies"], attrs = {"units": "m.s^-1", "long_name": "Disdrometer geometric Doppler velocity for measured fall drop velocity and horizontal field of view"})
-    mparsivel["DVd_hfov_modv_tm"] = xr.DataArray(model.V_tm[:,:,1,1], dims=["time", "computed_frequencies"], attrs = {"units": "m.s^-1", "long_name": "Disdrometer geometric Doppler velocity for modeled fall drop velocity and horizontal field of view"})
-    mparsivel["DVd_vfov_measv_tm"] = xr.DataArray(model.V_tm[:,:,0,0], dims=["time", "computed_frequencies"], attrs = {"units": "m.s^-1", "long_name": "Disdrometer geometric Doppler velocity for measured fall drop velocity and vertical field of view"})
-    mparsivel["DVd_vfov_modv_tm"] = xr.DataArray(model.V_tm[:,:,0,1], dims=["time", "computed_frequencies"], attrs = {"units": "m.s^-1", "long_name": "Disdrometer geometric Doppler velocity for modeled fall drop velocity and vertical field of view"})
+    mparsivel["DVd_hfov_measv_tm"] = xr.DataArray(model.V_tm[:,:,1,0], dims=["time", "radar_frequencies"], attrs = {"units": "m.s^-1", "long_name": "Disdrometer geometric Doppler velocity for measured fall drop velocity and horizontal field of view"})
+    mparsivel["DVd_hfov_modv_tm"] = xr.DataArray(model.V_tm[:,:,1,1], dims=["time", "radar_frequencies"], attrs = {"units": "m.s^-1", "long_name": "Disdrometer geometric Doppler velocity for modeled fall drop velocity and horizontal field of view"})
+    mparsivel["DVd_vfov_measv_tm"] = xr.DataArray(model.V_tm[:,:,0,0], dims=["time", "radar_frequencies"], attrs = {"units": "m.s^-1", "long_name": "Disdrometer geometric Doppler velocity for measured fall drop velocity and vertical field of view"})
+    mparsivel["DVd_vfov_modv_tm"] = xr.DataArray(model.V_tm[:,:,0,1], dims=["time", "radar_frequencies"], attrs = {"units": "m.s^-1", "long_name": "Disdrometer geometric Doppler velocity for modeled fall drop velocity and vertical field of view"})
 
     mparsivel["m2_measv"] = xr.DataArray(model.M2[:,0], dims=["time"], attrs = {"units": "mm^2", "long_name": "Second order momentum for measured fall drop velocity"})
     mparsivel["m2_modv"] = xr.DataArray(model.M2[:,1], dims=["time"], attrs = {"units": "mm^2", "long_name": "Second order momentum for modeled fall drop velocity"})
@@ -432,19 +445,3 @@ def reflectivity_model_multilambda_measmodV_hvfov(
     mparsivel["n0_modv"] = xr.DataArray((4.0**4 / (np.pi * DensityLiquidWater)) * mparsivel.lwc_modv.values / (mparsivel.dm_modv.values) ** 4, dims=["time"], attrs = {"units": "#/cm^3", "long_name": "Total number concentration for modeled fall drop velocity"})
 
     return mparsivel
-
-
-
-
-
-
-
-
-    # # store results in the output
-    # mparsivel["Ze_mie_lambda"] = xr.DataArray(model.Ze_mie, dims=["time", "computed_frequencies"])
-    # mparsivel["Ze_tm_lambda"] = xr.DataArray(model.Ze_tm, dims=["time", "computed_frequencies"])
-    # mparsivel["attenuation_lambda"] = xr.DataArray(model.attenuation_lambda, dims=["time", "computed_frequencies"])
-    # mparsivel["V_tm_lambda"] = xr.DataArray(model.V_tm_lambda, dims=["time", "computed_frequencies"])
-    # mparsivel["V_mie_lambda"] = xr.DataArray(model.V_mie_lambda, dims=["time", "computed_frequencies"])
-
-    # return 

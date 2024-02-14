@@ -105,6 +105,8 @@ def read_weather_cloudnet(filename):
             },
         )
 
+    for key in ["year", "month", "day", "location"]:
+        data.attrs[key] = data_nc_resampled.attrs[key]
     data.attrs["ams_source"] = data_nc_resampled.attrs["source"]
     data.attrs["ams_pid"] = data_nc_resampled.attrs["instrument_pid"]
 

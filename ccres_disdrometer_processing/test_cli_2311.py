@@ -16,7 +16,7 @@ output_file = f"{TEST_OUT_DIR}/20210202_palaiseau_preprocessed_v0802.nc"
 print(config_file)
 
 
-do = 1
+do = 0
 open = 1
 rad = 0
 dd = 0
@@ -34,17 +34,11 @@ if open :
     # print(ds.attrs)
     print(ds.dims)
     print(ds.attrs)
-    print(list(ds.keys()))
     for var in list(ds.keys()):
         try :
             x = ds[var].attrs["units"]
         except KeyError :
             print(var)
-    print(ds.F.data, ds.F.attrs)
-    print(ds.disdro_longitude.values, ds.radar_longitude.values, ds.ams_longitude.values)
-    print(ds.disdro_latitude.values, ds.radar_latitude.values, ds.ams_latitude.values)
-    print(ds.disdro_altitude.values, ds.radar_altitude.values, ds.ams_altitude.values)
-
 
 if rad : 
     radar = xr.open_dataset(radar_file)

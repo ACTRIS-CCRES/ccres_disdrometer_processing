@@ -15,8 +15,9 @@ class DATA:
 
 
 def compute_fallspeed(d, strMethod="GunAndKinzer"):
-    # d en mm
-    # v en m/s
+    # Gun and Kinzer 1949
+    # d is in mm
+    # v is in m/s
     if strMethod == "GunAndKinzer":
         v = 9.40 * (1 - np.exp(-1.57 * (10**3) * np.power(d * (10**-3), 1.15)))
     elif strMethod == "Khvorostyanov_Curry_2002":
@@ -29,7 +30,7 @@ def compute_fallspeed(d, strMethod="GunAndKinzer"):
 
 
 def axis_ratio(D, axrMethod="BeardChuang_PolynomialFit"):
-    # describe the shape of the droplet vs. its diameter
+    # describe the shape of the droplet vs. its diameter, Andsager et al., 1999 fit, from Beard and Chuang 1987 model
     if axrMethod == "BeardChuang_PolynomialFit":
         AR = 1.0 / (
             1.0048
