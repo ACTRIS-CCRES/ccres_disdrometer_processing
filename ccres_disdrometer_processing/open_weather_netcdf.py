@@ -17,7 +17,8 @@ def read_weather_cloudnet(filename):
     )
     time_index_offset = time_index - pd.Timedelta(30, "sec")
 
-    vars_timedep = ["wind_speed",
+    vars_timedep = [
+        "wind_speed",
         "wind_direction",
         "air_temperature",
         "relative_humidity",
@@ -68,13 +69,16 @@ def read_weather_cloudnet(filename):
         )
         data["ps"].attrs["units"] = "hPa"
         data["ams_pr"] = xr.DataArray(
-            data_nc_resampled["rainfall_rate"].values * 60 * 60 * 1000, # * 3600 to convert m/s to m/hr
+            data_nc_resampled["rainfall_rate"].values
+            * 60
+            * 60
+            * 1000,  # * 3600 to convert m/s to m/hr
             dims=["time"],
             attrs={
                 "units": "mm/hr",
                 "long_name": "Met station precipitation rate at 1m agl",
                 "standard_name": "lwe_precipitation_rate",
-                "Comment":"Weather-station based precipitation rate. The abbreviation 'lwe' means liquid water equivalent. 'Precipitation rate' means the depth or thickness of the layer formed by precipitation per unit time."
+                "Comment": "Weather-station based precipitation rate. The abbreviation 'lwe' means liquid water equivalent. 'Precipitation rate' means the depth or thickness of the layer formed by precipitation per unit time.",  # noqa E501
             },
         )
         data["ams_cp"] = xr.DataArray(
@@ -84,7 +88,7 @@ def read_weather_cloudnet(filename):
                 "units": "mm",
                 "long_name": "Rainfall amount",
                 "standard_name": "thickness_of_rainfall_amount",
-                "comment": "Weather-station based cumulated precipitation since 00:00 UTC",
+                "comment": "Weather-station based cumulated precipitation since 00:00 UTC",  # noqa E501
             },
         )
 
@@ -114,6 +118,6 @@ def read_weather_cloudnet(filename):
     data["ams_longitude"].attrs["Comment"] = "AMS = Atmospheric Meteorological Station"
     data["ams_latitude"] = data_nc["latitude"]
     data["ams_altitude"] = data_nc["altitude"]
-    data["ams_altitude"].attrs["positive"]="up"
+    data["ams_altitude"].attrs["positive"] = "up"
 
     return data

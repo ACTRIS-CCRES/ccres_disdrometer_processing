@@ -141,22 +141,19 @@ def selection(
             "Rain accumulation (mm)": test_values[:, 1],
             "Avg WS (m/s)": test_values[:, 2],
             "Max WS (m/s)": test_values[:, 3],
-            "max RR / {}mn subper (mm/h)".format(CHUNK_THICKNESS): test_values[:, 4],
+            f"max RR / {CHUNK_THICKNESS}mn subper (mm/h)": test_values[:, 4],
             "avg RR (mm/h)": test_values[:, 5],
-            "Min Temperature < {}°C".format(MIN_T): mask[:, 0],
-            "Rain accumulation > {}mm".format(MIN_CUM): mask[:, 1],
-            "Avg WS < {}m/s ?".format(MAX_MEANWS): mask[:, 2],
-            "Max WS < {}m/s".format(MAX_WS): mask[:, 3],
-            "Max Rain Rate <= {}mm".format(RRMAX): mask[:, 4],
+            f"Min Temperature < {MIN_T}°C": mask[:, 0],
+            f"Rain accumulation > {MIN_CUM}mm": mask[:, 1],
+            f"Avg WS < {MAX_MEANWS}m/s ?": mask[:, 2],
+            f"Max WS < {MAX_WS}m/s": mask[:, 3],
+            f"Max Rain Rate <= {RRMAX}mm": mask[:, 4],
         }
     )
 
     print(len(Events))
     Events.to_csv(
-        db_dir
-        + "/rain_events_{}_length{}_event{}.csv".format(
-            station, delta_length, delta_event
-        ),
+        db_dir + f"/rain_events_{station}_length{delta_length}_event{delta_event}.csv",
         header=True,
     )
     return Events

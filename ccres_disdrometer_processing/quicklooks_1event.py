@@ -15,7 +15,6 @@ import scipy.stats as stats
 from create_input_files_quicklooks import get_data_event
 from matplotlib.gridspec import GridSpec
 from rain_event_selection import selection
-
 from scipy.optimize import curve_fit
 from scipy.stats import cumfreq
 from sklearn.linear_model import LinearRegression
@@ -227,7 +226,7 @@ def quicklooks(
             ax1.plot(
                 Z_dcr_resampled.time[:],
                 Z_dcr_resampled[:, i],
-                label="DCR @ {}m".format(Z_dcr_resampled.range[i].values),
+                label=f"DCR @ {Z_dcr_resampled.range[i].values}m",
                 linewidth=0.5,
             )
         ax1.grid()
@@ -325,7 +324,7 @@ def quicklooks(
         ax4.text(
             1,
             18,
-            "$R^2$ = {:.2f}".format(model.score(x_t, y_t)),
+            f"$R^2$ = {model.score(x_t, y_t):.2f}",
             fontweight="semibold",
             fontsize=10,
         )
@@ -427,7 +426,7 @@ def quicklooks(
         ax2.plot(
             weather.time,
             -Doppler_resampled[:, 2] - disdro_fallspeed,
-            label="DCR @ {}m - Disdrometer".format(Doppler_resampled.range[2].values),
+            label=f"DCR @ {Doppler_resampled.range[2].values}m - Disdrometer",
             color="green",
         )
         ax2.grid()
@@ -506,7 +505,7 @@ def quicklooks(
         ax4.text(
             0.2,
             1.3,
-            "$R^2$={:.2f}".format(model.score(x_t, y_t)),
+            f"$R^2$={model.score(x_t, y_t):.2f}",
             fontsize=10,
             fontweight="semibold",
         )
@@ -809,10 +808,11 @@ def quicklooks(
 
     return True
 
+
 if __name__ == "__main__":
     events = selection()
     s = events["Start_time"]
     e = events["End_time"]
     w, r, dd = get_data_event(s[0], e[0])
-    output = "/home/ygrit/Documents/disdro_processing/ccres_disdrometer_processing/quicklooks"
+    output = "/home/ygrit/Documents/disdro_processing/ccres_disdrometer_processing/quicklooks"  # noqa: E501
     quicklooks(w, r, dd, output)

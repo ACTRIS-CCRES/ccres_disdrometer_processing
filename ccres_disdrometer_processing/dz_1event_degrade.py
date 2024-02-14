@@ -138,10 +138,10 @@ def sel_degrade(
             "Start_time": start,
             "End_time": end,
             "Rain accumulation (mm)": test_values[:, 0],
-            "max RR / {}mn subper (mm/h)".format(CHUNK_THICKNESS): test_values[:, 1],
+            f"max RR / {CHUNK_THICKNESS}mn subper (mm/h)": test_values[:, 1],
             "avg RR (mm/h)": test_values[:, 2],
-            "Rain accumulation > {}mm".format(MIN_CUM): mask[:, 0],
-            "Max Rain Rate <= {}mm".format(RRMAX): mask[:, 1],
+            f"Rain accumulation > {MIN_CUM}mm": mask[:, 0],
+            f"Max Rain Rate <= {RRMAX}mm": mask[:, 1],
         }
     )
 
@@ -268,7 +268,7 @@ def dz_per_event(
             ax.plot(
                 disdro.time.values,
                 Z_dcr_resampled[:, i].values,
-                label="radar @ {:.0f} m".format(rng),
+                label=f"radar @ {rng:.0f} m",
                 linewidth=1,
             )
         ax.plot(
@@ -524,7 +524,7 @@ def dz_timeseries(events, preprocessed_ds, data_dir, gate, radar_type, disdro_ty
     start, end = events["Start_time"].iloc[k], events["End_time"].iloc[k]
     rain_acc = events["Rain accumulation (mm)"].iloc[k]
     x = dz_per_event(preprocessed_ds, data_dir, start, end, gate, filtered=True)
-    print(not (x is None))
+    print(x is not None)
     while x is None:
         k += 1
         start, end = events["Start_time"].iloc[k], events["End_time"].iloc[k]
@@ -648,9 +648,7 @@ def dz_timeseries(events, preprocessed_ds, data_dir, gate, radar_type, disdro_ty
     )
     data_tosave.to_csv(
         data_dir
-        + "/csv/dz_data_{}_{}_{}_{}_gate_{}.csv".format(
-            radar_type, disdro_type, t1, t2, int(gate)
-        ),
+        + f"/csv/dz_data_{radar_type}_{disdro_type}_{t1}_{t2}_gate_{int(gate)}.csv",
         header=True,
     )
 
@@ -687,7 +685,6 @@ def dz_plot(
     showmeans=False,
     showcaps=False,
 ):
-
     t = startend[:, 0]
 
     fig, ax = plt.subplots(figsize=((20, 6)))
@@ -702,7 +699,7 @@ def dz_plot(
     # Moving average of the bias
     N = 3  # avg(T) given by T, T-1, T-2
     f = np.intersect1d(
-        np.where((cum > MIN_CUM))[0], np.where(np.isfinite(dZ[:, 0]) * 1 == 1)[0]
+        np.where(cum > MIN_CUM)[0], np.where(np.isfinite(dZ[:, 0]) * 1 == 1)[0]
     )
     f = np.intersect1d(f, np.where(qf_ratio[:, 3] >= min_timesteps))
     print("Events with enough rain and timesteps : ", f.shape)
@@ -854,7 +851,7 @@ def dz_plot(
     plt.axvline(
         x=np.nanmean(biases),
         color="red",
-        label="mean of median biases : {:.2f} dBZ".format(np.nanmean(biases)),
+        label=f"mean of median biases : {np.nanmean(biases):.2f} dBZ",
     )
     plt.xlim(left=-30, right=30)
     plt.xlabel("median $Z_{MIRA35} - Z_{disdrometer}$ (dBZ)")
@@ -865,7 +862,7 @@ def dz_plot(
         "Histogram of biases over the period {} - {} \n".format(
             t[0].strftime("%Y/%m"), t[-1].strftime("%Y/%m")
         )
-        + "Disdrometer : {}, DCR : {}".format(disdro_source, radar_source)
+        + f"Disdrometer : {disdro_source}, DCR : {radar_source}"
     )
     plt.savefig(
         data_dir
@@ -882,7 +879,7 @@ def dz_plot(
     )
     plt.close()
 
-    # Scatter plot Z_disdrometer vs. Z_radar cumulated over the whole studied time period
+    # Scatter plot Z_disdrometer vs. Z_radar cumulated over the whole studied time period # noqa E501
     fig, ax = plt.subplots()
     ax.axis("equal")
     ax.set_xlim(left=-25, right=40)
@@ -899,7 +896,7 @@ def dz_plot(
             t[0].strftime("%Y/%m"), t[-1].strftime("%Y/%m"), location
         )
         + "Scatterplot of disdrometer-based reflectivity VS DCR reflectivity \n"
-        + "Disdrometer : {}, DCR : {}".format(disdro_source, radar_source),
+        + f"Disdrometer : {disdro_source}, DCR : {radar_source}",
         fontsize=11,
         fontweight="semibold",
     )
@@ -925,7 +922,7 @@ def dz_plot(
     # PDF dZ timestep by timestep, cumulated over the whole studied time period
     fig, ax = plt.subplots()
     ax.set_xlim(left=-30, right=30)
-    # ax.hist(Z_timesteps[:, 1] - Z_timesteps[:, 0], color="green", alpha=0.5, bins = np.arange(-30, 31, 1))
+    # ax.hist(Z_timesteps[:, 1] - Z_timesteps[:, 0], color="green", alpha=0.5, bins = np.arange(-30, 31, 1)) # noqa E501
     ax.hist(
         Z_timesteps[:, 1] - Z_timesteps[:, 0],
         color="green",
@@ -938,12 +935,12 @@ def dz_plot(
     ax.axvline(
         x=median_dz,
         color="red",
-        label=r"Median $\Delta Z$ = {:.2f} dBZ".format(median_dz),
+        label=rf"Median $\Delta Z$ = {median_dz:.2f} dBZ",
     )
     ax.grid()
     ax.set_xlabel(r"$Z_{radar} - Z_{disdrometer}$ [dBZ]")
     ax.set_ylabel("% of values")
-    # ax.set_yticklabels(np.round(100 / Z_timesteps.shape[0] * np.array(ax.get_yticks()), decimals=1))
+    # ax.set_yticklabels(np.round(100 / Z_timesteps.shape[0] * np.array(ax.get_yticks()), decimals=1)) # noqa E501
     ax.set_ylim(top=0.15)
     ax.set_yticklabels(np.round(100 * np.array(ax.get_yticks()), decimals=0))
 
@@ -953,7 +950,7 @@ def dz_plot(
         + "Studied period : {} - {} \n".format(
             t[0].strftime("%Y/%m"), t[-1].strftime("%Y/%m")
         )
-        + "Disdrometer : {}, DCR : {}".format(disdro_source, radar_source),
+        + f"Disdrometer : {disdro_source}, DCR : {radar_source}",
         fontsize=11,
         fontweight="semibold",
     )
@@ -986,12 +983,10 @@ if __name__ == "__main__":
     lst_preprocessed_files = sorted(
         glob.glob(
             data_dir
-            + "/disdrometer_preprocessed/*degrade_{}_{}.nc".format(
-                disdro_type, radar_type
-            )
+            + f"/disdrometer_preprocessed/*degrade_{disdro_type}_{radar_type}.nc"
         )
     )[-246:-126]
-    print("{} DD preprocessed files".format(len(lst_preprocessed_files)))
+    print(f"{len(lst_preprocessed_files)} DD preprocessed files")
     events, preprocessed_ds = sel_degrade(lst_preprocessed_files)
     print(events)
 

@@ -9,5 +9,5 @@ LAMBDA_M = constants.c / FREQ
 F_PARSIVEL = 0.0054  # m2, sampling surface
 AUparameter_default = 1000
 AUparameter_lindenberg = 1009  # 1009 @ Lindenberg !
-AUparameter_palaiseau = 965 # @ SIRTA
+AUparameter_palaiseau = 965  # @ SIRTA
 F_THIES = 0.0046 * 1000 / AUparameter_default

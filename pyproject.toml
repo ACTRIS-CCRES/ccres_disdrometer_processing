@@ -100,6 +100,9 @@ recursive = true
 blank = true
 syntax = "numpy"
 
+[tool.ruff]
+exclude = ["docs"]
+
 [tool.ruff.lint]
 select = [
     # pycodestyle
