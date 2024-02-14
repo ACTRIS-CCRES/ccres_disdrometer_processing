@@ -118,7 +118,6 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
     final_data.attrs["weather_data_avail"] = weather_avail
     final_data.attrs["axis_ratioMethod"] = axrMethod
     final_data.attrs["fallspeedFormula"] = strMethod
-    final_data.attrs["scatteringMethod"] = mieMethod
 
     # Add global attributes specified in the file format
     final_data.attrs["title"] = ""
