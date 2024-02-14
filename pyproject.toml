@@ -95,7 +95,7 @@ include = ["ccres_disdrometer_processing", "ccres_disdrometer_processing.*"]
 explicit_package_bases = true
 disallow_untyped_defs = true
 ignore_missing_imports = true
-exclude = ['^build/', 'venv', "tests/*.py"]
+exclude = ["/build/", "/venv/", "/tests/(cli|logger|run)/.py$", "/tests/.py$"]
 
 [tool.docformatter]
 recursive = true
