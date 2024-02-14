@@ -25,20 +25,25 @@ def read_radar_cloudnet(filename):  # daily radar file from cloudnet
             time=(["time"], time_index[:-1]), range=(["range"], data_nc.range.data)
         )
     )
+    radar_ds.range.attrs = {"units":"m", "long_name":"Range of each gate"}
 
     radar_ds["radar_longitude"] = xr.DataArray(data_nc.longitude.values, attrs = data_nc.longitude.attrs)
     radar_ds["radar_latitude"] = xr.DataArray(data_nc.latitude.values, attrs = data_nc.latitude.attrs)
     radar_ds["radar_altitude"] = xr.DataArray(data_nc.altitude.values, attrs = data_nc.altitude.attrs)
+    radar_ds["radar_altitude"].attrs["positive"] = "up"
 
     radar_ds["radar_model"] = data_nc.attrs["source"]
+    radar_ds["radar_model"].attrs = {"long_name":"Radar model", "comment":"Radar model"}
 
     radar_ds["radar_frequency"] = (
         data_nc.radar_frequency * 10**9
     )  # in GHz, so * 10**9 to get Hz
     radar_ds["radar_frequency"].attrs["units"] = "Hz"
+    radar_ds["radar_frequency"].attrs["long_name"] = "Frequency of the DCR, in Hertz"
 
     radar_ds["radar_wavelength"] = constants.c / radar_ds["radar_frequency"]
     radar_ds["radar_wavelength"].attrs["units"] = "m"
+    radar_ds["radar_wavelength"].attrs["long_name"] = "Wavelength of the DCR, in meter"
 
 
     time_index_offset = time_index - pd.Timedelta(30, "sec")
@@ -55,6 +60,7 @@ def read_radar_cloudnet(filename):  # daily radar file from cloudnet
         data_nc.range.values, dims=["range"], attrs=data_nc["range"].attrs
     )
     radar_ds["alt"].attrs["Comment"] = "Altitude above ground level"
+    radar_ds["alt"].attrs["positive"] = "up"
     radar_ds["Zdcr"] = xr.DataArray(
         Z_dcr_resampled.values,
         dims=["time", "range"],

@@ -11,15 +11,15 @@ TEST_OUT_DIR = TEST_DIR / "data/outputs"
 disdro_file = f"{TEST_INPUT}/20210202_palaiseau_parsivel.nc"
 ws_file = f"{TEST_INPUT}/20210202_palaiseau_weather-station.nc"
 radar_file = f"{TEST_INPUT}/20210202_palaiseau_basta.nc"
-config_file = f"{TEST_INPUT}/CONFIG_test.toml"
-output_file = f"{TEST_OUT_DIR}/20210202_palaiseau_preprocessed_v1101.nc"
+config_file = f"{TEST_INPUT}/CONFIG_preprocessing_processing.toml"
+output_file = f"{TEST_OUT_DIR}/20210202_palaiseau_preprocessed_v0802.nc"
 print(config_file)
 
 
-do = 1
+do = 0
 open = 1
 rad = 0
-dd = 1
+dd = 0
 weather = 0
 compare_versions = 0
 
@@ -34,11 +34,11 @@ if open :
     # print(ds.attrs)
     print(ds.dims)
     print(ds.attrs)
-    print(list(ds.keys()))
-    print(len(ds.time))
-    print(ds.disdro_pr.values[-1])
-    print(ds.disdro_cp.values[0:50], ds.ams_cp.values[-1])
-    # print(ds.computed_frequencies.values)
+    for var in list(ds.keys()):
+        try :
+            x = ds[var].attrs["units"]
+        except KeyError :
+            print(var)
 
 if rad : 
     radar = xr.open_dataset(radar_file)
@@ -51,8 +51,10 @@ if dd :
     print("### DISDROMETER FILE ###")
     # print(dd.attrs)
     # print(list(dd.keys()))
-    print(len(dd.time))
-    print(dd.rainfall_rate.values[0:50])
+    # print(len(dd.time))
+    # print(dd.rainfall_rate.values[0:50])
+    print(dd.longitude.attrs)
+    print(dd.data_raw.attrs)
 
 if weather : 
     ws = xr.open_dataset(ws_file)
