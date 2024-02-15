@@ -106,10 +106,8 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
 
     axrMethod = config["methods"]["AXIS_RATIO_METHOD"]
     strMethod = config["methods"]["FALL_SPEED_METHOD"]
-    mieMethod = config["methods"]["COMPUTE_MIE_METHOD"]  # pymiecoated OR pytmatrix
     E = config["methods"]["REFRACTION_INDEX"]
     E = complex(E[0], E[1])
-    print(E)
     computed_frequencies = config["methods"][
         "RADAR_FREQUENCIES"
     ]  # given in Hz -> ok for the scattering script
@@ -132,18 +130,15 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
                 disdro_xr.size_classes[0:-5],
                 fov,
                 frequency,
-                E,
+                e=E,
                 axrMethod=axrMethod,
-                mieMethod=mieMethod,
             )
             scatt_list.append(scatt)
     disdro_xr = disdro.reflectivity_model_multilambda_measmodV_hvfov(
         disdro_xr,
         scatt_list,
         len(disdro_xr.size_classes[0:-5]),
-        np.array(computed_frequencies),
         strMethod=strMethod,
-        mieMethod=mieMethod,
     )
 
     # read weather-station data
@@ -165,8 +160,12 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
     final_data.attrs["fallspeedFormula"] = strMethod
 
     # Add global attributes specified in the file format
-    final_data.attrs["title"] = ""
-    final_data.attrs["summary"] = ""
+    final_data.attrs[
+        "title"
+    ] = f"CCRES pre-processing file for Doppler cloud radar stability monitoring with disdrometer at {final_data.attrs['location']} site"  # noqa E501
+    final_data.attrs[
+        "summary"
+    ] = f"Disdrometer ({final_data.attrs['disdrometer_source']}) data are processed to derive the equivalent reflectivity factor at {len(computed_frequencies)} frequencies ({', '.join(str(round(freq*1e-9,0)) for freq in computed_frequencies[:])} GHz). Doppler cloud radar ({final_data.attrs['radar_source']}) data (reflectivity and Doppler velocity) are extracted up to some hundreds of meters, and weather station data (temperature, humidity, wind and precipitation rate) are added to the dataset if provided. The resulting pre-processing netCDF file has a 1-minute sampling for all the collocated sensors."  # noqa E501
     final_data.attrs[
         "keywords"
     ] = "GCMD:EARTH SCIENCE, GCMD:ATMOSPHERE, GCMD:CLOUDS, GCMD:CLOUD DROPLET DISTRIBUTION, GCMD:CLOUD RADIATIVE TRANSFER, GCMD:CLOUD REFLECTANCE, GCMD:SCATTERING, GCMD:PRECIPITATION, GCMD:ATMOSPHERIC PRECIPITATION INDICES, GCMD:DROPLET SIZE, GCMD:HYDROMETEORS, GCMD:LIQUID PRECIPITATION, GCMD:RAIN, GCMD:LIQUID WATER EQUIVALENT, GCMD:PRECIPITATION AMOUNT, GCMD:PRECIPITATION RATE, GCMD:SURFACE PRECIPITATION"  # noqa
