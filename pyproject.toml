@@ -126,7 +126,9 @@ minversion = "6.0"
 addopts = "--cov=. --cov-config=pyproject.toml -vv --cov-report=html:htmlcov --cov-report=xml:coverage.xml --cov-report term"
 testpaths = ["tests"]
 filterwarnings = [
+    "ignore::RuntimeWarning",
     "ignore::DeprecationWarning",
+    "ignore::FutureWarning",
     "default:::ccres_disdrometer_processing.*",
 ]
 
