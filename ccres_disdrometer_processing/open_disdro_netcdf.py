@@ -4,8 +4,9 @@ from typing import Union
 import numpy as np
 import pandas as pd
 import xarray as xr
-from scattering import DATA, compute_fallspeed
 from scipy import constants as cst
+
+from .scattering import DATA, compute_fallspeed
 
 KEYS = [
     # "visibility",
