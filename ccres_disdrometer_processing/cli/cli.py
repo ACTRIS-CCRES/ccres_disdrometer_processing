@@ -38,12 +38,6 @@ def cli(verbosity):
 
 
 @cli.command()
-def status():
-    print("Good, thanks !")
-
-
-@cli.command()
-# @click.option("--disdro-type", type=click.Choice(DISDRO_TYPES), required=True)
 @click.option(
     "--disdro-file",
     type=click.Path(
@@ -56,7 +50,6 @@ def status():
     ),
     required=True,
 )
-# @click.option("--ws-type", type=click.Choice(WS_TYPES), required=True)
 @click.option(
     "--ws-file",
     type=click.Path(

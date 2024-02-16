@@ -124,7 +124,7 @@ select = [
 
 [tool.pytest.ini_options]
 minversion = "6.0"
-addopts = "-vv --cov-report html:.coverage/html --cov-report xml:.coverage/coverage.xml --cov-report term --cov=ccres-disdro-monitoring"
+addopts = "--cov=. --cov-config=pyproject.toml -vv --cov-report=html:htmlcov --cov-report=xml:coverage.xml --cov-report term"
 testpaths = ["tests"]
 filterwarnings = [
     "ignore::DeprecationWarning",
