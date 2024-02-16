@@ -111,10 +111,11 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
     computed_frequencies = config["methods"][
         "RADAR_FREQUENCIES"
     ]  # given in Hz -> ok for the scattering script
+    max_radar_altitude = config["methods"]["MAX_ALTITUDE_RADAR_DATA"]
 
     # read doppler radar data
     # ---------------------------------------------------------------------------------
-    radar_xr = radar.read_radar_cloudnet(radar_file)
+    radar_xr = radar.read_radar_cloudnet(radar_file, max_radar_alt=max_radar_altitude)
 
     # read and preprocess disdrometer data
     # ---------------------------------------------------------------------------------
