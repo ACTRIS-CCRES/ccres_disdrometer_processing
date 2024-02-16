@@ -106,6 +106,6 @@ def scattering_prop(
         bscat_m = compute_bscat_mie(Diam, lambda_m, e, beam_orientation)
         bscat_m = compute_bscat_tmatrix(Diam, lambda_m, e, 1, beam_orientation)[0]
         scatt.bscat_mie[i] = bscat_m
-        lgr.debug(bscat_tmat, bscat_m)
+        # lgr.debug(bscat_tmat, bscat_m)
 
     return scatt
