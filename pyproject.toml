@@ -33,7 +33,6 @@ dependencies = [
     "scipy",
     "pyarrow",
     "pytmatrix == 0.3.2",
-    "pymiecoated@git+https://github.com/jleinonen/pymiecoated",
     "toml",
 ]
 # Dynamic for setuptools
