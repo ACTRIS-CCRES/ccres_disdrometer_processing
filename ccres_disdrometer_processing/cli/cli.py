@@ -38,8 +38,14 @@ def cli(verbosity):
 
 
 @cli.command()
-def status():
+@click.option("-v", "verbosity", count=True)
+def status(verbosity):
+    print(verbosity)
     print("Good, thanks !")
+    log_level = LogLevels.get_by_verbosity_count(verbosity)
+    init_logger(log_level)
+    print(log_level)
+    lgr.info("Info log")
 
 
 @cli.command()
@@ -102,6 +108,7 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
     """Command line interface for ccres_disdrometer_processing."""
     click.echo("CCRES disdrometer preprocessing : test CLI")
 
+    print(config_file)
     config = toml.load(config_file)
 
     axrMethod = config["methods"]["AXIS_RATIO_METHOD"]
@@ -144,7 +151,8 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
 
     # read weather-station data
     # ---------------------------------------------------------------------------------
-    if ws_file is not None:
+    weather_avail = ws_file is not None
+    if weather_avail:
         weather_xr = weather.read_weather_cloudnet(ws_file)
         final_data = xr.merge(
             [weather_xr, disdro_xr, radar_xr], combine_attrs="drop_conflicts"
@@ -153,9 +161,7 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
         final_data = xr.merge([disdro_xr, radar_xr], combine_attrs="drop_conflicts")
 
     final_data.attrs["station_name"] = config["location"]["STATION"]
-
     final_data.time.attrs["standard_name"] = "time"
-    weather_avail = weather is not None
     final_data.attrs["weather_data_avail"] = int(weather_avail)
     final_data.attrs["axis_ratioMethod"] = axrMethod
     final_data.attrs["fallspeedFormula"] = strMethod
@@ -221,6 +227,7 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
         return str(nb)[::-1].find(".")
 
     if weather_avail:
+        print(weather_avail, weather)
         geospatial_lat_min = np.min(
             np.array(
                 [
@@ -347,7 +354,7 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
         )
     final_data.attrs[
         "geospatial_bounds"
-    ] = f"POLYGON (({geospatial_lat_min}{geospatial_lon_min}), ({geospatial_lat_min}{geospatial_lon_max}), ({geospatial_lat_max}{geospatial_lon_max}), ({geospatial_lat_max}{geospatial_lon_min}))"  # noqa
+    ] = f"POLYGON (({geospatial_lat_min}, {geospatial_lon_min}), ({geospatial_lat_min}, {geospatial_lon_max}), ({geospatial_lat_max}, {geospatial_lon_max}), ({geospatial_lat_max}, {geospatial_lon_min}))"  # noqa
     final_data.attrs["geospatial_bounds_crs"] = "EPSG:4326"  # WGS84
     final_data.attrs["geospatial_bounds_vertical_crs"] = "EPSG:5829"
     final_data.attrs["geospatial_lat_min"] = geospatial_lat_min
@@ -401,6 +408,8 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
     final_data.to_netcdf(
         output_file, encoding={"time": {"units": TIME_UNITS, "calendar": "standard"}}
     )
+
+    print("Preprocessing : SUCCESS")
     lgr.info("Preprocessing : SUCCESS")
 
     sys.exit(0)  # Returns 0 if the code ran well
