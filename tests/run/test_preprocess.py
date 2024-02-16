@@ -59,12 +59,11 @@ def test_run(test_case, data_input_dir, data_conf_dir, data_out_dir) -> None:
 
     args += [str(output_file)]
 
-    print(args)
-
     runner = CliRunner()
     result = runner.invoke(
         cli.preprocess,
         args,
+        catch_exceptions=False,
     )
 
     assert result.exit_code == 0

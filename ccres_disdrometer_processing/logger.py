@@ -55,7 +55,7 @@ def add_stream_logging(logger: logging.Logger, level: LogLevels) -> logging.Logg
     return logger
 
 
-def init_logger(name: str, level: LogLevels) -> None:
+def init_logger(level: LogLevels) -> None:
     """init_logger Init the stream logger for the project.
 
     Parameters
@@ -78,7 +78,7 @@ def init_logger(name: str, level: LogLevels) -> None:
         "root": {"level": "DEBUG", "handlers": ["console"]},
     }
 
-    logger = logging.getLogger(name)
+    logger = logging.getLogger()
     logging.config.dictConfig(log_dict)
 
     return logger

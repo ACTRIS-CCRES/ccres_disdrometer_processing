@@ -16,7 +16,7 @@ def test_log_level_from_count():
 
 
 def test_init_logger():
-    lgr = init_logger("ccres_disdrometer_processing", LogLevels.INFO)
+    lgr = init_logger(LogLevels.INFO)
 
     assert logging.getLevelName(lgr.root.handlers[0].level) == "INFO"
     assert LOG_FORMAT in logging.getLevelName(lgr.root.handlers[0].formatter._fmt)

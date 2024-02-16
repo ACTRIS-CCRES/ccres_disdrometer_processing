@@ -226,7 +226,7 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
         return str(nb)[::-1].find(".")
 
     if weather_avail:
-        print(weather_avail, weather)
+        # print(weather_avail, weather)
         geospatial_lat_min = np.min(
             np.array(
                 [
@@ -412,3 +412,7 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
     lgr.info("Preprocessing : SUCCESS")
 
     sys.exit(0)  # Returns 0 if the code ran well
+
+
+if __name__ == "__main__":
+    cli()
