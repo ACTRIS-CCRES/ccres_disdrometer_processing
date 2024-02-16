@@ -12,12 +12,12 @@ TEST_OUT_DIR = TEST_DIR / "data/outputs"
 disdro_file = f"{TEST_INPUT}/20210202_palaiseau_parsivel.nc"
 ws_file = f"{TEST_INPUT}/20210202_palaiseau_weather-station.nc"
 radar_file = f"{TEST_INPUT}/20210202_palaiseau_basta.nc"
-config_file = f"{TEST_INPUT}/CONFIG_preprocessing_processing.toml"
+config_file = f"{TEST_INPUT}/config_files/CONFIG_palaiseau_basta_parsivel.toml"
 output_file = f"{TEST_OUT_DIR}/20210202_palaiseau_preprocessed_v0802.nc"
 print(config_file)
 
 
-do = 0
+do = 1
 open = 1
 rad = 0
 dd = 0
@@ -42,6 +42,7 @@ if open:
             x = ds[var].attrs["units"]
         except KeyError:
             print(var)
+    print(ds.attrs["summary"])
 
 if rad:
     radar = xr.open_dataset(radar_file)

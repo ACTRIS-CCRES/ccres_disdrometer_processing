@@ -4,7 +4,8 @@ from typing import Union
 import numpy as np
 import pandas as pd
 import xarray as xr
-from scipy import constants as cst
+
+from ccres_disdrometer_processing.scattering import DATA, compute_fallspeed
 
 from .scattering import DATA, compute_fallspeed
 
@@ -68,7 +69,7 @@ def resample_data_perfect_timesteps(filename: Union[str, Path], config) -> xr.Da
         freq="1S"
     )
     # TODO: to fix. variable in other option in config file
-    data_perfect_timesteps["F"] = config["methods"]["SAMPLING_AREA"]
+    data_perfect_timesteps["F"] = config["instrument_parameters"]["DD_SAMPLING_AREA"]
 
     for key in ["year", "month", "day", "location"]:
         data_perfect_timesteps.attrs[key] = data_nc.attrs[key]
@@ -125,6 +126,7 @@ def read_parsivel_cloudnet(
             attrs={
                 "units": "#/bin/mn",
                 "long_name": "Number of droplets per diameter and fall speed bins",
+                "comment": "Unit not recognized by UDUNITS ; does not account for the size of the bins",  # noqa E501
             },
         )
 
@@ -212,6 +214,7 @@ def read_thies_cloudnet(
         attrs={
             "units": "#/bin/mn",
             "long_name": "Number of droplets per diameter and fall speed bins",
+            "comment": "Unit not recognized by UDUNITS ; does not account for the size of the bins",  # noqa E501
         },
     )
 
@@ -283,17 +286,14 @@ def reflectivity_model_multilambda_measmodV_hvfov(
     mparsivel,
     scatt_list,
     n,
-    freq_list,
     strMethod="GunAndKinzer",
-    mieMethod="pymiecoated",
 ):
     # scatt_list : list of scattering_prop() objects :
     # [(lambda1, vert), (lambda2, vert), ...(lambda1, hori), ...] -> 4 lambdas = 8 scatt objects # noqa E501
 
     # integration time
     t = mparsivel.time_resolution.values  # s
-    # wavelength
-    lambda_m = cst.c / freq_list
+
     F = mparsivel.F.data
 
     fov = 2
@@ -425,29 +425,14 @@ def reflectivity_model_multilambda_measmodV_hvfov(
 
         ## Here begins the multilambda specific part
         for k, scatt in enumerate(scatt_list):
-            if mieMethod == "pymiecoated":
-                model.Ze_mie[ii, k % fr, k // fr, :] = (
-                    1e18
-                    # because we want mm6 instead of m6 ; when pytmatrix,
-                    # input is in mm so we don't have to apply this scale factor
-                    * np.nansum(
-                        np.tile(Ni[0:n] * scatt.bscat_mie, (2, 1)).T / VDD[0:n, :],
-                        axis=0,
-                    )
-                    * (lambda_m[k % fr] ** 4 / (np.pi) ** 5.0)
-                    / 0.93  # squared water dielectric constant
-                    / F
-                    / t
-                )  # mm6/m3
-            elif mieMethod == "pytmatrix":
-                model.Ze_mie[ii, k % fr, k // fr, :] = (
-                    np.nansum(
-                        np.tile(Ni[0:n] * scatt.bscat_mie, (2, 1)).T / VDD[0:n, :],
-                        axis=0,
-                    )
-                    / F
-                    / t
-                )  # mm6/m3
+            model.Ze_mie[ii, k % fr, k // fr, :] = (
+                np.nansum(
+                    np.tile(Ni[0:n] * scatt.bscat_mie, (2, 1)).T / VDD[0:n, :],
+                    axis=0,
+                )
+                / F
+                / t
+            )  # mm6/m3
 
             model.Ze_tm[ii, k % fr, k // fr, :] = (
                 np.nansum(
@@ -527,6 +512,7 @@ def reflectivity_model_multilambda_measmodV_hvfov(
         attrs={
             "units": "#/cm^3/bin",
             "long_name": "Normalized precipitation size distribution",
+            "comment": "Unit not recognized by UDUNITS ; does not account for the size of the bins",  # noqa E501
         },
     )
 
@@ -720,7 +706,7 @@ def reflectivity_model_multilambda_measmodV_hvfov(
         attrs={
             "units": "dB/km",
             "long_name": "Disdrometer attenuation for measured fall drop velocity and horizontal field of view",  # noqa E501
-            "comment": "Calculated with disdrometer",
+            "comment": "Calculated with disdrometer ; unit not recognized by UDUNITS",
         },
     )
     mparsivel["attd_hfov_modv"] = xr.DataArray(
@@ -729,7 +715,7 @@ def reflectivity_model_multilambda_measmodV_hvfov(
         attrs={
             "units": "dB/km",
             "long_name": "Disdrometer attenuation for modeled fall drop velocity and horizontal field of view",  # noqa E501
-            "comment": "Calculated with disdrometer",
+            "comment": "Calculated with disdrometer ; unit not recognized by UDUNITS",
         },
     )
     mparsivel["attd_vfov_measv"] = xr.DataArray(
@@ -738,7 +724,7 @@ def reflectivity_model_multilambda_measmodV_hvfov(
         attrs={
             "units": "dB/km",
             "long_name": "Disdrometer attenuation for measured fall drop velocity and vertical field of view",  # noqa E501
-            "comment": "Calculated with disdrometer",
+            "comment": "Calculated with disdrometer ; unit not recognized by UDUNITS",
         },
     )
     mparsivel["attd_vfov_modv"] = xr.DataArray(
@@ -747,7 +733,7 @@ def reflectivity_model_multilambda_measmodV_hvfov(
         attrs={
             "units": "dB/km",
             "long_name": "Disdrometer attenuation for modeled fall drop velocity and vertical field of view",  # noqa E501
-            "comment": "Calculated with disdrometer",
+            "comment": "Calculated with disdrometer ; unit not recognized by UDUNITS",
         },
     )
 

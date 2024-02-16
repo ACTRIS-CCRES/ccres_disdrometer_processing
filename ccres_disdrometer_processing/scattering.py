@@ -1,7 +1,6 @@
 import logging
 
 import numpy as np
-from pymiecoated import Mie
 from pytmatrix import radar, tmatrix_aux
 from pytmatrix.tmatrix import Scatterer
 from scipy import constants
@@ -62,22 +61,18 @@ def compute_bscat_tmatrix(Diam, lambda_m, e, axis_ratio, beam_orientation):
     return bscat_tmat, att_tmat
 
 
-def compute_bscat_mie(Diam, lambda_m, e, beam_orientation, mieMethod="pymiecoated"):
-    if mieMethod == "pymiecoated":
-        mie_max = Mie(x=(np.pi * Diam / lambda_m), m=e)
-        bscat_m = mie_max.qb() * (Diam * 0.5) ** 2 * np.pi
-    elif mieMethod == "pytmatrix":
-        scatterer_mie = Scatterer(
-            radius=(0.5 * Diam * 1e3),
-            wavelength=lambda_m * 1e3,
-            m=e,
-            axis_ratio=1,
-        )
-        if beam_orientation == 0:
-            scatterer_mie.set_geometry(tmatrix_aux.geom_horiz_back)
-        else:
-            scatterer_mie.set_geometry(tmatrix_aux.geom_vert_back)
-        bscat_m = radar.refl(scatterer_mie)
+def compute_bscat_mie(Diam, lambda_m, e, beam_orientation):
+    scatterer_mie = Scatterer(
+        radius=(0.5 * Diam * 1e3),
+        wavelength=lambda_m * 1e3,
+        m=e,
+        axis_ratio=1,
+    )
+    if beam_orientation == 0:
+        scatterer_mie.set_geometry(tmatrix_aux.geom_horiz_back)
+    else:
+        scatterer_mie.set_geometry(tmatrix_aux.geom_vert_back)
+    bscat_m = radar.refl(scatterer_mie)
     return bscat_m
 
 
@@ -87,7 +82,6 @@ def scattering_prop(
     freq=95.0 * 1e9,
     e=2.99645 + 1.54866 * 1j,
     axrMethod="BeardChuang_PolynomialFit",
-    mieMethod="pymiecoated",
 ):
     scatt = DATA()
 
@@ -109,9 +103,7 @@ def scattering_prop(
         scatt.bscat_tmatrix[i] = bscat_tmat
         scatt.att_tmatrix[i] = att_tmat
 
-        bscat_m = compute_bscat_mie(
-            Diam, lambda_m, e, beam_orientation, mieMethod=mieMethod
-        )
+        bscat_m = compute_bscat_mie(Diam, lambda_m, e, beam_orientation)
         bscat_m = compute_bscat_tmatrix(Diam, lambda_m, e, 1, beam_orientation)[0]
         scatt.bscat_mie[i] = bscat_m
         lgr.debug(bscat_tmat, bscat_m)

@@ -38,6 +38,18 @@ def cli(verbosity):
 
 
 @cli.command()
+@click.option("-v", "verbosity", count=True)
+def status(verbosity):
+    print(verbosity)
+    print("Good, thanks !")
+    log_level = LogLevels.get_by_verbosity_count(verbosity)
+    init_logger(log_level)
+    print(log_level)
+    lgr.info("Info log")
+
+
+@cli.command()
+# @click.option("--disdro-type", type=click.Choice(DISDRO_TYPES), required=True)
 @click.option(
     "--disdro-file",
     type=click.Path(
@@ -95,21 +107,21 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
     """Command line interface for ccres_disdrometer_processing."""
     click.echo("CCRES disdrometer preprocessing : test CLI")
 
+    print(config_file)
     config = toml.load(config_file)
 
     axrMethod = config["methods"]["AXIS_RATIO_METHOD"]
     strMethod = config["methods"]["FALL_SPEED_METHOD"]
-    mieMethod = config["methods"]["COMPUTE_MIE_METHOD"]  # pymiecoated OR pytmatrix
     E = config["methods"]["REFRACTION_INDEX"]
     E = complex(E[0], E[1])
-    print(E)
     computed_frequencies = config["methods"][
         "RADAR_FREQUENCIES"
     ]  # given in Hz -> ok for the scattering script
+    max_radar_altitude = config["methods"]["MAX_ALTITUDE_RADAR_DATA"]
 
     # read doppler radar data
     # ---------------------------------------------------------------------------------
-    radar_xr = radar.read_radar_cloudnet(radar_file)
+    radar_xr = radar.read_radar_cloudnet(radar_file, max_radar_alt=max_radar_altitude)
 
     # read and preprocess disdrometer data
     # ---------------------------------------------------------------------------------
@@ -125,23 +137,21 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
                 disdro_xr.size_classes[0:-5],
                 fov,
                 frequency,
-                E,
+                e=E,
                 axrMethod=axrMethod,
-                mieMethod=mieMethod,
             )
             scatt_list.append(scatt)
     disdro_xr = disdro.reflectivity_model_multilambda_measmodV_hvfov(
         disdro_xr,
         scatt_list,
         len(disdro_xr.size_classes[0:-5]),
-        np.array(computed_frequencies),
         strMethod=strMethod,
-        mieMethod=mieMethod,
     )
 
     # read weather-station data
     # ---------------------------------------------------------------------------------
-    if ws_file is not None:
+    weather_avail = ws_file is not None
+    if weather_avail:
         weather_xr = weather.read_weather_cloudnet(ws_file)
         final_data = xr.merge(
             [weather_xr, disdro_xr, radar_xr], combine_attrs="drop_conflicts"
@@ -150,16 +160,18 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
         final_data = xr.merge([disdro_xr, radar_xr], combine_attrs="drop_conflicts")
 
     final_data.attrs["station_name"] = config["location"]["STATION"]
-
     final_data.time.attrs["standard_name"] = "time"
-    weather_avail = weather is not None
     final_data.attrs["weather_data_avail"] = int(weather_avail)
     final_data.attrs["axis_ratioMethod"] = axrMethod
     final_data.attrs["fallspeedFormula"] = strMethod
 
     # Add global attributes specified in the file format
-    final_data.attrs["title"] = ""
-    final_data.attrs["summary"] = ""
+    final_data.attrs[
+        "title"
+    ] = f"CCRES pre-processing file for Doppler cloud radar stability monitoring with disdrometer at {final_data.attrs['location']} site"  # noqa E501
+    final_data.attrs[
+        "summary"
+    ] = f"Disdrometer ({final_data.attrs['disdrometer_source']}) data are processed to derive the equivalent reflectivity factor at {len(computed_frequencies)} frequencies ({', '.join(str(round(freq*1e-9,0)) for freq in computed_frequencies[:])} GHz). Doppler cloud radar ({final_data.attrs['radar_source']}) data (reflectivity and Doppler velocity) are extracted up to some hundreds of meters, and weather station data (temperature, humidity, wind and precipitation rate) are added to the dataset if provided. The resulting pre-processing netCDF file has a 1-minute sampling for all the collocated sensors."  # noqa E501
     final_data.attrs[
         "keywords"
     ] = "GCMD:EARTH SCIENCE, GCMD:ATMOSPHERE, GCMD:CLOUDS, GCMD:CLOUD DROPLET DISTRIBUTION, GCMD:CLOUD RADIATIVE TRANSFER, GCMD:CLOUD REFLECTANCE, GCMD:SCATTERING, GCMD:PRECIPITATION, GCMD:ATMOSPHERIC PRECIPITATION INDICES, GCMD:DROPLET SIZE, GCMD:HYDROMETEORS, GCMD:LIQUID PRECIPITATION, GCMD:RAIN, GCMD:LIQUID WATER EQUIVALENT, GCMD:PRECIPITATION AMOUNT, GCMD:PRECIPITATION RATE, GCMD:SURFACE PRECIPITATION"  # noqa
@@ -214,6 +226,7 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
         return str(nb)[::-1].find(".")
 
     if weather_avail:
+        print(weather_avail, weather)
         geospatial_lat_min = np.min(
             np.array(
                 [
@@ -340,7 +353,7 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
         )
     final_data.attrs[
         "geospatial_bounds"
-    ] = f"POLYGON (({geospatial_lat_min}{geospatial_lon_min}), ({geospatial_lat_min}{geospatial_lon_max}), ({geospatial_lat_max}{geospatial_lon_max}), ({geospatial_lat_max}{geospatial_lon_min}))"  # noqa
+    ] = f"POLYGON (({geospatial_lat_min}, {geospatial_lon_min}), ({geospatial_lat_min}, {geospatial_lon_max}), ({geospatial_lat_max}, {geospatial_lon_max}), ({geospatial_lat_max}, {geospatial_lon_min}))"  # noqa
     final_data.attrs["geospatial_bounds_crs"] = "EPSG:4326"  # WGS84
     final_data.attrs["geospatial_bounds_vertical_crs"] = "EPSG:5829"
     final_data.attrs["geospatial_lat_min"] = geospatial_lat_min
@@ -394,6 +407,8 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
     final_data.to_netcdf(
         output_file, encoding={"time": {"units": TIME_UNITS, "calendar": "standard"}}
     )
+
+    print("Preprocessing : SUCCESS")
     lgr.info("Preprocessing : SUCCESS")
 
     sys.exit(0)  # Returns 0 if the code ran well
