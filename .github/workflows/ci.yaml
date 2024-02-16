@@ -142,7 +142,7 @@ jobs:
     linux-tests:
         name: Tests for Python 3.11 on ubuntu-latest
         runs-on: ubuntu-latest
-        # needs: pre-commit
+        needs: pre-commit
         # If not default branch
         # It allows us to not use too much walltime of github
         env:
@@ -188,8 +188,11 @@ jobs:
                   name: tests-artifacts
                   path: tests/data/outputs/
 
-            - name: Upload coverage reports to Codecov with GitHub Action
-              uses: codecov/codecov-action@v3
+            - name: Upload coverage reports to Codecov
+              uses: codecov/codecov-action@v4.0.1
+              env:
+                  token: ${{ secrets.CODECOV_TOKEN }}
+                  slug: ACTRIS-CCRES/dcrcc-disdro-monitoring
 
     coverage:
         name: Coverage deployment
