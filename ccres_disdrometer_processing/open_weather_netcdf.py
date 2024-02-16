@@ -13,7 +13,7 @@ def read_weather_cloudnet(filename):
         hour=23, minute=59, second=0, microsecond=0, nanosecond=0
     )
     time_index = pd.date_range(
-        start_time, end_time + pd.Timedelta(minutes=1), freq="1T"
+        start_time, end_time + pd.Timedelta(minutes=1), freq="1min"
     )
     time_index_offset = time_index - pd.Timedelta(30, "sec")
 

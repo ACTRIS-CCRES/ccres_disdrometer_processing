@@ -7,8 +7,6 @@ import xarray as xr
 
 from ccres_disdrometer_processing.scattering import DATA, compute_fallspeed
 
-from .scattering import DATA, compute_fallspeed
-
 KEYS = [
     # "visibility",
     # "sig_laser",
@@ -46,7 +44,7 @@ def resample_data_perfect_timesteps(filename: Union[str, Path], config) -> xr.Da
         hour=23, minute=59, second=0, microsecond=0, nanosecond=0
     )
     time_index = pd.date_range(
-        start_time, end_time + pd.Timedelta(minutes=1), freq="1T"
+        start_time, end_time + pd.Timedelta(minutes=1), freq="1min"
     )
     time_index_offset = time_index - pd.Timedelta(30, "sec")
     time_var, notime_var = [], []

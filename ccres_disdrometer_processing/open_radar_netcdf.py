@@ -18,7 +18,7 @@ def read_radar_cloudnet(filename, max_radar_alt=2500):  # daily radar file from 
         hour=23, minute=59, second=0, microsecond=0, nanosecond=0
     )
     time_index = pd.date_range(
-        start_time, end_time + pd.Timedelta(minutes=1), freq="1T"
+        start_time, end_time + pd.Timedelta(minutes=1), freq="1min"
     )
     radar_ds = xr.Dataset(
         coords=dict(
