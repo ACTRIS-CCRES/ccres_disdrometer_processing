@@ -56,12 +56,6 @@ def sel(
         (xr.open_dataset(file)[LIST_VARIABLES] for file in list_preprocessed_files[:]),
         dim="time",
     )
-    # file = list_preprocessed_files[0]
-    # preprocessed_ds_full = xr.open_dataset(file)[LIST_VARIABLES]
-    # for k in range(1,len(list_preprocessed_files)):
-    #     print(k, list_preprocessed_files[k])
-    #     file = list_preprocessed_files[k]
-    #     preprocessed_ds_full = xr.concat((preprocessed_ds_full, xr.open_dataset(file)[LIST_VARIABLES]), dim="time")
 
     preprocessed_ds = preprocessed_ds_full.isel(
         {"time": np.where(preprocessed_ds_full.rain.values > 0)[0]}
@@ -171,13 +165,13 @@ def sel(
             "Rain accumulation (mm)": test_values[:, 1],
             "Avg WS (m/s)": test_values[:, 2],
             "Max WS (m/s)": test_values[:, 3],
-            "max RR / {}mn subper (mm/h)".format(CHUNK_THICKNESS): test_values[:, 4],
+            f"max RR / {CHUNK_THICKNESS}mn subper (mm/h)": test_values[:, 4],
             "avg RR (mm/h)": test_values[:, 5],
-            "Min Temperature < {}°C".format(MIN_T): mask[:, 0],
-            "Rain accumulation > {}mm".format(MIN_CUM): mask[:, 1],
-            "Avg WS < {}m/s ?".format(MAX_MEANWS): mask[:, 2],
-            "Max WS < {}m/s".format(MAX_WS): mask[:, 3],
-            "Max Rain Rate <= {}mm".format(RRMAX): mask[:, 4],
+            f"Min Temperature < {MIN_T}°C": mask[:, 0],
+            f"Rain accumulation > {MIN_CUM}mm": mask[:, 1],
+            f"Avg WS < {MAX_MEANWS}m/s ?": mask[:, 2],
+            f"Max WS < {MAX_WS}m/s": mask[:, 3],
+            f"Max Rain Rate <= {RRMAX}mm": mask[:, 4],
         }
     )
     Events.to_csv(
@@ -198,7 +192,6 @@ def data_event(
     threshold=TIMESTAMP_THRESHOLDS + EVENT_THRESHOLDS,
     main_wind_dir=270,
 ):
-
     data_event = preprocessed_ds.sel(
         {"time": slice(start_time - DELTA_DISDRO, end_time + DELTA_DISDRO)}
     )
@@ -460,7 +453,7 @@ def dz_timeseries(events, preprocessed_ds, data_dir, gate):
     start, end = events["Start_time"].iloc[k], events["End_time"].iloc[k]
     rain_acc = events["Rain accumulation (mm)"].iloc[k]
     x = dz_per_event(preprocessed_ds, data_dir, start, end, gate=gate, filtered=True)
-    print(not (x is None))
+    print(x is not None)
     while x is None:
         k += 1
         start, end = events["Start_time"].iloc[k], events["End_time"].iloc[k]
@@ -605,7 +598,7 @@ def dz_timeseries(events, preprocessed_ds, data_dir, gate):
         }
     )
     data_tosave.to_csv(
-        data_dir + "/csv/dz_data_{}_{}_gate{}.csv".format(t1, t2, int(gate)),
+        data_dir + f"/csv/dz_data_{t1}_{t2}_gate{int(gate)}.csv",
         header=True,
     )
 
@@ -652,7 +645,7 @@ def dz_plot(
 
     # Filtering events with "enough" rain and data points to have robust dZ stats
     f = np.intersect1d(
-        np.where((cum > MIN_CUM))[0], np.where(np.isfinite(dZ[:, 0]) * 1 == 1)[0]
+        np.where(cum > MIN_CUM)[0], np.where(np.isfinite(dZ[:, 0]) * 1 == 1)[0]
     )
     f = np.intersect1d(f, np.where(accumulation_errors_flags * 1 == 1))
     f = np.intersect1d(f, np.where(qf_ratio[:, 6] >= min_timesteps))
@@ -800,7 +793,7 @@ def dz_plot(
     plt.axvline(
         x=np.nanmean(biases),
         color="red",
-        label="mean of median biases : {:.2f} dBZ".format(np.nanmean(biases)),
+        label=f"mean of median biases : {np.nanmean(biases):.2f} dBZ",
     )
     plt.xlim(left=-30, right=30)
     plt.xlabel("median $Z_{DCR} - Z_{disdrometer}$ (dBZ)")

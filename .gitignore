@@ -1,4 +1,3 @@
-
 tests/**/outputs/
 # Coverage data
 coverage/
@@ -115,10 +114,21 @@ daily_data/
 quicklooks/
 bdd_rain_events
 
-# config files, slurm issues, tools to explore data files
+# test working dirs
+tests/data/inputs/
+tests/data/outputs/
+
+# config files, slurm issues, tools to explore data files, processing files not used anymore
+/tests/data/inputs/config_files
 slurm*.out
-*.toml
+/tests/data/inputs/CONFIG_test.toml
+/ccres_disdrometer_processing/*.toml
 script_*.sh
 explore_input_ncfiles.py
 test_ql.py
+test_cli_loop.py
 xarray_perfect_timesteps.ipynb
+compute_dz_1event.py
+explore_norunda_files.py
+disdro_lindenberg.py
+main.py

@@ -13,11 +13,12 @@ def read_weather_cloudnet(filename):
         hour=23, minute=59, second=0, microsecond=0, nanosecond=0
     )
     time_index = pd.date_range(
-        start_time, end_time + pd.Timedelta(minutes=1), freq="1T"
+        start_time, end_time + pd.Timedelta(minutes=1), freq="1min"
     )
     time_index_offset = time_index - pd.Timedelta(30, "sec")
 
-    vars_timedep = ["wind_speed",
+    vars_timedep = [
+        "wind_speed",
         "wind_direction",
         "air_temperature",
         "relative_humidity",
@@ -68,13 +69,16 @@ def read_weather_cloudnet(filename):
         )
         data["ps"].attrs["units"] = "hPa"
         data["ams_pr"] = xr.DataArray(
-            data_nc_resampled["rainfall_rate"].values * 60 * 60 * 1000, # * 3600 to convert m/s to m/hr
+            data_nc_resampled["rainfall_rate"].values
+            * 60
+            * 60
+            * 1000,  # * 3600 to convert m/s to m/hr
             dims=["time"],
             attrs={
                 "units": "mm/hr",
                 "long_name": "Met station precipitation rate at 1m agl",
-                "standard_name": "rainfall_rate",
-                "Comment":"The abbreviation 'lwe' means liquid water equivalent. 'Precipitation rate' means the depth or thickness of the layer formed by precipitation per unit time."
+                "standard_name": "lwe_precipitation_rate",
+                "Comment": "Weather-station based precipitation rate. The abbreviation 'lwe' means liquid water equivalent. 'Precipitation rate' means the depth or thickness of the layer formed by precipitation per unit time.",  # noqa E501
             },
         )
         data["ams_cp"] = xr.DataArray(
@@ -84,7 +88,7 @@ def read_weather_cloudnet(filename):
                 "units": "mm",
                 "long_name": "Rainfall amount",
                 "standard_name": "thickness_of_rainfall_amount",
-                "comment": "Cumulated precipitation since 00:00 UTC",
+                "comment": "Weather-station based cumulated precipitation since 00:00 UTC",  # noqa E501
             },
         )
 
@@ -105,12 +109,15 @@ def read_weather_cloudnet(filename):
             },
         )
 
-    data.attrs["weather_source"] = data_nc_resampled.attrs["source"]
-    data.attrs["weather-station_pid"] = data_nc_resampled.attrs["instrument_pid"]
+    for key in ["year", "month", "day", "location"]:
+        data.attrs[key] = data_nc_resampled.attrs[key]
+    data.attrs["ams_source"] = data_nc_resampled.attrs["source"]
+    data.attrs["ams_pid"] = data_nc_resampled.attrs["instrument_pid"]
 
     data["ams_longitude"] = data_nc["longitude"]
     data["ams_longitude"].attrs["Comment"] = "AMS = Atmospheric Meteorological Station"
     data["ams_latitude"] = data_nc["latitude"]
     data["ams_altitude"] = data_nc["altitude"]
+    data["ams_altitude"].attrs["positive"] = "up"
 
     return data

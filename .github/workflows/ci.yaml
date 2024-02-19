@@ -1,303 +1,303 @@
 name: CI
 
 on:
-  push:
-    paths-ignore:
-      - "docs/**"
-      - "*.md"
-      - "*.rst"
+    push:
+        paths-ignore:
+            - "docs/**"
+            - "*.md"
+            - "*.rst"
 
-  pull_request:
-    paths-ignore:
-      - "docs/**"
-      - "*.md"
-      - "*.rst"
+    pull_request:
+        paths-ignore:
+            - "docs/**"
+            - "*.md"
+            - "*.rst"
 
 jobs:
-  pre-commit:
-    name: Run pre-commit
-    # This is the VM in which github run
-    # We can use a custom container that will
-    # be run in this VM
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out the repository
-        uses: actions/checkout@v3
-        with:
-          lfs: true
+    pre-commit:
+        name: Run pre-commit
+        # This is the VM in which github run
+        # We can use a custom container that will
+        # be run in this VM
+        runs-on: ubuntu-latest
+        steps:
+            - name: Check out the repository
+              uses: actions/checkout@v3
+              with:
+                  lfs: true
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.10"
+            - name: install build dependencies
+              run: |
+                  sudo apt-get update
+                  sudo apt-get -y install gfortran
 
-      - name: Cache python environment
-        uses: actions/cache@v3
-        # https://tobiasmcnulty.com/posts/caching-pre-commit/
-        # This restore and/or save in the same action
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-python-3.10-venv-${{ hashFiles('pyproject.toml') }}
+            - name: Set up Python
+              uses: actions/setup-python@v4
+              with:
+                  python-version: "3.11"
 
-      - name: Install dependencies
-        run: |
-          pip install -U .[dev]
+            - name: Cache python environment
+              uses: actions/cache@v3
+              # https://tobiasmcnulty.com/posts/caching-pre-commit/
+              # This restore and/or save in the same action
+              with:
+                  path: ~/.cache/pip
+                  key: ${{ runner.os }}-python-3.10-venv-${{ hashFiles('pyproject.toml') }}
 
-      - name: Cache pre-commits
-        id: cache-pre-commits
-        # https://tobiasmcnulty.com/posts/caching-pre-commit/
-        # This restore and/or save in the same actions
-        uses: actions/cache@v3
-        with:
-          path: ~/.cache/pre-commit/
-          key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
+            - name: Install dependencies
+              # https://stackoverflow.com/q/76292039
+              run: |
+                  python -m pip install numpy wheel
+                  python -m pip install -U .[dev]
 
-      - name: Install pre-commits
-        # https://github.com/actions/cache#restoring-and-saving-cache-using-a-single-action
-        if: steps.cache-pre-commits.outputs.cache-hit != 'true'
-        run: pre-commit install
+            - name: Cache pre-commits
+              id: cache-pre-commits
+              # https://tobiasmcnulty.com/posts/caching-pre-commit/
+              # This restore and/or save in the same actions
+              uses: actions/cache@v3
+              with:
+                  path: ~/.cache/pre-commit/
+                  key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
 
-      - name: Compute pre-commit cache key
-        run: |
-          pre-commit run --all-files
+            - name: Install pre-commits
+              # https://github.com/actions/cache#restoring-and-saving-cache-using-a-single-action
+              if: steps.cache-pre-commits.outputs.cache-hit != 'true'
+              run: pre-commit install
 
-  multi-os-tests:
-    if: ( github.ref == format('refs/heads/{0}', github.event.repository.default_branch) ) || startsWith(github.ref, 'refs/tags')
-    name: ${{ matrix.session }} ${{ matrix.python }} / ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    needs: pre-commit
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - {
-              python: "3.10",
-              os: "windows-latest",
-              session: "tests",
-              cache-path: ~\AppData\Local\pip\Cache,
-            }
-          - {
-              python: "3.10",
-              os: "macos-latest",
-              session: "tests",
-              cache-path: ~/Library/Caches/pip,
-            }
-          - {
-              python: "3.9",
-              os: "ubuntu-latest",
-              session: "tests",
-              cache-path: ~/.cache/pip,
-            }
-          - {
-              python: "3.8",
-              os: "ubuntu-latest",
-              session: "tests",
-              cache-path: ~/.cache/pip,
-            }
+            - name: Compute pre-commit cache key
+              run: |
+                  pre-commit run --all-files
 
-    env:
-      FORCE_COLOR: "1"
-      PRE_COMMIT_COLOR: "always"
+    multi-os-tests:
+        if: ( github.ref == format('refs/heads/{0}', github.event.repository.default_branch) ) || startsWith(github.ref, 'refs/tags')
+        name: ${{ matrix.session }} ${{ matrix.python }} / ${{ matrix.os }}
+        runs-on: ${{ matrix.os }}
+        needs: pre-commit
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    - {
+                          python: "3.11",
+                          os: "windows-latest",
+                          session: "tests",
+                          cache-path: ~\AppData\Local\pip\Cache,
+                      }
+                    - {
+                          python: "3.11",
+                          os: "macos-latest",
+                          session: "tests",
+                          cache-path: ~/Library/Caches/pip,
+                      }
+                    - {
+                          python: "3.10",
+                          os: "ubuntu-latest",
+                          session: "tests",
+                          cache-path: ~/.cache/pip,
+                      }
+                    - {
+                          python: "3.9",
+                          os: "ubuntu-latest",
+                          session: "tests",
+                          cache-path: ~/.cache/pip,
+                      }
 
-    steps:
-      - name: Check out the repository
-        uses: actions/checkout@v3
-        with:
-          lfs: true
+        env:
+            FORCE_COLOR: "1"
+            PRE_COMMIT_COLOR: "always"
 
-      - name: Set up Python ${{ matrix.python }}
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ matrix.python }}
+        steps:
+            - name: Check out the repository
+              uses: actions/checkout@v3
+              with:
+                  lfs: true
 
-      - name: Upgrade pip
-        run: |
-          pip install pip
-          pip --version
+            - name: Set up Python ${{ matrix.python }}
+              uses: actions/setup-python@v4
+              with:
+                  python-version: ${{ matrix.python }}
 
-      - name: Cache python environment
-        uses: actions/cache@v3
-        with:
-          path: ${{ matrix.cache-path }}
-          key: ${{ runner.os }}-python-${{ matrix.python }}-pip-${{ hashFiles('pyproject.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
+            - name: Upgrade pip
+              run: |
+                  python -m pip install pip
+                  python -m pip --version
 
-      - name: Install dependencies
-        run: |
-          pip install -U .[dev]
+            - name: Cache python environment
+              uses: actions/cache@v3
+              with:
+                  path: |
+                      tests/data/outputs/
+                      ${{ matrix.cache-path }}
+                  key: ${{ runner.os }}-python-${{ matrix.python }}-pip-${{ hashFiles('pyproject.toml') }}
+                  restore-keys: |
+                      ${{ runner.os }}-pip-
 
-      - name: Run tests
-        run: |
-          python -m pytest
+            - name: Install dependencies
+              run: |
+                  python -m pip install numpy wheel
+                  python -m pip install -U .[dev]
 
-  linux-tests:
-    name: Tests for Python 3.10 on ubuntu-latest
-    runs-on: ubuntu-latest
-    needs: pre-commit
-    # If not default branch
-    # It allows us to not use too much walltime of github
-    env:
-      FORCE_COLOR: "1"
-      PRE_COMMIT_COLOR: "always"
+            - name: Run tests
+              run: |
+                  python -m pytest
 
-    steps:
-      - name: Check out the repository
-        uses: actions/checkout@v3
-        with:
-          lfs: true
+    linux-tests:
+        name: Tests for Python 3.11 on ubuntu-latest
+        runs-on: ubuntu-latest
+        needs: pre-commit
+        # If not default branch
+        # It allows us to not use too much walltime of github
+        env:
+            FORCE_COLOR: "1"
+            PRE_COMMIT_COLOR: "always"
 
-      - name: Set up Python 3.10
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.10"
+        steps:
+            - name: Check out the repository
+              uses: actions/checkout@v3
+              with:
+                  lfs: true
 
-      - name: Cache python environment
-        uses: actions/cache@v3
-        # https://tobiasmcnulty.com/posts/caching-pre-commit/
-        # This restore and/or save in the same action
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-python-3.10-pip-${{ hashFiles('pyproject.toml') }}
+            - name: install ubuntu dependencies
+              run: |
+                  sudo apt-get update
+                  sudo apt-get -y install gfortran
 
-      - name: Install dependencies
-        run: |
-          pip install .[dev]
+            - name: Set up Python 3.11
+              uses: actions/setup-python@v4
+              with:
+                  python-version: "3.11"
 
-      - name: Run tests
-        run: |
-          python -m pytest
+            - name: Cache python environment
+              uses: actions/cache@v3
+              # https://tobiasmcnulty.com/posts/caching-pre-commit/
+              # This restore and/or save in the same action
+              with:
+                  path: |
+                      tests/data/outputs/
+                      ~/.cache/pip
+                  key: ${{ runner.os }}-python-3.11-pip-${{ hashFiles('pyproject.toml') }}
 
-      - name: Upload artifacts generated by tests
-        uses: actions/upload-artifact@v3
-        with:
-          name: tests-artifacts
-          path: tests/data/outputs/
+            - name: Install dependencies
+              run: |
+                  python -m pip install numpy wheel
+                  python -m pip install .[dev]
 
-      - name: Upload coverage data
-        uses: "actions/upload-artifact@v3"
-        with:
-          name: coverage-data
-          path: "./coverage/"
+            - name: Run tests
+              run: |
+                  python -m pytest
 
-  coverage:
-    name: Coverage deployment
-    runs-on: ubuntu-latest
-    needs: linux-tests
-    # Only deploy coverage on default branch
-    if: ( github.ref == format('refs/heads/{0}', github.event.repository.default_branch) ) || startsWith(github.ref, 'refs/tags')
-    steps:
-      - name: Check out the repository
-        uses: actions/checkout@v3
-        with:
-          lfs: true
+            - name: Upload artifacts generated by tests
+              uses: actions/upload-artifact@v3
+              with:
+                  name: tests-artifacts
+                  path: tests/data/outputs/
 
-      - name: Download coverage data
-        uses: actions/download-artifact@v3
-        with:
-          name: coverage-data
-          path: ./coverage/
+            - name: Upload coverage reports to Codecov
+              uses: codecov/codecov-action@v4.0.1
+              env:
+                  token: ${{ secrets.CODECOV_TOKEN }}
+                  slug: ACTRIS-CCRES/dcrcc-disdro-monitoring
 
-      - name: Display structure of downloaded files
-        run: ls -lh --color=auto -R
+    coverage:
+        name: Coverage deployment
+        runs-on: ubuntu-latest
+        needs: linux-tests
+        # Only deploy coverage on default branch
+        if: ( github.ref == format('refs/heads/{0}', github.event.repository.default_branch) ) || startsWith(github.ref, 'refs/tags')
+        steps:
+            - name: Check out the repository
+              uses: actions/checkout@v3
+              with:
+                  lfs: true
 
-      - name: Upload coverage report
-        uses: codecov/codecov-action@v3.1.0
-        with:
-          directory: ./coverage/
-          fail_ci_if_error: true
-          files: coverage.xml
-          verbose: true
+            - name: Download coverage data
+              uses: actions/download-artifact@v3
+              with:
+                  name: coverage-data
+                  path: ./coverage/
 
-  upload-tests-artifacts:
-    name: Upload artifacts generated by tests
-    runs-on: ubuntu-latest
-    needs: linux-tests
-    steps:
-      - name: Check out the repository
-        uses: actions/checkout@v3
+            - name: Display structure of downloaded files
+              run: ls -lh --color=auto -R
 
-      - uses: actions/upload-artifact@v3
-        with:
-          name: tests-artifacts
-          path: tests/data/outputs/
+            - name: Upload coverage report
+              uses: codecov/codecov-action@v3.1.0
+              with:
+                  directory: ./coverage/
+                  fail_ci_if_error: true
+                  files: coverage.xml
+                  verbose: true
 
-  test-pypi:
-    name: Deploy Package to Test PyPI
-    runs-on: ubuntu-latest
-    needs: [pre-commit]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          lfs: true
-          fetch-depth: 0
+    upload-tests-artifacts:
+        name: Upload artifacts generated by tests
+        runs-on: ubuntu-latest
+        needs: linux-tests
+        steps:
+            - name: Check out the repository
+              uses: actions/checkout@v3
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.10"
+            - uses: actions/upload-artifact@v3
+              with:
+                  name: tests-artifacts
+                  path: tests/data/outputs/
 
-      - name: Install pypa/build
-        run: >-
-          python -m
-          pip install
-          --upgrade
-          build
-          --user
+    test-pypi:
+        name: Deploy Package to Test PyPI
+        runs-on: ubuntu-latest
+        needs: [pre-commit]
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v3
+              with:
+                  lfs: true
+                  fetch-depth: 0
 
-      - name: Build a binary wheel and a source tarball
-        run: >-
-          python -m
-          build
-          --sdist
-          --wheel
-          --outdir dist/
-          .
+            - name: Set up Python
+              uses: actions/setup-python@v4
+              with:
+                  python-version: "3.11"
 
-      - name: Publish package to TestPyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          password: ${{ secrets.TEST_PYPI_TOKEN }}
-          repository_url: https://test.pypi.org/legacy/
-          skip_existing: true
+            - name: Install pypa/build
+              run: |
+                  python -m pip install --upgrade build --user
 
-  pypi:
-    name: Deploy Package to PyPI
-    # Deploy only tagged commit and if tests have succeeded
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
-    runs-on: ubuntu-latest
-    needs: tests
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          lfs: true
-          fetch-depth: 0
+            - name: Build a binary wheel and a source tarball
+              run: |
+                  python -m build --sdist --wheel --outdir dist/ .
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.10"
+            - name: Publish package to TestPyPI
+              uses: pypa/gh-action-pypi-publish@release/v1
+              with:
+                  password: ${{ secrets.TEST_PYPI_TOKEN }}
+                  repository_url: https://test.pypi.org/legacy/
+                  skip_existing: true
 
-      - name: Install pypa/build
-        run: >-
-          python -m
-          pip install
-          --upgrade
-          build
-          --user
+    pypi:
+        name: Deploy Package to PyPI
+        # Deploy only tagged commit and if tests have succeeded
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
+        runs-on: ubuntu-latest
+        needs: linux-tests
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v3
+              with:
+                  lfs: true
+                  fetch-depth: 0
 
-      - name: Build a binary wheel and a source tarball
-        run: >-
-          python -m
-          build
-          --sdist
-          --wheel
-          --outdir dist/
-          .
+            - name: Set up Python
+              uses: actions/setup-python@v4
+              with:
+                  python-version: "3.11"
 
-      - name: Publish package to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          password: ${{ secrets.PYPI_TOKEN }}
+            - name: Install pypa/build
+              run: |
+                  python -m pip install --upgrade build --user
+
+            - name: Build a binary wheel and a source tarball
+              run: |
+                  python -m build --sdist --wheel --outdir dist/ .
+
+            - name: Publish package to PyPI
+              uses: pypa/gh-action-pypi-publish@release/v1
+              with:
+                  password: ${{ secrets.PYPI_TOKEN }}
