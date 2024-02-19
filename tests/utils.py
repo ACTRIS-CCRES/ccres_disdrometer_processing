@@ -67,7 +67,7 @@ def get_file_from_cloudnet(
 
     if not is_file_available(filename, local_dir):
         # get url of file
-        file_url = metadata["downloadUrl"]
+        file_url = metadata[0]["downloadUrl"]
         print(f"Downloading {file_url} into {local_file}")
         # download file
         response = requests.get(file_url, stream=True)

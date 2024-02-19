@@ -1,26 +1,26 @@
 """Tests preprocessing."""
 
-import pytest
 from click.testing import CliRunner
 
 from ccres_disdrometer_processing.cli import cli
 from tests import utils
 
+# @pytest.fixture(params=test_data_preprocessing)
+# def test_case(test_data_preprocessing):
+#     yield from test_data_preprocessing
 
-@pytest.fixture
-def test_case(test_data_preprocessing):
-    yield from test_data_preprocessing
 
-
-def test_run(test_case, data_input_dir, data_conf_dir, data_out_dir) -> None:
+def test_run(
+    test_data_preprocessing, data_input_dir, data_conf_dir, data_out_dir
+) -> None:
     """Test the preprocessing for a specific test case."""
-    site = test_case["site"]
-    date = test_case["date"]
-    radar = test_case["radar"]
-    disdro = test_case["disdro"]
-    has_meteo = test_case["meteo-available"]
-    meteo = test_case["meteo"]
-    conf = test_case["config_file"]
+    site = test_data_preprocessing["site"]
+    date = test_data_preprocessing["date"]
+    radar = test_data_preprocessing["radar"]
+    disdro = test_data_preprocessing["disdro"]
+    has_meteo = test_data_preprocessing["meteo-available"]
+    meteo = test_data_preprocessing["meteo"]
+    conf = test_data_preprocessing["config_file"]
 
     # get the data if needed
     # ---------------------------------------------------------------------------------
@@ -29,15 +29,16 @@ def test_run(test_case, data_input_dir, data_conf_dir, data_out_dir) -> None:
     # disdro
     disdro_file = utils.get_file_from_cloudnet(site, date, disdro, data_input_dir)
     # meteo
-    if test_case["meteo-available"]:
+    if test_data_preprocessing["meteo-available"]:
         meteo_file = utils.get_file_from_cloudnet(site, date, meteo, data_input_dir)
 
     # other parameters
     # ---------------------------------------------------------------------------------
+    descr_inst = conf.split(".")[0].split("_")[2]
     # conf
     conf = data_conf_dir / conf
     # output
-    output_file = data_out_dir / f"{site}_{date}_preprocessed.nc"
+    output_file = data_out_dir / f"{site}_{date}_{descr_inst}_preprocessed.nc"
 
     # run the preprocessing
     # ---------------------------------------------------------------------------------
