@@ -1,7 +1,9 @@
 import logging
+import logging.config
 from enum import Enum, auto
 
 LOG_FORMAT = r"%(levelname)s: [%(asctime)s] %(name)s %(message)s"
+LOG_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 
 class LogLevels(Enum):
@@ -61,11 +63,22 @@ def init_logger(level: LogLevels) -> None:
     level : LogLevels
         Enum corresponding to the level we want
     """
-    # Root logger
-    logger = logging.getLogger()
-    debug_level = logging.getLevelName(LogLevels.DEBUG.name)
-    logger.setLevel(debug_level)
+    log_dict = {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "formatters": {"simple": {"datefmt": LOG_DATE_FORMAT, "format": LOG_FORMAT}},
+        "handlers": {
+            "console": {
+                "class": "logging.StreamHandler",
+                "level": level.name,
+                "formatter": "simple",
+                "stream": "ext://sys.stdout",
+            },
+        },
+        "root": {"level": "DEBUG", "handlers": ["console"]},
+    }
 
-    # Need to set the root to debug to allow any level in stream
-    logger = add_stream_logging(logger, level)
+    logger = logging.getLogger()
+    logging.config.dictConfig(log_dict)
+
     return logger

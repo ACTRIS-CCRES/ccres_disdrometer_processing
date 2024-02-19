@@ -3,12 +3,12 @@ import xarray as xr
 from scipy import constants
 
 LIST_VARIABLES = ["Zh", "v", "radar_frequency", "latitude", "longitude", "altitude"]
-RANGE_BOUNDS = [0, 2500]
 
 
-def read_radar_cloudnet(filename):  # daily radar file from cloudnet
+def read_radar_cloudnet(filename, max_radar_alt=2500):  # daily radar file from cloudnet
+    range_bounds = [0, max_radar_alt]
     data_nc = xr.open_dataset(filename)[LIST_VARIABLES].sel(
-        range=slice(RANGE_BOUNDS[0], RANGE_BOUNDS[1])
+        range=slice(range_bounds[0], range_bounds[1])
     )
 
     start_time = pd.Timestamp(data_nc.time.values[0]).replace(
@@ -18,7 +18,7 @@ def read_radar_cloudnet(filename):  # daily radar file from cloudnet
         hour=23, minute=59, second=0, microsecond=0, nanosecond=0
     )
     time_index = pd.date_range(
-        start_time, end_time + pd.Timedelta(minutes=1), freq="1T"
+        start_time, end_time + pd.Timedelta(minutes=1), freq="1min"
     )
     radar_ds = xr.Dataset(
         coords=dict(

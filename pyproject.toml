@@ -31,8 +31,8 @@ dependencies = [
     "scikit-learn",
     "matplotlib",
     "scipy",
+    "pyarrow",
     "pytmatrix == 0.3.2",
-    "pymiecoated@git+https://github.com/jleinonen/pymiecoated",
     "toml",
 ]
 # Dynamic for setuptools
@@ -56,6 +56,8 @@ dev = [
     "pytest-cov>=2.10.1",
     "pytest-mock>=3.6.1",
     "coverage>=5.3",
+    "requests",
+
 
     # Documentation
     "sphinx>=4.5.0",
@@ -93,7 +95,7 @@ include = ["ccres_disdrometer_processing", "ccres_disdrometer_processing.*"]
 explicit_package_bases = true
 disallow_untyped_defs = true
 ignore_missing_imports = true
-exclude = ['build/', 'venv', "ccres_disdrometer_processing/tests", "tests"]
+exclude = ["/build/", "/venv/", "/tests/(cli|logger|run)/.py$", "/tests/.py$"]
 
 [tool.docformatter]
 recursive = true
@@ -118,3 +120,38 @@ select = [
     # isort
     "I",
 ]
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "--cov=. --cov-config=pyproject.toml -vv --cov-report=html:htmlcov --cov-report=xml:coverage.xml --cov-report term"
+testpaths = ["tests"]
+filterwarnings = [
+    "ignore::RuntimeWarning",
+    "ignore::DeprecationWarning",
+    "ignore::FutureWarning",
+    "default:::ccres_disdrometer_processing.*",
+]
+
+[tool.coverage.run]
+branch = true
+omit = ["ccres_disdrometer_processing/tests/*", "./tests/*", "setup.py"]
+
+[tool.coverage.report]
+# Regexes for lines to exclude from consideration
+exclude_also = [
+    # Don't complain about missing debug-only code:
+    "def __repr__",
+    "if self\\.debug",
+
+    # Don't complain if tests don't hit defensive assertion code:
+    "raise AssertionError",
+    "raise NotImplementedError",
+
+    # Don't complain if non-runnable code isn't run:
+    "if 0:",
+    "if __name__ == .__main__.:",
+
+    # Don't complain about abstract methods, they aren't run:
+    "@(abc\\.)?abstractmethod",
+]
+ignore_errors = true
