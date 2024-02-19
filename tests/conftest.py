@@ -124,7 +124,7 @@ def data_out_dir(data_dir):
             "meteo-available": True,
             "meteo": "weather-station",
             "meteo-pid": "https://hdl.handle.net/21.12132/3.ffb25f43330f4793",
-            "config_file": "config_lindenberg_mira-thies.toml",
+            "config_file": "config_lindenberg_rpg-thies.toml",
         },
         {
             "site": "lindenberg",
@@ -136,7 +136,7 @@ def data_out_dir(data_dir):
             "meteo-available": True,
             "meteo": "weather-station",
             "meteo-pid": "https://hdl.handle.net/21.12132/3.ffb25f43330f4793",
-            "config_file": "config_lindenberg_mira-parsivel.toml",
+            "config_file": "config_lindenberg_rpg-parsivel.toml",
         },
         # juelich
         {
