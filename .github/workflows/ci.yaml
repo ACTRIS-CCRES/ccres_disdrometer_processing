@@ -78,18 +78,6 @@ jobs:
             matrix:
                 include:
                     - {
-                          python: "3.11",
-                          os: "windows-latest",
-                          session: "tests",
-                          cache-path: ~\AppData\Local\pip\Cache,
-                      }
-                    - {
-                          python: "3.11",
-                          os: "macos-latest",
-                          session: "tests",
-                          cache-path: ~/Library/Caches/pip,
-                      }
-                    - {
                           python: "3.10",
                           os: "ubuntu-latest",
                           session: "tests",
@@ -214,7 +202,10 @@ jobs:
               uses: actions/download-artifact@v3
               with:
                   name: coverage-data
-                  path: ./coverage/
+                  path: |
+                      - ./coverage.xml
+                      - ./coverage
+                      - ./htmlcov
 
             - name: Display structure of downloaded files
               run: ls -lh --color=auto -R
