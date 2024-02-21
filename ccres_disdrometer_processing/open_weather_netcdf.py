@@ -37,77 +37,76 @@ def read_weather_cloudnet(filename):
 
     data = xr.Dataset(coords=dict(time=(["time"], data_nc_resampled.time_bins.data)))
 
-    if data_nc.source == "Generic weather-station" or data_nc.source == "":
-        data["ws"] = xr.DataArray(
-            data_nc_resampled["wind_speed"].values,
-            dims=["time"],
-            attrs=data_nc["wind_speed"].attrs,
-        )
-        data["wd"] = xr.DataArray(
-            data_nc_resampled["wind_direction"].values,
-            dims=["time"],
-            attrs=data_nc["wind_direction"].attrs,
-        )
-        data["ta"] = xr.DataArray(
-            data_nc_resampled["air_temperature"].values - 273.15,
-            dims=["time"],
-            attrs=data_nc["air_temperature"].attrs,
-        )
-        data["ta"].attrs["units"] = "Celsius"
-        data["ta"].attrs["Comment"] = "Inside no ventilated shelter"
-        data["hur"] = xr.DataArray(
-            data_nc_resampled["relative_humidity"].values * 100,
-            dims=["time"],
-            attrs=data_nc["relative_humidity"].attrs,
-        )
-        data["hur"].attrs["units"] = "%"
-        data["hur"].attrs["Comment"] = "Inside no ventilated shelter"
-        data["ps"] = xr.DataArray(
-            data_nc_resampled["air_pressure"].values / 100,
-            dims=["time"],
-            attrs=data_nc["air_pressure"].attrs,
-        )
-        data["ps"].attrs["units"] = "hPa"
-        data["ams_pr"] = xr.DataArray(
-            data_nc_resampled["rainfall_rate"].values
-            * 60
-            * 60
-            * 1000,  # * 3600 to convert m/s to m/hr
-            dims=["time"],
-            attrs={
-                "units": "mm/hr",
-                "long_name": "Met station precipitation rate at 1m agl",
-                "standard_name": "lwe_precipitation_rate",
-                "Comment": "Weather-station based precipitation rate. The abbreviation 'lwe' means liquid water equivalent. 'Precipitation rate' means the depth or thickness of the layer formed by precipitation per unit time.",  # noqa E501
-            },
-        )
-        data["ams_cp"] = xr.DataArray(
-            data_nc_resampled["rainfall_amount"].values * 1000,
-            dims=["time"],
-            attrs={
-                "units": "mm",
-                "long_name": "Rainfall amount",
-                "standard_name": "thickness_of_rainfall_amount",
-                "comment": "Weather-station based cumulated precipitation since 00:00 UTC",  # noqa E501
-            },
-        )
+    data["ws"] = xr.DataArray(
+        data_nc_resampled["wind_speed"].values,
+        dims=["time"],
+        attrs=data_nc["wind_speed"].attrs,
+    )
+    data["wd"] = xr.DataArray(
+        data_nc_resampled["wind_direction"].values,
+        dims=["time"],
+        attrs=data_nc["wind_direction"].attrs,
+    )
+    data["ta"] = xr.DataArray(
+        data_nc_resampled["air_temperature"].values - 273.15,
+        dims=["time"],
+        attrs=data_nc["air_temperature"].attrs,
+    )
+    data["ta"].attrs["units"] = "Celsius"
+    data["ta"].attrs["Comment"] = "Inside no ventilated shelter"
+    data["hur"] = xr.DataArray(
+        data_nc_resampled["relative_humidity"].values * 100,
+        dims=["time"],
+        attrs=data_nc["relative_humidity"].attrs,
+    )
+    data["hur"].attrs["units"] = "%"
+    data["hur"].attrs["Comment"] = "Inside no ventilated shelter"
+    data["ps"] = xr.DataArray(
+        data_nc_resampled["air_pressure"].values / 100,
+        dims=["time"],
+        attrs=data_nc["air_pressure"].attrs,
+    )
+    data["ps"].attrs["units"] = "hPa"
+    data["ams_pr"] = xr.DataArray(
+        data_nc_resampled["rainfall_rate"].values
+        * 60
+        * 60
+        * 1000,  # * 3600 to convert m/s to m/hr
+        dims=["time"],
+        attrs={
+            "units": "mm/hr",
+            "long_name": "Met station precipitation rate at 1m agl",
+            "standard_name": "lwe_precipitation_rate",
+            "Comment": "Weather-station based precipitation rate. The abbreviation 'lwe' means liquid water equivalent. 'Precipitation rate' means the depth or thickness of the layer formed by precipitation per unit time.",  # noqa E501
+        },
+    )
+    data["ams_cp"] = xr.DataArray(
+        data_nc_resampled["rainfall_amount"].values * 1000,
+        dims=["time"],
+        attrs={
+            "units": "mm",
+            "long_name": "Rainfall amount",
+            "standard_name": "thickness_of_rainfall_amount",
+            "comment": "Weather-station based cumulated precipitation since 00:00 UTC",  # noqa E501
+        },
+    )
 
-        data["u"] = xr.DataArray(
-            -data["ws"] * np.sin(data["wd"] * np.pi / 180),
-            dims=["time"],
-            attrs={
-                "units": "m/s",
-                "long_name": "Zonal wind",
-            },
-        )
-        data["v"] = xr.DataArray(
-            -data["ws"] * np.cos(data["wd"] * np.pi / 180),
-            dims=["time"],
-            attrs={
-                "units": "m/s",
-                "long_name": "Meridional wind",
-            },
-        )
+    data["u"] = xr.DataArray(
+        -data["ws"] * np.sin(data["wd"] * np.pi / 180),
+        dims=["time"],
+        attrs={
+            "units": "m/s",
+            "long_name": "Zonal wind",
+        },
+    )
+    data["v"] = xr.DataArray(
+        -data["ws"] * np.cos(data["wd"] * np.pi / 180),
+        dims=["time"],
+        attrs={
+            "units": "m/s",
+            "long_name": "Meridional wind",
+        },
+    )
 
     for key in ["year", "month", "day", "location"]:
         data.attrs[key] = data_nc_resampled.attrs[key]
