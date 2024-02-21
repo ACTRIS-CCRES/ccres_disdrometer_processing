@@ -17,10 +17,10 @@ output_file = f"{TEST_OUT_DIR}/20210202_palaiseau_preprocessed_v0802.nc"
 print(config_file)
 
 
-do = 1
+do = 0
 open = 1
 rad = 0
-dd = 0
+dd = 1
 weather = 0
 compare_versions = 0
 
@@ -59,6 +59,7 @@ if dd:
     # print(dd.rainfall_rate.values[0:50])
     print(dd.longitude.attrs)
     print(dd.data_raw.attrs)
+    print(list(dd.keys()))
 
 if weather:
     ws = xr.open_dataset(ws_file)
