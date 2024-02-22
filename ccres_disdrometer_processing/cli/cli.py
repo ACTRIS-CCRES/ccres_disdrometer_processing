@@ -161,9 +161,7 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
 
     final_data.attrs["station_name"] = config["location"]["STATION"]
     final_data.time.attrs["standard_name"] = "time"
-    final_data.attrs["weather_data_avail"] = int(
-        weather_avail
-    )  # np.array(weather_avail).astype("i2")
+    final_data.attrs["weather_data_avail"] = np.array(weather_avail).astype("i2")
     final_data.attrs["axis_ratioMethod"] = axrMethod
     final_data.attrs["fallspeedFormula"] = strMethod
 

@@ -46,7 +46,7 @@ def resample_data_perfect_timesteps(filename: Union[str, Path], config) -> xr.Da
     ----------
     filename : Union[str, Path]
         The considered daily disdrometer file from CLU
-    config : _type_
+    config : dict (output from toml.load())
         The corresponding toml configuration file, already loaded
 
     Returns
@@ -297,7 +297,7 @@ def read_parsivel_cloudnet_choice(
         CLU daily disdrometer file
     radar_frequencies : list
         List of frequencies at which scattering variables will be computed later
-    config : _type_
+    config : dict
         The configuration file corresponding to the disdrometer data file
         (station, instruments, ...)
 
@@ -366,9 +366,9 @@ def reflectivity_model_multilambda_measmodV_hvfov(
 
     Parameters
     ----------
-    mparsivel : _type_
+    mparsivel : xr.Dataset
         formatted dataset with daily raw disdrometer data
-    scatt_list : _type_
+    scatt_list : list
         list of outputs from scattering.scattering_prop() method :
         each output contains the Mie and t-matrix backscattering coefficients for
         all the disdrometer droplet diameter classes, for a specifig configuration
