@@ -4,6 +4,22 @@ import xarray as xr
 
 
 def read_weather_cloudnet(filename):
+    """Open weather data and reformat it in a clean dataset.
+
+    Read weather data, resample it at perfect 1-mn spaced timesteps,
+    rename variables according to conventions, convert some units,
+    fill variables attributes
+
+    Parameters
+    ----------
+    filename : Union[str, Path]
+        The considered daily weather-station file from CLU
+
+    Returns
+    -------
+    xr.Dataset
+        A dataset containg weather data with a 1-minute regular sampling
+    """
     data_nc = xr.open_dataset(filename)
 
     start_time = pd.Timestamp(data_nc.time.values[0]).replace(
@@ -26,8 +42,6 @@ def read_weather_cloudnet(filename):
         "rainfall_rate",
         "rainfall_amount",
     ]
-
-    # vars_notimedep = ["longitude", "latitude", "altitude"]
 
     data_nc_resampled = (
         data_nc[vars_timedep]
