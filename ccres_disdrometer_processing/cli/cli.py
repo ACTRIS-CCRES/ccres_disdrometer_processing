@@ -105,6 +105,9 @@ def status(verbosity):
 )
 def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
     """Command line interface for ccres_disdrometer_processing."""
+    # parameters
+    script_name = "ccres_disdrometer_processing preprocess"
+
     click.echo("CCRES disdrometer preprocessing : test CLI")
 
     print(config_file)
@@ -182,9 +185,7 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
     final_data.attrs["id"] = config["nc_meta"]["id"]
     final_data.attrs["naming_authority"] = config["nc_meta"]["naming_authority"]
     date_created = datetime.datetime.utcnow().strftime(ISO_DATE_FORMAT)
-    script_name = toml.load(f"{Path(__file__).parent.parent.parent}/pyproject.toml")[
-        "project"
-    ]["name"]
+
     commit_id = (
         subprocess.check_output(["git", "rev-parse", "--short", "HEAD"])
         .decode("ascii")
