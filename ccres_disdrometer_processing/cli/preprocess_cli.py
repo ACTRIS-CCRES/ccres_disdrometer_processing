@@ -29,8 +29,8 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file, verbo
     log_level = LogLevels.get_by_verbosity_count(verbosity)
     init_logger(log_level)
     click.echo("CCRES disdrometer preprocessing : test CLI")
-    lgr.info("Info log : preprocessing CLI")
 
+    lgr.info("Load configuration file")
     config = toml.load(config_file)
 
     axrMethod = config["methods"]["AXIS_RATIO_METHOD"]
@@ -44,15 +44,19 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file, verbo
 
     # read doppler radar data
     # ---------------------------------------------------------------------------------
+    lgr.info("Open and read radar data")
     radar_xr = radar.read_radar_cloudnet(radar_file, max_radar_alt=max_radar_altitude)
+    lgr.info("Radar data : OK")
 
     # read and preprocess disdrometer data
     # ---------------------------------------------------------------------------------
-
+    lgr.info("Open and read disdrometer raw data")
     disdro_xr = disdro.read_parsivel_cloudnet_choice(
         disdro_file, computed_frequencies, config
     )
+    lgr.info("Disdrometer raw data : OK")
 
+    lgr.info("Begin computation of forward modeled-reflectivity and DSD parameters")
     scatt_list = []
     for fov in [1, 0]:  # 1 : vertical fov, 0 : horizontal fov
         for frequency in computed_frequencies:
@@ -70,17 +74,28 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file, verbo
         len(disdro_xr.size_classes[0:-5]),
         strMethod=strMethod,
     )
+    lgr.info("Reflectivity and DSD parameters : OK")
 
     # read weather-station data
     # ---------------------------------------------------------------------------------
     weather_avail = ws_file is not None
     if weather_avail:
+        lgr.info("Weather data provided")
+        lgr.info("Open and read weather data")
         weather_xr = weather.read_weather_cloudnet(ws_file)
+        lgr.info("Weather data : OK")
+        lgr.info("Merge weather, disdrometer and radar data")
         final_data = xr.merge(
             [weather_xr, disdro_xr, radar_xr], combine_attrs="drop_conflicts"
         )
+        lgr.info("Merge : OK")
     else:
+        lgr.info("No weather data provided")
+        lgr.info("Merge disdrometer and radar data")
         final_data = xr.merge([disdro_xr, radar_xr], combine_attrs="drop_conflicts")
+        lgr.info("Merge : OK")
+
+    lgr.info("Add netCDF missing global attributes")
 
     final_data.attrs["station_name"] = config["location"]["STATION"]
     final_data.time.attrs["standard_name"] = "time"
@@ -326,10 +341,13 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file, verbo
     # TODO: add the reference quotation to the code if an article is published
     final_data.attrs["references"] = ""
 
+    lgr.info("netCDF global attributes : OK")
+    lgr.info("Convert Dataset to netCDF file")
+
     final_data.to_netcdf(
         output_file, encoding={"time": {"units": TIME_UNITS, "calendar": "standard"}}
     )
 
-    lgr.info("Preprocessing : SUCCESS")
+    click.echo("Preprocessing : SUCCESS")
 
     sys.exit(0)  # Returns 0 if the code ran well
