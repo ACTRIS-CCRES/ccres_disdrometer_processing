@@ -539,12 +539,6 @@ def reflectivity_model_multilambda_measmodV_hvfov(
                 / t
             )  # mm6/m3
 
-            if k == 3 and ii == 150:
-                a = np.tile(Ni[0:n] * scatt.bscat_tmatrix, (2, 1)).T.shape
-                b = np.tile(Ni[0:n] * scatt.bscat_tmatrix, (1, 2)).shape
-                print(a, b)
-                print("YES")
-
             model.attenuation[ii, k % fr, k // fr, :] = (
                 np.nansum(
                     np.tile(Ni[0:n] * scatt.att_tmatrix, (2, 1)).T / VDD[0:n, :], axis=0

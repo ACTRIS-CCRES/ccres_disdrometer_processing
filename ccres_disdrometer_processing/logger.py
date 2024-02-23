@@ -1,5 +1,6 @@
 import logging
 import logging.config
+import warnings
 from enum import Enum, auto
 
 LOG_FORMAT = r"%(levelname)s: [%(asctime)s] %(name)s %(message)s"
@@ -17,8 +18,10 @@ class LogLevels(Enum):
     @classmethod
     def get_by_verbosity_count(cls, verbosity: int):
         if verbosity == 0:
+            warnings.filterwarnings("ignore", category=RuntimeWarning)
             return cls.CRITICAL
         elif verbosity == 1:
+            warnings.filterwarnings("ignore", category=RuntimeWarning)
             return cls.INFO
         elif verbosity >= 2:
             return cls.DEBUG
