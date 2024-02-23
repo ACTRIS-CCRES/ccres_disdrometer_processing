@@ -4,6 +4,7 @@ import datetime
 import logging
 import subprocess
 import sys
+import warnings
 from pathlib import Path
 
 import click
@@ -28,6 +29,9 @@ RADAR_TYPES = ["BASTA", "METEK MIRA-35"]
 ISO_DATE_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 TIME_UNITS = "seconds since 2000-01-01T00:00:00.0Z"
 TIME_CALENDAR = "standard"
+
+# TODO: improve warning hiding
+warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 
 @click.group()
