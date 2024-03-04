@@ -95,11 +95,21 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file, verbo
         final_data = xr.merge([disdro_xr, radar_xr], combine_attrs="drop_conflicts")
         lgr.info("Merge : OK")
 
+    final_data["weather_data_avail"] = np.array(weather_avail).astype("i2")
+    final_data["weather_data_avail"].attrs[
+        "long_name"
+    ] = "Availability of weather data at the station"
+    final_data["weather_data_avail"].attrs["flag_values"] = np.array([0, 1]).astype(
+        "i2"
+    )
+    final_data["weather_data_avail"].attrs[
+        "flag_meanings"
+    ] = "no_weather_file_available weather_file_provided"
+
     lgr.info("Add netCDF missing global attributes")
 
     final_data.attrs["station_name"] = config["location"]["STATION"]
     final_data.time.attrs["standard_name"] = "time"
-    final_data.attrs["weather_data_avail"] = np.array(weather_avail).astype("i2")
     final_data.attrs["axis_ratioMethod"] = axrMethod
     final_data.attrs["fallspeedFormula"] = strMethod
 
