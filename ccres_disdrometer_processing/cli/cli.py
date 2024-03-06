@@ -17,6 +17,7 @@ import ccres_disdrometer_processing.open_radar_netcdf as radar
 import ccres_disdrometer_processing.open_weather_netcdf as weather
 import ccres_disdrometer_processing.scattering as scattering
 from ccres_disdrometer_processing.__init__ import __version__
+from ccres_disdrometer_processing.cli.plot import plot, utils
 from ccres_disdrometer_processing.logger import LogLevels, init_logger
 
 lgr = logging.getLogger(__name__)
@@ -412,6 +413,60 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
     lgr.info("Preprocessing : SUCCESS")
 
     sys.exit(0)  # Returns 0 if the code ran well
+
+
+@cli.command()
+@click.argument(
+    "date",
+    type=click.DateTime(formats=["%Y%m%d", "%Y-%m-%d"]),
+    default=datetime.datetime.now(),
+)
+@click.argument(
+    "file",
+    type=click.Path(
+        exists=True, dir_okay=False, file_okay=True, readable=True, resolve_path=True
+    ),
+)
+@click.argument(
+    "output_ql_overview",
+    type=click.Path(
+        exists=False, dir_okay=False, file_okay=True, writable=True, resolve_path=True
+    ),
+)
+@click.argument(
+    "output_ql_overview_zh",
+    type=click.Path(
+        exists=False, dir_okay=False, file_okay=True, writable=True, resolve_path=True
+    ),
+)
+@click.argument("config", default="ccres_disdrometer_processing/cli/conf/conf.py")
+@click.argument("parameter", default="ccres_disdrometer_processing/cli/conf/params.py")
+def preprocess_ql(
+    date, file, output_ql_overview, output_ql_overview_zh, config, parameter
+):
+    """run CCRES QL."""
+    __version__ = "0.0.1"
+    __author__ = "jean-francois.ribaud@lmd.ipsl.fr"
+
+    # 1 - check config and import configuration file if ok
+    conf = utils.load_module("conf", config)
+    params = utils.load_module("parameters", parameter)
+
+    # 2 - get preprocessed data
+    data = utils.read_nc(file)
+
+    # 3 - Plot
+    if data.attrs["weather_data_avail"] and ("ta" in data.data_vars):
+        plot.plot_ql_overview(data, date, output_ql_overview, conf, params, __version__)
+    else:
+        plot.plot_ql_overview_downgraded_mode(
+            data, date, output_ql_overview, conf, params, __version__
+        )
+    plot.plot_ql_overview_zh(
+        data, date, output_ql_overview_zh, conf, params, __version__
+    )
+
+    sys.exit(0)
 
 
 if __name__ == "__main__":
