@@ -64,6 +64,9 @@ def data_out_dir(data_dir):
             "meteo": "weather-station",
             "meteo-pid": "https://hdl.handle.net/21.12132/3.739041931dac4de5",
             "config_file": "config_palaiseau_basta-parsivel-ws.toml",
+            "output": {
+                "preprocess": "palaiseau_2021-02-02_basta-parsivel-ws_preprocessed.nc",
+            },
         },
         {
             "site": "palaiseau",
@@ -76,6 +79,9 @@ def data_out_dir(data_dir):
             "meteo": "weather-station",
             "meteo-pid": "https://hdl.handle.net/21.12132/3.739041931dac4de5",
             "config_file": "config_palaiseau_basta-parsivel-ws.toml",
+            "output": {
+                "preprocess": "palaiseau_2024-01-02_basta-parsivel-ws_preprocessed.nc",
+            },
         },
         {
             "site": "palaiseau",
@@ -88,6 +94,9 @@ def data_out_dir(data_dir):
             "meteo": "weather-station",
             "meteo-pid": "https://hdl.handle.net/21.12132/3.739041931dac4de5",
             "config_file": "config_palaiseau_basta-thies-ws.toml",
+            "output": {
+                "preprocess": "palaiseau_2024-01-02_basta-thies-ws_preprocessed.nc",
+            },
         },
         # lindenberg
         {
@@ -101,6 +110,9 @@ def data_out_dir(data_dir):
             "meteo": "weather-station",
             "meteo-pid": "https://hdl.handle.net/21.12132/3.ffb25f43330f4793",
             "config_file": "config_lindenberg_mira-thies.toml",
+            "output": {
+                "preprocess": "lindenberg_2023-09-22_mira-thies_preprocessed.nc",
+            },
         },
         {
             "site": "lindenberg",
@@ -113,6 +125,9 @@ def data_out_dir(data_dir):
             "meteo": "weather-station",
             "meteo-pid": "https://hdl.handle.net/21.12132/3.ffb25f43330f4793",
             "config_file": "config_lindenberg_mira-parsivel.toml",
+            "output": {
+                "preprocess": "lindenberg_2023-09-22_mira-parsivel_preprocessed.nc",
+            },
         },
         {
             "site": "lindenberg",
@@ -125,6 +140,9 @@ def data_out_dir(data_dir):
             "meteo": "weather-station",
             "meteo-pid": "https://hdl.handle.net/21.12132/3.ffb25f43330f4793",
             "config_file": "config_lindenberg_rpg-thies.toml",
+            "output": {
+                "preprocess": "lindenberg_2023-09-22_rpg-thies_preprocessed.nc",
+            },
         },
         {
             "site": "lindenberg",
@@ -137,6 +155,9 @@ def data_out_dir(data_dir):
             "meteo": "weather-station",
             "meteo-pid": "https://hdl.handle.net/21.12132/3.ffb25f43330f4793",
             "config_file": "config_lindenberg_rpg-parsivel.toml",
+            "output": {
+                "preprocess": "lindenberg_2023-09-22_rpg-parsivel_preprocessed.nc",
+            },
         },
         # juelich
         {
@@ -150,6 +171,9 @@ def data_out_dir(data_dir):
             "meteo": "weather-station",
             "meteo-pid": "",
             "config_file": "config_juelich_mira-parsivel.toml",
+            "output": {
+                "preprocess": "juelich_2024-02-08_mira-parsivel_preprocessed.nc",
+            },
         },
     ]
 )

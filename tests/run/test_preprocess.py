@@ -21,6 +21,7 @@ def test_run(
     has_meteo = test_data_preprocessing["meteo-available"]
     meteo = test_data_preprocessing["meteo"]
     conf = test_data_preprocessing["config_file"]
+    output_file = data_out_dir / test_data_preprocessing["output"]["preprocess"]
 
     # get the data if needed
     # ---------------------------------------------------------------------------------
@@ -34,11 +35,8 @@ def test_run(
 
     # other parameters
     # ---------------------------------------------------------------------------------
-    descr_inst = conf.split(".")[0].split("_")[2]
     # conf
     conf = data_conf_dir / conf
-    # output
-    output_file = data_out_dir / f"{site}_{date}_{descr_inst}_preprocessed.nc"
 
     # run the preprocessing
     # ---------------------------------------------------------------------------------
