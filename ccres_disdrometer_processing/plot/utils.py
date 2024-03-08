@@ -1,6 +1,7 @@
 import datetime as dt
 import importlib.util
 import sys
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -42,20 +43,26 @@ def load_module(name, path):
 
 
 def read_nc(file_: str):
-    """_summary_
+    """Open netCDF file with xarray.
 
-    Args:
-        conf (_type_): _description_
-        file_ (_type_): _description_
+    Parameters
+    ----------
+    file_ : str or pathlib.Path
+        The path to the file to read.
 
-    Returns:
-        _type_: _description_
+    Returns
+    -------
+    xarray.Dataset
+        The xarray object containing the data.
     """
+    if not isinstance(file_, Path):
+        file_ = Path(file_)
+
     return xr.open_dataset(file_)
 
 
 def add_logo():
-    """add logos to the current plot on top right corner.
+    """Add logos to the current plot on top right corner.
 
     Parameters
     ----------
@@ -64,12 +71,13 @@ def add_logo():
     station: str
         station name
     """
-
     plt.axes([0.76, 0.9, 0.2, 0.1])  # left, bottom, width, height
     plt.axis("off")
 
     try:
-        logo = plt.imread("ccres_disdrometer_processing/cli/assets/logo/logo_CCRES.png")
+        logo = plt.imread(
+            Path(__file__).parent / ".." / "assets" / "logo" / "logo_CCRES.png"
+        )
         plt.imshow(logo, origin="upper")
     except OSError:
         print("graphreobs file : Impossible to include the logo !!!!!")
@@ -78,13 +86,17 @@ def add_logo():
 
 
 def npdt64_to_datetime(dt64):
-    """_summary_
+    """Convert np.datetime64 to datetime object.
 
-    Args:
-        dt64 (_type_): _description_
+    Parameters
+    ----------
+    dt64 : numpy.datetime64
+        date store in numpy datetime64 format.
 
-    Returns:
-        _type_: _description_
+    Returns
+    -------
+    datetime.datetime
+        The date converted as a datetime.datetime object.
     """
     unix_epoch = np.datetime64(0, "s")
     one_second = np.timedelta64(1, "s")
@@ -93,13 +105,18 @@ def npdt64_to_datetime(dt64):
 
 
 def f_th(x):
-    """_summary_
+    """Compute the theoretical fall speed using Gun and Kinzer formula.
 
-    Args:
-        x (_type_): _description_
+    Parameters
+    ----------
+    x: numpy.ndarray
+        The disdrometer size classes distribution.
 
-    Returns:
-        _type_: _description_
+
+    Returns
+    -------
+    numpy.ndarray
+        The theoretical fall speed.
     """
     return 9.40 * (
         1 - np.exp(-1.57 * (10**3) * np.power(x * (10**-3), 1.15))
@@ -107,36 +124,47 @@ def f_th(x):
 
 
 def f_fit(x, a, b, c):
-    """_summary_
+    """Fit the disdrometer size classes distribution.
 
-    Args:
-        x (_type_): _description_
-        a (_type_): _description_
-        b (_type_): _description_
-        c (_type_): _description_
+    Parameters
+    ----------
+    x : numpy.ndarray
+        The disdrometer size classes distribution.
+    a : numpy.ndarray
+        Coefficient a of Gun and Kinzer formula.
+    b : numpy.ndarray
+        Coefficient b of Gun and Kinzer formula.
+    c : numpy.ndarray
+        Coefficient c of Gun and Kinzer formula.
 
-    Returns:
-        _type_: _description_
+    Returns
+    -------
+    numpy.ndarray
+        The fitted size classes distribution.
     """
     return a * (1 - np.exp(-b * np.power(x * (10**-3), c)))  # target shape
 
 
 def get_size_and_classe_to_fit(data):
-    """_summary_
+    """Extract size and speed classes and density.
 
-    Args:
-        data (_type_): _description_
+    Parameters
+    ----------
+    data : xarray.Dataset
+        The disdrometer psd variable.
 
-    Returns:
-        _type_: _description_
+    Returns
+    -------
+    numpy.ndarray, numpy.ndarray, numpy.ndarray
+        The size classes, the speed classes and the drop density.
     """
     drop_density = np.nansum(data["psd"].values, axis=0)  # sum over time dim
     psd_nonzero_indexes = np.where(drop_density != 0)
     list_sizes, list_classes = [], []
 
-    for k in range(
-        len(psd_nonzero_indexes[0])
-    ):  # add observations (size, speed) in the proportions described by the diameter/velocity distribution
+    for k in range(len(psd_nonzero_indexes[0])):
+        # add observations (size, speed) in the proportions described
+        # by the diameter/velocity distribution
         list_sizes += [data["size_classes"][psd_nonzero_indexes[0][k]]] * int(
             drop_density[psd_nonzero_indexes[0][k], psd_nonzero_indexes[1][k]]
         )
@@ -149,13 +177,19 @@ def get_size_and_classe_to_fit(data):
 
 
 def get_y_fit_dd(data):
-    """_summary_
+    """Fit the disdrometer size classes distribution.
 
-    Args:
-        data (_type_): _description_
+    Parameters
+    ----------
+    data : xarray.Dataset
+        Data read from disdrometer.
 
-    Returns:
-        _type_: _description_
+    Returns
+    -------
+    numpy.ndarray, numpy.ndarray, numpy.ndarray,
+    numpy.ndarray, numpy.ndarray, numpy.ndarray
+        The fitted size classes distribution, the theoretical size classes distribution,
+        the size classes, the speed classes, the drop density and the flag.
     """
     sizes, classes, drop_density = get_size_and_classe_to_fit(data)  # disdrometer
     #
@@ -187,11 +221,19 @@ def get_y_fit_dd(data):
 
 
 def get_cdf(delta_ZH, nbins=100):
-    """_summary_
+    """Calculate CDF.
 
-    Args:
-        delta_ZH (_type_): _description_
-        nbins (int, optional): _description_. Defaults to 100.
+    Parameters
+    ----------
+    delta_ZH : numpy.ndarray
+        The difference of reflectivity between disdrometer and radar.
+    nbins : int, optional
+        Number of bins. Defaults to 100.
+
+    Returns
+    -------
+    scipy.stats._continuous_distns.cumfreq
+        The cumulative frequency.
     """
     cdf = stats.cumfreq(delta_ZH, numbins=100)
     x_ = cdf.lowerlimit + np.linspace(
@@ -201,14 +243,19 @@ def get_cdf(delta_ZH, nbins=100):
 
 
 def get_min_max_limits(zh_dd, zh_gate):
-    """_summary_
+    """Determine min and max limits for the plot.
 
-    Args:
-        zh_dd (_type_): _description_
-        zh_gate (_type_): _description_
+    Parameters
+    ----------
+    zh_dd : numpy.ndarray
+        Reflectivity from disdrometer.
+    zh_gate : numpy.ndarray
+        Reflectivity from radar.
 
-    Returns:
-        _type_: _description_
+    Returns
+    -------
+    numpy.ndarray, numpy.ndarray
+        minimum, maximum
     """
     df = pd.DataFrame.from_dict({"dd": zh_dd, "dcr": zh_gate})
     df = df.replace(-np.inf, np.nan)

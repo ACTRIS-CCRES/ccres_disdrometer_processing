@@ -1,4 +1,5 @@
 import datetime as dt
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -8,24 +9,37 @@ from matplotlib.dates import DateFormatter, HourLocator
 from matplotlib.ticker import MultipleLocator
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-from ccres_disdrometer_processing.cli.assets.colormap.dcr_cmap import dcr_zh_cmap
-from ccres_disdrometer_processing.cli.plot.utils import (
+from ccres_disdrometer_processing.metadata import INSTRUMENTS
+from ccres_disdrometer_processing.plot.colormap.dcr_cmap import dcr_zh_cmap
+from ccres_disdrometer_processing.plot.utils import (
     add_logo,
     get_cdf,
     get_min_max_limits,
     get_y_fit_dd,
 )
 
+# plot parameters
+lsize = 12  # label size
+asize = 14  # x-y axis size
+tsize = 16  # title size
+
 
 def divider(axe, size="5%", axis="off"):
     """Create space for a colorbar.
-    Args:
-        axe (_type_): _description_
-        size (str, optional): _description_. Defaults to "5%".
-        axis (str, optional): _description_. Defaults to "off".
 
-    Returns:
-        _type_: _description_
+    Parameters
+    ----------
+    axe : matplotlib.axes
+        The axe to divide.
+    size : str, optional:
+        Size of the divider. Defaults to "5%".
+    axis : str, optional
+        Should the new axis be visible. Defaults to "off".
+
+    Returns
+    -------
+    matplotlib.axes
+        The newly created axis.
     """
     divider = make_axes_locatable(axe)
     cax = divider.append_axes("right", size=size, pad=0.2)
@@ -37,20 +51,31 @@ def plot_ql_overview(
     data: xr.Dataset,
     date: dt.datetime,
     output_ql_overview: str,
-    conf: object,
-    params: object,
+    conf: dict,
     version: str,
 ):
-    """_summary_
+    """Create overview quicklook from preprocessed data.
 
-    Args:
-        data (xr.Dataset): _description_
-        date (dt.datetime): _description_
-        output_ql_overview (str): _description_
-        conf (object): _description_
-        params (object): _description_
-        version (str): _description_
+    Parameters
+    ----------
+    data : xarray.Dataset
+        data read from preprocessing file.
+    date : datetime.datetime
+        Date of the quicklook to create
+    output_ql_overview : str or pathlib.Path
+        The path to the output quicklook.
+    conf : dict
+        The data read in the toml configuration file.
+    version : str
+        Version of the code.
     """
+    if not isinstance(output_ql_overview, Path):
+        output_ql_overview = Path(output_ql_overview)
+
+    station = conf["location"]["STATION"]
+    lat = data.attrs["geospatial_lat_max"]
+    lon = data.attrs["geospatial_lat_max"]
+    alt = data.attrs["geospatial_vertical_max"]
 
     fig, axes = plt.subplots(3, 2, figsize=(16, 10))
 
@@ -69,12 +94,12 @@ def plot_ql_overview(
     cbar0 = plt.colorbar(
         im0, cax=cax0, ax=axes[0, 0], ticks=np.arange(-50, 30, 20), extend="both"
     )
-    cbar0.ax.set_ylabel(r"Zh [$dBZ$]", fontsize=params.lsize)
-    cbar0.ax.tick_params(labelsize=params.lsize)
+    cbar0.ax.set_ylabel(r"Zh [$dBZ$]", fontsize=lsize)
+    cbar0.ax.tick_params(labelsize=lsize)
     axes[0, 0].set_ylim(0, 2500)
-    axes[0, 0].set_ylabel("Altitude [m AGL]", fontsize=params.asize)
+    axes[0, 0].set_ylabel("Altitude [m AGL]", fontsize=asize)
     axes[0, 0].set_title(
-        f"DCR - {data.attrs['radar_source']}", fontsize=params.lsize, fontstyle="italic"
+        f"DCR - {data.attrs['radar_source']}", fontsize=lsize, fontstyle="italic"
     )
     axes[0, 0].yaxis.set_major_locator(MultipleLocator(500))
     axes[0, 0].yaxis.set_minor_locator(MultipleLocator(100))
@@ -82,23 +107,21 @@ def plot_ql_overview(
     # 1 - Air temperature & Relative Humidity from weather station
     # ------------------------------------------------------------------------
     axes[1, 0].plot(data.time, data.ta, color="#009ffd", lw=2.0, label="ta")
-    cax1 = divider(axes[1, 0], size="3%", axis="off")
-    axes[1, 0].legend(loc="upper left", fontsize=params.lsize)
-    axes[1, 0].set_ylabel(r"Temperature [$^{o}C$]", fontsize=params.asize)
-    axes[1, 0].set_title("weather station", fontsize=params.lsize, fontstyle="italic")
+    _ = divider(axes[1, 0], size="3%", axis="off")
+    axes[1, 0].legend(loc="upper left", fontsize=lsize)
+    axes[1, 0].set_ylabel(r"Temperature [$^{o}C$]", fontsize=asize)
+    axes[1, 0].set_title("weather station", fontsize=lsize, fontstyle="italic")
     axes[1, 0].yaxis.set_major_locator(MultipleLocator(2))
     axes[1, 0].yaxis.set_minor_locator(MultipleLocator(1))
     # hur
     ax12 = axes[1, 0].twinx()
     ax12.plot(data.time, data.hur, color="#ffa400", lw=2.0, label="rh")
-    ax12.tick_params(labelsize=params.lsize)
+    ax12.tick_params(labelsize=lsize)
     ax12.yaxis.set_minor_locator(MultipleLocator(1))
     ax12.yaxis.set_major_locator(MultipleLocator(5))
-    ax12.legend(loc="upper right", fontsize=params.lsize, borderaxespad=1.0).set_zorder(
-        2
-    )
-    ax12.set_ylabel(r"Relative Humidity [$\%$]", fontsize=params.asize)
-    cax12 = divider(ax12, size="3%", axis="off")
+    ax12.legend(loc="upper right", fontsize=lsize, borderaxespad=1.0).set_zorder(2)
+    ax12.set_ylabel(r"Relative Humidity [$\%$]", fontsize=asize)
+    _ = divider(ax12, size="3%", axis="off")
 
     # 2 - precipitation from disdrometer and weather station
     # ------------------------------------------------------------------------
@@ -112,11 +135,11 @@ def plot_ql_overview(
     axes[2, 0].plot(
         data.time, data.ams_cp, color="#999999", lw=2.0, label="Weather Station"
     )
-    cax2 = divider(axes[2, 0], size="3%", axis="off")
-    axes[2, 0].legend(loc="lower right", fontsize=params.lsize)
-    axes[2, 0].set_ylabel(r"Cumulative rainfall [$mm$]", fontsize=params.asize)
+    _ = divider(axes[2, 0], size="3%", axis="off")
+    axes[2, 0].legend(loc="lower right", fontsize=lsize)
+    axes[2, 0].set_ylabel(r"Cumulative rainfall [$mm$]", fontsize=asize)
     axes[2, 0].set_title(
-        "Disdrometer and Weather station", fontsize=params.lsize, fontstyle="italic"
+        "Disdrometer and Weather station", fontsize=lsize, fontstyle="italic"
     )
     axes[2, 0].yaxis.set_major_locator(MultipleLocator(2))
     axes[2, 0].yaxis.set_minor_locator(MultipleLocator(1))
@@ -135,12 +158,12 @@ def plot_ql_overview(
     cbar3 = plt.colorbar(
         im3, cax=cax3, ax=axes[0, 1], ticks=[-4, -2, 0, 2, 4], extend="both"
     )
-    cbar3.ax.set_ylabel(r"Velocity [$m.s^{-1}$]", fontsize=params.lsize)
-    cbar3.ax.tick_params(labelsize=params.lsize)
+    cbar3.ax.set_ylabel(r"Velocity [$m.s^{-1}$]", fontsize=lsize)
+    cbar3.ax.tick_params(labelsize=lsize)
     axes[0, 1].set_ylim(0, 2500)
-    axes[0, 1].set_ylabel("Altitude [m AGL]", fontsize=params.asize)
+    axes[0, 1].set_ylabel("Altitude [m AGL]", fontsize=asize)
     axes[0, 1].set_title(
-        f"DCR - {data.attrs['radar_source']}", fontsize=params.lsize, fontstyle="italic"
+        f"DCR - {data.attrs['radar_source']}", fontsize=lsize, fontstyle="italic"
     )
     axes[0, 1].yaxis.set_major_locator(MultipleLocator(500))
     axes[0, 1].yaxis.set_minor_locator(MultipleLocator(100))
@@ -148,10 +171,10 @@ def plot_ql_overview(
     # 4 - wind speed and direction from weather station
     # ------------------------------------------------------------------------
     axes[1, 1].plot(data.time, data.ws, color="r", lw=2.0, label="Wind Speed")
-    cax4 = divider(axes[1, 1], size="3%", axis="off")
-    axes[1, 1].legend(loc="upper left", fontsize=params.lsize)
-    axes[1, 1].set_ylabel(r"Wind Speed [$m.s^{-1}$]", fontsize=params.asize)
-    axes[1, 1].set_title("weather station", fontsize=params.lsize, fontstyle="italic")
+    _ = divider(axes[1, 1], size="3%", axis="off")
+    axes[1, 1].legend(loc="upper left", fontsize=lsize)
+    axes[1, 1].set_ylabel(r"Wind Speed [$m.s^{-1}$]", fontsize=asize)
+    axes[1, 1].set_title("weather station", fontsize=lsize, fontstyle="italic")
     axes[1, 1].yaxis.set_major_locator(MultipleLocator(2))
     axes[1, 1].yaxis.set_minor_locator(MultipleLocator(1))
     # wd
@@ -165,10 +188,10 @@ def plot_ql_overview(
         label="Wind Direction",
     )
     ax42.set_ylim(0, 360)
-    cax42 = divider(ax42, size="3%", axis="off")
-    ax42.tick_params(labelsize=params.lsize)
-    ax42.legend(loc="upper right", fontsize=params.lsize)
-    ax42.set_ylabel(r"Wind Direction [$^{o}$]", fontsize=params.asize)
+    _ = divider(ax42, size="3%", axis="off")
+    ax42.tick_params(labelsize=lsize)
+    ax42.legend(loc="upper right", fontsize=lsize)
+    ax42.set_ylabel(r"Wind Direction [$^{o}$]", fontsize=asize)
     ax42.yaxis.set_major_locator(MultipleLocator(60))
     ax42.yaxis.set_minor_locator(MultipleLocator(20))
 
@@ -197,18 +220,18 @@ def plot_ql_overview(
             lw=2,
             label="Fall speed model (Gun and Kinzer)",
         )
-        axes[2, 1].legend(loc="lower right", fontsize=params.lsize)
+        axes[2, 1].legend(loc="lower right", fontsize=lsize)
         cax5 = divider(axes[2, 1], size="3%", axis="on")
         cbar5 = plt.colorbar(im5[3], cax=cax5, ax=axes[2, 1], ticks=[0, 2, 4, 6, 8, 10])
-        cbar5.ax.set_ylabel(r"$\%$ of droplets total", fontsize=params.lsize)
-        cbar5.ax.tick_params(labelsize=params.lsize)
+        cbar5.ax.set_ylabel(r"$\%$ of droplets total", fontsize=lsize)
+        cbar5.ax.tick_params(labelsize=lsize)
     elif y_fit_ok == 0:
-        axes[2, 1].text(2, 4, "No data", fontsize=params.asize, fontstyle="italic")
+        axes[2, 1].text(2, 4, "No data", fontsize=asize, fontstyle="italic")
     elif y_fit_ok == -1:
-        axes[2, 1].text(2, 4, "No fit", fontsize=params.asize, fontstyle="italic")
+        axes[2, 1].text(2, 4, "No fit", fontsize=asize, fontstyle="italic")
         cax5 = divider(axes[2, 1], size="3%", axis="off")
-    axes[2, 1].set_xlabel(r"Diameter [$mm$]", fontsize=params.asize)
-    axes[2, 1].set_ylabel(r"Fall speed [$m.s^{-1}$]", fontsize=params.asize)
+    axes[2, 1].set_xlabel(r"Diameter [$mm$]", fontsize=asize)
+    axes[2, 1].set_ylabel(r"Fall speed [$m.s^{-1}$]", fontsize=asize)
     axes[2, 1].set_xlim(0, 5)
     axes[2, 1].set_ylim(0, 10)
     axes[2, 1].yaxis.set_major_locator(MultipleLocator(2))
@@ -218,28 +241,28 @@ def plot_ql_overview(
 
     axes[2, 1].set_title(
         "Relationship disdrometer fall speed / drop size",
-        fontsize=params.lsize,
+        fontsize=lsize,
         fontstyle="italic",
     )
 
     # custom
     # ------------------------------------------------------------------------
-    axes[2, 0].set_xlabel("Time [UTC]", fontsize=params.asize)
-    axes[1, 1].set_xlabel("Time [UTC]", fontsize=params.asize)
-    for n, ax in enumerate(axes.flatten()):
+    axes[2, 0].set_xlabel("Time [UTC]", fontsize=asize)
+    axes[1, 1].set_xlabel("Time [UTC]", fontsize=asize)
+    for ax in axes.flatten():
         if ax in [
             axes[2, 0],
             axes[1, 1],
         ]:
-            ax.tick_params(labelsize=params.lsize)
+            ax.tick_params(labelsize=lsize)
             ax.xaxis.set_major_formatter(DateFormatter("%H:%M"))
             ax.xaxis.set_major_locator(HourLocator(np.arange(0, 24, 3)))
             ax.xaxis.set_minor_locator(HourLocator())
             ax.set_xlim(data.time[0], data.time[-1])
         elif ax == axes[2, 1]:
-            ax.tick_params(labelsize=params.lsize)
+            ax.tick_params(labelsize=lsize)
         else:
-            ax.tick_params(labelsize=params.lsize, labelbottom=False)
+            ax.tick_params(labelsize=lsize, labelbottom=False)
             ax.xaxis.set_major_locator(HourLocator(np.arange(0, 24, 3)))
             ax.xaxis.set_minor_locator(HourLocator())
             ax.set_xlim(data.time[0], data.time[-1])
@@ -251,21 +274,14 @@ def plot_ql_overview(
     plt.subplots_adjust(top=0.88)
     add_logo()
     fig.align_ylabels()
-    if data.attrs["location"] in conf.SITES.keys():
-        fig.suptitle(
-            date.strftime(
-                f"Measurement site: {data.attrs['location']} ({data.attrs['geospatial_lat_max']:.3f}N, {data.attrs['geospatial_lon_max']:.3f}E,  {data.attrs['geospatial_vertical_max']:.0f}m)\n{conf.SITES[data.attrs['location']]}\n%d-%m-%Y"
-            ),
-            fontsize=params.tsize,
-        )
-    else:
-        fig.suptitle(
-            date.strftime(
-                f"Measurement site: {data.attrs['location']} ({data.attrs['geospatial_lat_max']:.3f}N, {data.attrs['geospatial_lon_max']:.3f}E, {data.attrs['geospatial_vertical_max']:.0f}m)\n%d-%m-%Y"
-            ),
-            fontsize=params.tsize,
-        )
-    #
+
+    fig.suptitle(
+        date.strftime(
+            f"Measurement site: {station} ({lat:.3f}N, {lon:.3f}E, {alt:.0f}m)\n%d-%m-%Y"  # noqa E501
+        ),
+        fontsize=tsize,
+    )
+
     plt.savefig(output_ql_overview)
 
     # plt.show()
@@ -275,21 +291,32 @@ def plot_ql_overview(
 def plot_ql_overview_downgraded_mode(
     data: xr.Dataset,
     date: dt.datetime,
-    output_ql_overview: str,
+    output_ql_overview: str | Path,
     conf: object,
-    params: object,
     version: str,
 ):
-    """_summary_
+    """Create overview quicklook from preprocessed data without meteo.
 
-    Args:
-        data (xr.Dataset): _description_
-        date (dt.datetime): _description_
-        output_ql_overview (str): _description_
-        conf (object): _description_
-        params (object): _description_
-        version (str): _description_
+    Parameters
+    ----------
+    data : xarray.Dataset
+        Data read from the preprocessed file.
+    date : datetime.datetime
+        Date of the data.
+    output_ql_overview : str or pathlib.Path
+        The path to the output quicklook to create.
+    conf : dict
+        The data read in the toml configuration file.
+    version : str
+        Version of the code.
     """
+    if not isinstance(output_ql_overview, Path):
+        output_ql_overview = Path(output_ql_overview)
+
+    station = conf["location"]["STATION"]
+    lat = data.attrs["geospatial_lat_max"]
+    lon = data.attrs["geospatial_lat_max"]
+    alt = data.attrs["geospatial_vertical_max"]
 
     fig, axes = plt.subplots(2, 2, figsize=(16, 10))
 
@@ -308,12 +335,12 @@ def plot_ql_overview_downgraded_mode(
     cbar0 = plt.colorbar(
         im0, cax=cax0, ax=axes[0, 0], ticks=np.arange(-50, 30, 20), extend="both"
     )
-    cbar0.ax.set_ylabel(r"Zh [$dBZ$]", fontsize=params.lsize)
-    cbar0.ax.tick_params(labelsize=params.lsize)
+    cbar0.ax.set_ylabel(r"Zh [$dBZ$]", fontsize=lsize)
+    cbar0.ax.tick_params(labelsize=lsize)
     axes[0, 0].set_ylim(0, 2500)
-    axes[0, 0].set_ylabel("Altitude [m AGL]", fontsize=params.asize)
+    axes[0, 0].set_ylabel("Altitude [m AGL]", fontsize=asize)
     axes[0, 0].set_title(
-        f"DCR - {data.attrs['radar_source']}", fontsize=params.lsize, fontstyle="italic"
+        f"DCR - {data.attrs['radar_source']}", fontsize=lsize, fontstyle="italic"
     )
     axes[0, 0].yaxis.set_major_locator(MultipleLocator(500))
     axes[0, 0].yaxis.set_minor_locator(MultipleLocator(100))
@@ -327,11 +354,11 @@ def plot_ql_overview_downgraded_mode(
         lw=2.0,
         label=data.attrs["disdrometer_source"],
     )
-    cax1 = divider(axes[1, 0], size="3%", axis="off")
-    axes[1, 0].legend(loc="lower right", fontsize=params.lsize)
-    axes[1, 0].set_ylabel(r"Cumulative rainfall [$mm$]", fontsize=params.asize)
+    _ = divider(axes[1, 0], size="3%", axis="off")
+    axes[1, 0].legend(loc="lower right", fontsize=lsize)
+    axes[1, 0].set_ylabel(r"Cumulative rainfall [$mm$]", fontsize=asize)
     axes[1, 0].set_title(
-        "Disdrometer and Weather station", fontsize=params.lsize, fontstyle="italic"
+        "Disdrometer and Weather station", fontsize=lsize, fontstyle="italic"
     )
     axes[1, 0].yaxis.set_major_locator(MultipleLocator(2))
     axes[1, 0].yaxis.set_minor_locator(MultipleLocator(1))
@@ -350,12 +377,12 @@ def plot_ql_overview_downgraded_mode(
     cbar2 = plt.colorbar(
         im2, cax=cax2, ax=axes[0, 1], ticks=[-4, -2, 0, 2, 4], extend="both"
     )
-    cbar2.ax.set_ylabel(r"Velocity [$m.s^{-1}$]", fontsize=params.lsize)
-    cbar2.ax.tick_params(labelsize=params.lsize)
+    cbar2.ax.set_ylabel(r"Velocity [$m.s^{-1}$]", fontsize=lsize)
+    cbar2.ax.tick_params(labelsize=lsize)
     axes[0, 1].set_ylim(0, 2500)
-    axes[0, 1].set_ylabel("Altitude [m AGL]", fontsize=params.asize)
+    axes[0, 1].set_ylabel("Altitude [m AGL]", fontsize=asize)
     axes[0, 1].set_title(
-        f"DCR - {data.attrs['radar_source']}", fontsize=params.lsize, fontstyle="italic"
+        f"DCR - {data.attrs['radar_source']}", fontsize=lsize, fontstyle="italic"
     )
     axes[0, 1].yaxis.set_major_locator(MultipleLocator(500))
     axes[0, 1].yaxis.set_minor_locator(MultipleLocator(100))
@@ -386,18 +413,18 @@ def plot_ql_overview_downgraded_mode(
             lw=2,
             label="Fall speed model (Gun and Kinzer)",
         )
-        axes[1, 1].legend(loc="lower right", fontsize=params.lsize)
+        axes[1, 1].legend(loc="lower right", fontsize=lsize)
         cax3 = divider(axes[1, 1], size="3%", axis="on")
         cbar3 = plt.colorbar(im3[3], cax=cax3, ax=axes[1, 1], ticks=[0, 2, 4, 6, 8, 10])
-        cbar3.ax.set_ylabel(r"$\%$ of droplets total", fontsize=params.lsize)
-        cbar3.ax.tick_params(labelsize=params.lsize)
+        cbar3.ax.set_ylabel(r"$\%$ of droplets total", fontsize=lsize)
+        cbar3.ax.tick_params(labelsize=lsize)
     elif y_fit_ok == 0:
-        axes[1, 1].text(2, 4, "No data", fontsize=params.asize, fontstyle="italic")
+        axes[1, 1].text(2, 4, "No data", fontsize=asize, fontstyle="italic")
     elif y_fit_ok == -1:
-        axes[1, 1].text(2, 4, "No fit", fontsize=params.asize, fontstyle="italic")
+        axes[1, 1].text(2, 4, "No fit", fontsize=asize, fontstyle="italic")
         cax3 = divider(axes[1, 1], size="3%", axis="off")
-    axes[1, 1].set_xlabel(r"Diameter [$mm$]", fontsize=params.asize)
-    axes[1, 1].set_ylabel(r"Fall speed [$m.s^{-1}$]", fontsize=params.asize)
+    axes[1, 1].set_xlabel(r"Diameter [$mm$]", fontsize=asize)
+    axes[1, 1].set_ylabel(r"Fall speed [$m.s^{-1}$]", fontsize=asize)
     axes[1, 1].set_xlim(0, 5)
     axes[1, 1].set_ylim(0, 10)
     axes[1, 1].yaxis.set_major_locator(MultipleLocator(2))
@@ -407,21 +434,21 @@ def plot_ql_overview_downgraded_mode(
 
     axes[1, 1].set_title(
         "Relationship disdrometer fall speed / drop size",
-        fontsize=params.lsize,
+        fontsize=lsize,
         fontstyle="italic",
     )
 
     # custom
     # ------------------------------------------------------------------------
-    axes[1, 0].set_xlabel("Time [UTC]", fontsize=params.asize)
-    axes[0, 1].set_xlabel("Time [UTC]", fontsize=params.asize)
-    for n, ax in enumerate(axes.flatten()):
+    axes[1, 0].set_xlabel("Time [UTC]", fontsize=asize)
+    axes[0, 1].set_xlabel("Time [UTC]", fontsize=asize)
+    for ax in axes.flatten():
         if ax != axes[1, 1]:
             ax.xaxis.set_major_formatter(DateFormatter("%H:%M"))
             ax.xaxis.set_major_locator(HourLocator(np.arange(0, 24, 3)))
             ax.xaxis.set_minor_locator(HourLocator())
             ax.set_xlim(data.time[0], data.time[-1])
-        ax.tick_params(labelsize=params.lsize)
+        ax.tick_params(labelsize=lsize)
         ax.grid(ls="--", alpha=0.5)
 
     # Final layout & save / display
@@ -431,20 +458,12 @@ def plot_ql_overview_downgraded_mode(
     add_logo()
     fig.align_ylabels()
 
-    if data.attrs["location"] in conf.SITES.keys():
-        fig.suptitle(
-            date.strftime(
-                f"Measurement site: {data.attrs['location']} ({data.attrs['geospatial_lat_max']:.3f}N, {data.attrs['geospatial_lon_max']:.3f}E, {data.attrs['geospatial_vertical_max']:.0f}m)\n{conf.SITES[data.attrs['location']]}\n%d-%m-%Y"
-            ),
-            fontsize=params.tsize,
-        )
-    else:
-        fig.suptitle(
-            date.strftime(
-                f"Measurement site: {data.attrs['location']} ({data.attrs['geospatial_lat_max']:.3f}N, {data.attrs['geospatial_lon_max']:.3f}E, {data.attrs['geospatial_vertical_max']:.0f}m)\n%d-%m-%Y"
-            ),
-            fontsize=params.tsize,
-        )
+    fig.suptitle(
+        date.strftime(
+            f"Measurement site: {station} ({lat:.3f}N, {lon:.3f}E, {alt:.0f}m)\n{station}\n%d-%m-%Y"  # noqa E501
+        ),
+        fontsize=tsize,
+    )
 
     plt.savefig(output_ql_overview)
 
@@ -455,21 +474,33 @@ def plot_ql_overview_downgraded_mode(
 def plot_ql_overview_zh(
     data: xr.Dataset,
     date: dt.datetime,
-    output_ql_overview_zh: str,
+    output_ql_overview_zh: str | Path,
     conf: object,
-    params: object,
     version: str,
 ):
-    """_summary_
+    """Create overview quicklook of reflectivity.
 
-    Args:
-        data (xr.Dataset): _description_
-        date (dt.datetime): _description_
-        output_dir (str): _description_
-        conf (object): _description_
-        params (object): _description_
-        version (str): _description_
+    Parameters
+    ----------
+    data : xarray.Dataset
+        Data read from preprocess file.
+    date : datetime.datetime
+        Date of the quicklook to create.
+    output_ql_overview_zh : str or pathlib.Path
+        The path to the output quicklook.
+    conf : dict
+        The data read in the toml configuration file.
+    version : str
+        Version of the code.
     """
+    site = data.attrs["location"]
+    station = conf["location"]["STATION"]
+    lat = data.attrs["geospatial_lat_max"]
+    lon = data.attrs["geospatial_lat_max"]
+    alt = data.attrs["geospatial_vertical_max"]
+    alt_gate = conf["instrument_parameters"]["DCR_DZ_RANGE"]
+    selected_alt = conf["plot_parameters"]["DCR_PLOTTED_RANGES"]
+
     fig, axes = plt.subplot_mosaic(
         [["top", "top"], ["left", "right"]], constrained_layout=True, figsize=(16, 10)
     )
@@ -479,7 +510,7 @@ def plot_ql_overview_zh(
     ZH_DD = data["Zdlog_vfov_modv_tm"].sel(
         radar_frequencies=data["radar_frequency"].values, method="nearest"
     )
-    for r in params.selected_alt:
+    for r in selected_alt:
         ZH_DCR = data["Zdcr"].sel(range=r, method="nearest")
         axes["top"].plot(
             data.time,
@@ -490,11 +521,11 @@ def plot_ql_overview_zh(
     axes["top"].plot(
         data.time, ZH_DD, color="k", label=r"$Z_{H}$ modeled from DD", lw=2
     )
-    axes["top"].legend(loc="upper right", fontsize=params.lsize)
-    axes["top"].set_ylabel(r"$Z_{H}$ [$dBZ$]", fontsize=params.asize)
+    axes["top"].legend(loc="upper right", fontsize=lsize)
+    axes["top"].set_ylabel(r"$Z_{H}$ [$dBZ$]", fontsize=asize)
     axes["top"].set_title(
-        f"Reflectivity from {data.attrs['radar_source']} DCR and {data.attrs['disdrometer_source']} disdrometer",
-        fontsize=params.lsize,
+        f"Reflectivity from {data.attrs['radar_source']} DCR and {data.attrs['disdrometer_source']} disdrometer",  # noqa E501
+        fontsize=lsize,
         fontstyle="italic",
     )
     axes["top"].set_ylim(-60, 30)
@@ -508,8 +539,7 @@ def plot_ql_overview_zh(
     # 1 - PDF of Zh differences between DCR and disdrometer
     # ------------------------------------------------------------------------
     # Plot Delta Z pdf at a defined range (given in a configuration file)
-    params.alt_gate = 150
-    ZH_gate = data["Zdcr"].sel(range=params.alt_gate, method="nearest")
+    ZH_gate = data["Zdcr"].sel(range=alt_gate, method="nearest")
     true_alt_zh_gate = ZH_gate.range.values
     delta_ZH = ZH_gate.values - ZH_DD.values
     ind = np.where(np.isfinite(delta_ZH))[0]
@@ -536,15 +566,15 @@ def plot_ql_overview_zh(
         )
         axes["left"].axvline(x=np.nanmedian(delta_ZH), color="green")
         axes["left"].axvline(x=0, color="k", ls="--")
-        axes["left"].legend(loc="upper left", fontsize=params.lsize)
+        axes["left"].legend(loc="upper left", fontsize=lsize)
         axes["left"].set_yticks(axes["left"].get_yticks())
         axes["left"].set_yticklabels(np.round(bin_width * axes["left"].get_yticks(), 2))
         axes["left"].set_xlim(xmin, xmax)
     else:
-        axes["left"].text(0, 0.5, "No data", fontsize=params.asize, fontstyle="italic")
+        axes["left"].text(0, 0.5, "No data", fontsize=asize, fontstyle="italic")
         axes["left"].set_xlim(0, 1)
-    axes["left"].set_xlabel(r"$\Delta$ $Z_{H}$ [$dBZ$]", fontsize=params.asize)
-    axes["left"].set_ylabel(r"Rel. Occ [$\%$]", fontsize=params.asize)
+    axes["left"].set_xlabel(r"$\Delta$ $Z_{H}$ [$dBZ$]", fontsize=asize)
+    axes["left"].set_ylabel(r"Rel. Occ [$\%$]", fontsize=asize)
     axes["left"].yaxis.set_major_locator(MultipleLocator(2))
     axes["left"].yaxis.set_minor_locator(MultipleLocator(0.5))
     axes["left"].xaxis.set_major_locator(MultipleLocator(5))
@@ -556,12 +586,12 @@ def plot_ql_overview_zh(
         r"PDF of differences : $Z_{H}$ from "
         + dcr_source
         + " @ "
-        + str(params.alt_gate)
+        + str(alt_gate)
         + "m - "
         + r"$Z_{H}$"
         + " from "
         + dd_source,
-        fontsize=params.lsize,
+        fontsize=lsize,
         fontstyle="italic",
     )
     # CDF
@@ -576,9 +606,9 @@ def plot_ql_overview_zh(
             color="green",
             lw=2,
         )
-        ax12.set_ylabel(r"Cum. Occ. [$\%$]", fontsize=params.asize)
+        ax12.set_ylabel(r"Cum. Occ. [$\%$]", fontsize=asize)
         ax12.set_ylim(0, 100)
-        ax12.tick_params(labelsize=params.lsize)
+        ax12.tick_params(labelsize=lsize)
         ax12.yaxis.set_major_locator(MultipleLocator(20))
         ax12.yaxis.set_minor_locator(MultipleLocator(5))
 
@@ -600,16 +630,16 @@ def plot_ql_overview_zh(
         axes["right"].set_ylim(ax_min, ax_max)
     axes["right"].set_aspect("equal", anchor="C")
     axes["right"].set_xlabel(
-        f"{conf.INSTRUMENTS['disdrometer'][data.attrs['disdrometer_source']]}"
+        f"{INSTRUMENTS['disdrometer'][data.attrs['disdrometer_source']]}"
         + r" DD reflectivity [$dBZ$]",
-        fontsize=params.asize,
+        fontsize=asize,
     )
     axes["right"].set_ylabel(
-        f"{conf.INSTRUMENTS['dcr'][data.attrs['radar_source']]}"
+        f"{INSTRUMENTS['dcr'][data.attrs['radar_source']]}"
         + r" DCR reflectivity [$dBZ$]",
-        fontsize=params.asize,
+        fontsize=asize,
     )
-    axes["right"].legend(fontsize=params.lsize)
+    axes["right"].legend(fontsize=lsize)
     axes["right"].yaxis.set_major_locator(MultipleLocator(10))
     axes["right"].yaxis.set_minor_locator(MultipleLocator(5))
     axes["right"].xaxis.set_major_locator(MultipleLocator(10))
@@ -619,7 +649,7 @@ def plot_ql_overview_zh(
     # ------------------------------------------------------------------------
     for pos in list(axes):
         axes[pos].grid(ls="--", alpha=0.5)
-        axes[pos].tick_params(labelsize=params.lsize)
+        axes[pos].tick_params(labelsize=lsize)
 
     # Final layout & save / display
     # ------------------------------------------------------------------------
@@ -628,20 +658,12 @@ def plot_ql_overview_zh(
     add_logo()
     fig.align_ylabels()
 
-    if data.attrs["location"] in conf.SITES.keys():
-        fig.suptitle(
-            date.strftime(
-                f"Measurement site: {data.attrs['location']} ({data.attrs['geospatial_lat_max']:.3f}N, {data.attrs['geospatial_lon_max']:.3f}E, {data.attrs['geospatial_vertical_max']:.0f}m)\n{conf.SITES[data.attrs['location']]}\n%d-%m-%Y"
-            ),
-            fontsize=params.tsize,
-        )
-    else:
-        fig.suptitle(
-            date.strftime(
-                f"Measurement site: {data.attrs['location']} ({data.attrs['geospatial_lat_max']:.3f}N, {data.attrs['geospatial_lon_max']:.3f}E, {data.attrs['geospatial_vertical_max']:.0f}m)\n%d-%m-%Y"
-            ),
-            fontsize=params.tsize,
-        )
+    fig.suptitle(
+        date.strftime(
+            f"Measurement site: {site} ({lat:.3f}N, {lon:.3f}E, {alt:.0f}m)\n{station}\n%d-%m-%Y"  # noqa E501
+        ),
+        fontsize=tsize,
+    )
 
     plt.savefig(output_ql_overview_zh)
 
