@@ -64,6 +64,13 @@ def data_out_dir(data_dir):
             "meteo": "weather-station",
             "meteo-pid": "https://hdl.handle.net/21.12132/3.739041931dac4de5",
             "config_file": "config_palaiseau_basta-parsivel-ws.toml",
+            "output": {
+                "preprocess": "palaiseau_2021-02-02_basta-parsivel-ws_preprocessed.nc",
+                "preprocessing_ql": {
+                    "weather-overview": "palaiseau_2021-02-02_basta-parsivel_preproc-weather-overview.png",  # noqa E501
+                    "zh-overview": "palaiseau_2021-02-02_basta-parsivel_zh-preproc-overview.png",  # noqa E501
+                },
+            },
         },
         {
             "site": "palaiseau",
@@ -76,6 +83,13 @@ def data_out_dir(data_dir):
             "meteo": "weather-station",
             "meteo-pid": "https://hdl.handle.net/21.12132/3.739041931dac4de5",
             "config_file": "config_palaiseau_basta-parsivel-ws.toml",
+            "output": {
+                "preprocess": "palaiseau_2024-01-02_basta-parsivel-ws_preprocessed.nc",
+                "preprocessing_ql": {
+                    "weather-overview": "palaiseau_2021-02-02_basta-parsivel-ws_preproc-weather-overview.png",  # noqa E501
+                    "zh-overview": "palaiseau_2021-02-02_basta-parsivel-ws_zh-preproc-overview.png",  # noqa E501
+                },
+            },
         },
         {
             "site": "palaiseau",
@@ -88,6 +102,13 @@ def data_out_dir(data_dir):
             "meteo": "weather-station",
             "meteo-pid": "https://hdl.handle.net/21.12132/3.739041931dac4de5",
             "config_file": "config_palaiseau_basta-thies-ws.toml",
+            "output": {
+                "preprocess": "palaiseau_2024-01-02_basta-thies-ws_preprocessed.nc",
+                "preprocessing_ql": {
+                    "weather-overview": "palaiseau_2021-02-02_basta-thies-ws_preproc-weather-overview.png",  # noqa E501
+                    "zh-overview": "palaiseau_2021-02-02_basta-thies-ws_zh-preproc-overview.png",  # noqa E501
+                },
+            },
         },
         # lindenberg
         {
@@ -101,6 +122,13 @@ def data_out_dir(data_dir):
             "meteo": "weather-station",
             "meteo-pid": "https://hdl.handle.net/21.12132/3.ffb25f43330f4793",
             "config_file": "config_lindenberg_mira-thies.toml",
+            "output": {
+                "preprocess": "lindenberg_2023-09-22_mira-thies_preprocessed.nc",
+                "preprocessing_ql": {
+                    "weather-overview": "lindenberg_2023-09-22_mira-thies_preproc-weather-overview.png",  # noqa E501
+                    "zh-overview": "lindenberg_2023-09-22_mira-thies_zh-preproc-overview.png",  # noqa E501
+                },
+            },
         },
         {
             "site": "lindenberg",
@@ -113,6 +141,13 @@ def data_out_dir(data_dir):
             "meteo": "weather-station",
             "meteo-pid": "https://hdl.handle.net/21.12132/3.ffb25f43330f4793",
             "config_file": "config_lindenberg_mira-parsivel.toml",
+            "output": {
+                "preprocess": "lindenberg_2023-09-22_mira-parsivel_preprocessed.nc",
+                "preprocessing_ql": {
+                    "weather-overview": "lindenberg_2023-09-22_mira-parsivel_preproc-weather-overview.png",  # noqa E501
+                    "zh-overview": "lindenberg_2023-09-22_mira-parsivel_zh-preproc-overview.png",  # noqa E501
+                },
+            },
         },
         {
             "site": "lindenberg",
@@ -125,6 +160,13 @@ def data_out_dir(data_dir):
             "meteo": "weather-station",
             "meteo-pid": "https://hdl.handle.net/21.12132/3.ffb25f43330f4793",
             "config_file": "config_lindenberg_rpg-thies.toml",
+            "output": {
+                "preprocess": "lindenberg_2023-09-22_rpg-thies_preprocessed.nc",
+                "preprocessing_ql": {
+                    "weather-overview": "lindenberg_2023-09-22_rpg-thies_preproc-weather-overview.png",  # noqa E501
+                    "zh-overview": "lindenberg_2023-09-22_rpg-thies_zh-preproc-overview.png",  # noqa E501
+                },
+            },
         },
         {
             "site": "lindenberg",
@@ -137,6 +179,13 @@ def data_out_dir(data_dir):
             "meteo": "weather-station",
             "meteo-pid": "https://hdl.handle.net/21.12132/3.ffb25f43330f4793",
             "config_file": "config_lindenberg_rpg-parsivel.toml",
+            "output": {
+                "preprocess": "lindenberg_2023-09-22_rpg-parsivel_preprocessed.nc",
+                "preprocessing_ql": {
+                    "weather-overview": "lindenberg_2023-09-22_rpg-parsivel_preproc-weather-overview.png",  # noqa E501
+                    "zh-overview": "lindenberg_2023-09-22_rpg-parsivel_zh-preproc-overview.png",  # noqa E501
+                },
+            },
         },
         # juelich
         {
@@ -150,6 +199,33 @@ def data_out_dir(data_dir):
             "meteo": "weather-station",
             "meteo-pid": "",
             "config_file": "config_juelich_mira-parsivel.toml",
+            "output": {
+                "preprocess": "juelich_2024-02-08_mira-parsivel_preprocessed.nc",
+                "preprocessing_ql": {
+                    "weather-overview": "juelich_2024-02-08_mira-parsivel_preproc-weather-overview.png",  # noqa E501
+                    "zh-overview": "juelich_2024-02-08_mira-parsivel_zh-preproc-overview.png",  # noqa E501
+                },
+            },
+        },
+        # hyytiala
+        {
+            "site": "hyytiala",
+            "date": "2023-10-15",
+            "radar": "rpg-fmcw-94",
+            "radar-pid": "https://hdl.handle.net/21.12132/3.191564170f8a4686",
+            "disdro": "parsivel",
+            "disdro-pid": "https://hdl.handle.net/21.12132/3.69dddc0004b64b32",
+            "meteo-available": False,
+            "meteo": "weather-station",
+            "meteo-pid": "",
+            "config_file": "config_hyytiala_rpg-parsivel.toml",
+            "output": {
+                "preprocess": "hyytiala_2023-10-15_rpg-parsivel_preprocessed.nc",
+                "preprocessing_ql": {
+                    "weather-overview": "hyytiala_2023-10-15_rpg-parsivel_preproc-weather-overview.png",  # noqa E501
+                    "zh-overview": "hyytiala_2023-10-15_rpg-parsivel_zh-preproc-overview.png",  # noqa E501
+                },
+            },
         },
     ]
 )
