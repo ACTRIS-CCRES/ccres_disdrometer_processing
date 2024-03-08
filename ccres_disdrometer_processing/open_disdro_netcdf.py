@@ -36,6 +36,24 @@ NEW_KEYS = [
 
 
 def resample_data_perfect_timesteps(filename: Union[str, Path], config) -> xr.Dataset:
+    """Open and resample CLU daily disdrometer files.
+
+    CLU daily files can have an irregular timestamping. This function resamples data
+    at a 1mn frequency. When several value are present in a minute,
+    only the value from the first timestamp is kept.
+
+    Parameters
+    ----------
+    filename : Union[str, Path]
+        The considered daily disdrometer file from CLU
+    config : dict (output from toml.load())
+        The corresponding toml configuration file, already loaded
+
+    Returns
+    -------
+    xr.Dataset
+        A dataset with a 1-minute regular sampling
+    """
     data_nc = xr.open_dataset(filename)
     start_time = pd.Timestamp(data_nc.time.values[0]).replace(
         hour=0, minute=0, second=0, microsecond=0, nanosecond=0
@@ -79,6 +97,23 @@ def resample_data_perfect_timesteps(filename: Union[str, Path], config) -> xr.Da
 def read_parsivel_cloudnet(
     data_nc: xr.Dataset,
 ) -> xr.Dataset:  # Read Parsivel file from CLU resampled file
+    """Create a dataset from CLU resampled data.
+
+    Input the result of resample_data_perfect_timesteps() ;
+    Read and select useful data. Case of a Parsivel disdrometer.
+    Store the result in a new dataset, add some metadata.
+
+    Parameters
+    ----------
+    data_nc : xr.Dataset
+        output from resample_data_perfect_timesteps()
+
+    Returns
+    -------
+    xr.Dataset
+        Dataset for Parsivel daily disdrometer data, with only
+    the useful variables kept (after being renamed)
+    """
     data = xr.Dataset(
         coords=dict(
             time=(["time"], data_nc.time_bins.data),
@@ -149,7 +184,24 @@ def read_parsivel_cloudnet(
 
 def read_thies_cloudnet(
     data_nc: xr.Dataset,
-) -> xr.Dataset:  # Read Parsivel file from CLU resampled file
+) -> xr.Dataset:
+    """Create a dataset from CLU resampled data.
+
+    Input the result of resample_data_perfect_timesteps() ;
+    Read and select useful data. Case of a Parsivel disdrometer.
+    Store the result in a new dataset, add some metadata.
+
+    Parameters
+    ----------
+    data_nc : xr.Dataset
+        output from resample_data_perfect_timesteps()
+
+    Returns
+    -------
+    xr.Dataset
+        Dataset for Thies daily disdrometer data, with only
+    the useful variables kept (after being renamed)
+    """
     data = xr.Dataset(
         coords=dict(
             time=(["time"], data_nc.time_bins.data),
@@ -196,13 +248,11 @@ def read_thies_cloudnet(
     # data["visi"] = xr.DataArray(data_nc["visibility"].values, dims=["time"])
     # data["sa"] = xr.DataArray(data_nc["sig_laser"].values, dims=["time"])
 
-    """
-    data["sensor_temp"] = xr.DataArray(data_nc["T_interior"].values, dims=["time"])
-    data["heating_current"] = xr.DataArray(
-        data_nc["I_heating_laser_head"].values, dims=["time"]
-    )
-    data["sensor_volt"] = xr.DataArray(data_nc["V_sensor_supply"].values, dims=["time"])
-    """
+    # data["sensor_temp"] = xr.DataArray(data_nc["T_interior"].values, dims=["time"])
+    # data["heating_current"] = xr.DataArray(
+    #     data_nc["I_heating_laser_head"].values, dims=["time"]
+    # )
+    # data["sensor_volt"] = xr.DataArray(data_nc["V_sensor_supply"].values, dims=["time"]) # noqa E501
 
     # data["SYNOP_code"] = xr.DataArray(data_nc["synop_WaWa"].values, dims=["time"])
 
@@ -236,6 +286,27 @@ def read_thies_cloudnet(
 def read_parsivel_cloudnet_choice(
     filename: Union[str, Path], radar_frequencies: list, config
 ) -> xr.Dataset:
+    """Format a daily nc file from any daily disdrometer file from CLU.
+
+    Input a CLU daily disdrometer file (either Parsivel or Thies) and output
+    a formatted dataset with the useful renamed data variables and metadata.
+
+    Parameters
+    ----------
+    filename : Union[str, Path]
+        CLU daily disdrometer file
+    radar_frequencies : list
+        List of frequencies at which scattering variables will be computed later
+    config : dict
+        The configuration file corresponding to the disdrometer data file
+        (station, instruments, ...)
+
+    Returns
+    -------
+    xr.Dataset
+        A formatted dataset with disdrometer data, with a structure independent
+        from the disdrometer model used for the data acquisition
+    """
     data_nc = resample_data_perfect_timesteps(filename=filename, config=config)
     source = data_nc.disdrometer_source
 
@@ -286,6 +357,33 @@ def reflectivity_model_multilambda_measmodV_hvfov(
     n,
     strMethod="GunAndKinzer",
 ):
+    """Add computed scattering-related variables to formatted disdro dataset.
+
+    Input the formatted dataset got with read_cloudnet_choice() ;
+    compute the reflectivity in different cases and other variables
+    which characterize the DSD ;
+    add them in the formatted dataset previously created.
+
+    Parameters
+    ----------
+    mparsivel : xr.Dataset
+        formatted dataset with daily raw disdrometer data
+    scatt_list : list
+        list of outputs from scattering.scattering_prop() method :
+        each output contains the Mie and t-matrix backscattering coefficients for
+        all the disdrometer droplet diameter classes, for a specifig configuration
+    n : int
+        number of diameter classes to be considered in the computation
+    strMethod : str, optional
+        Method used to model droplet fall speed from disdrometer droplet distribution,
+        by default "GunAndKinzer"
+
+    Returns
+    -------
+    xr.Dataset
+        The formatted disdrometer dataset enhanced with the additional variables
+        (reflectivity in the different computed configurations, ...).
+    """
     # scatt_list : list of scattering_prop() objects :
     # [(lambda1, vert), (lambda2, vert), ...(lambda1, hori), ...] -> 4 lambdas = 8 scatt objects # noqa E501
 
@@ -440,12 +538,6 @@ def reflectivity_model_multilambda_measmodV_hvfov(
                 / F
                 / t
             )  # mm6/m3
-
-            if k == 3 and ii == 150:
-                a = np.tile(Ni[0:n] * scatt.bscat_tmatrix, (2, 1)).T.shape
-                b = np.tile(Ni[0:n] * scatt.bscat_tmatrix, (1, 2)).shape
-                print(a, b)
-                print("YES")
 
             model.attenuation[ii, k % fr, k // fr, :] = (
                 np.nansum(

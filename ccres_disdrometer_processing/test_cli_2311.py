@@ -12,13 +12,15 @@ TEST_OUT_DIR = TEST_DIR / "data/outputs"
 disdro_file = f"{TEST_INPUT}/20210202_palaiseau_parsivel.nc"
 ws_file = f"{TEST_INPUT}/20210202_palaiseau_weather-station.nc"
 radar_file = f"{TEST_INPUT}/20210202_palaiseau_basta.nc"
-config_file = f"{TEST_INPUT}/config_files/CONFIG_palaiseau_basta_parsivel.toml"
+config_file = (
+    f"{TEST_INPUT}/config_files/conf_stations/conf_palaiseau_basta-parsivel.toml"
+)
 output_file = f"{TEST_OUT_DIR}/20210202_palaiseau_preprocessed_v0802.nc"
 print(config_file)
 
 
 do = 1
-open = 1
+open = 0
 rad = 0
 dd = 0
 weather = 0
@@ -26,7 +28,7 @@ compare_versions = 0
 
 if do:
     os.system(
-        "ccres_disdrometer_processing preprocess --disdro-file {} --ws-file {} --radar-file {} --config-file {} {}".format(  # noqa
+        "ccres_disdrometer_processing preprocess --disdro-file {} --ws-file {} --radar-file {} --config-file {} {} -v".format(  # noqa
             disdro_file, ws_file, radar_file, config_file, output_file
         )
     )
@@ -59,6 +61,7 @@ if dd:
     # print(dd.rainfall_rate.values[0:50])
     print(dd.longitude.attrs)
     print(dd.data_raw.attrs)
+    print(list(dd.keys()))
 
 if weather:
     ws = xr.open_dataset(ws_file)

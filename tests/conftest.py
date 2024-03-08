@@ -175,6 +175,19 @@ def data_out_dir(data_dir):
                 "preprocess": "juelich_2024-02-08_mira-parsivel_preprocessed.nc",
             },
         },
+        # hyytiala
+        {
+            "site": "hyytiala",
+            "date": "2023-10-15",
+            "radar": "rpg-fmcw-94",
+            "radar-pid": "https://hdl.handle.net/21.12132/3.191564170f8a4686",
+            "disdro": "parsivel",
+            "disdro-pid": "https://hdl.handle.net/21.12132/3.69dddc0004b64b32",
+            "meteo-available": False,
+            "meteo": "weather-station",
+            "meteo-pid": "",
+            "config_file": "config_hyytiala_rpg-parsivel.toml",
+        },
     ]
 )
 def test_data_preprocessing(request):

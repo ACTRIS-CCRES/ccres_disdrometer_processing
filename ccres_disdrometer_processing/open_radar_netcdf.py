@@ -5,7 +5,22 @@ from scipy import constants
 LIST_VARIABLES = ["Zh", "v", "radar_frequency", "latitude", "longitude", "altitude"]
 
 
-def read_radar_cloudnet(filename, max_radar_alt=2500):  # daily radar file from cloudnet
+def read_radar_cloudnet(filename, max_radar_alt=2500):
+    """Open, extract and resample data from CLU daily DCR files.
+
+    Parameters
+    ----------
+    filename : Union[str, Path]
+        The considered daily DCR file from CLU
+    max_radar_alt : int, optional
+        Altitude until which to extract 2D data (Z, DV), by default 2500m
+
+    Returns
+    -------
+    xr.Dataset
+        A formatted dataset for radar data (specs, Z, DV and range vector)
+        with a 1-minute regular sampling
+    """
     range_bounds = [0, max_radar_alt]
     data_nc = xr.open_dataset(filename)[LIST_VARIABLES].sel(
         range=slice(range_bounds[0], range_bounds[1])
