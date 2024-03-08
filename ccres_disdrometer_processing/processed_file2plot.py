@@ -1,1 +1,0 @@
-TIME_HORIZON = 60
