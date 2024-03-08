@@ -105,7 +105,7 @@ def status(verbosity):
     type=click.Path(file_okay=True, dir_okay=False, path_type=Path, resolve_path=True),
 )
 def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
-    """Command line interface for ccres_disdrometer_processing."""
+    """Create preprocess file for disdrometer processing."""
     click.echo("CCRES disdrometer preprocessing : test CLI")
 
     print(config_file)
@@ -444,10 +444,7 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file):
 def preprocess_ql(
     date, file, output_ql_overview, output_ql_overview_zh, config, parameter
 ):
-    """run CCRES QL."""
-    __version__ = "0.0.1"
-    __author__ = "jean-francois.ribaud@lmd.ipsl.fr"
-
+    """Create quicklooks from preprocess netCDF files."""
     # 1 - check config and import configuration file if ok
     conf = utils.load_module("conf", config)
     params = utils.load_module("parameters", parameter)
