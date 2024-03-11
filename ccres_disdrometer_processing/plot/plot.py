@@ -291,8 +291,8 @@ def plot_ql_overview(
 def plot_ql_overview_downgraded_mode(
     data: xr.Dataset,
     date: dt.datetime,
-    output_ql_overview: str | Path,
-    conf: object,
+    output_ql_overview: str,
+    conf: dict,
     version: str,
 ):
     """Create overview quicklook from preprocessed data without meteo.
@@ -474,8 +474,8 @@ def plot_ql_overview_downgraded_mode(
 def plot_ql_overview_zh(
     data: xr.Dataset,
     date: dt.datetime,
-    output_ql_overview_zh: str | Path,
-    conf: object,
+    output_ql_overview_zh: str,
+    conf: dict,
     version: str,
 ):
     """Create overview quicklook of reflectivity.
