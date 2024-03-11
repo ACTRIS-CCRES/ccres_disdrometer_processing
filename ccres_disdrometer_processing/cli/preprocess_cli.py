@@ -2,7 +2,6 @@ import datetime
 import logging
 import subprocess
 import sys
-from pathlib import Path
 
 import click
 import numpy as np
@@ -14,7 +13,7 @@ import ccres_disdrometer_processing.open_disdro_netcdf as disdro
 import ccres_disdrometer_processing.open_radar_netcdf as radar
 import ccres_disdrometer_processing.open_weather_netcdf as weather
 import ccres_disdrometer_processing.scattering as scattering
-from ccres_disdrometer_processing.__init__ import __version__
+from ccres_disdrometer_processing.__init__ import __version__, script_name
 from ccres_disdrometer_processing.logger import LogLevels, init_logger
 
 ISO_DATE_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
@@ -130,9 +129,6 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file, verbo
     final_data.attrs["id"] = config["nc_meta"]["id"]
     final_data.attrs["naming_authority"] = config["nc_meta"]["naming_authority"]
     date_created = datetime.datetime.utcnow().strftime(ISO_DATE_FORMAT)
-    script_name = toml.load(f"{Path(__file__).parent.parent.parent}/pyproject.toml")[
-        "project"
-    ]["name"]
     commit_id = (
         subprocess.check_output(["git", "rev-parse", "--short", "HEAD"])
         .decode("ascii")
