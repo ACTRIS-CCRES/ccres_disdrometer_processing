@@ -1,6 +1,5 @@
 import datetime
 import logging
-import subprocess
 import sys
 
 import click
@@ -129,13 +128,8 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file, verbo
     final_data.attrs["id"] = config["nc_meta"]["id"]
     final_data.attrs["naming_authority"] = config["nc_meta"]["naming_authority"]
     date_created = datetime.datetime.utcnow().strftime(ISO_DATE_FORMAT)
-    commit_id = (
-        subprocess.check_output(["git", "rev-parse", "--short", "HEAD"])
-        .decode("ascii")
-        .strip()
-    )
-    final_data.attrs["history"] = "created on {} by {}, v{}, commit {}".format(
-        date_created, script_name, __version__, commit_id
+    final_data.attrs["history"] = "created on {} by {}, v{}".format(
+        date_created, script_name, __version__
     )
     weather_str = ""
     if weather_avail:
