@@ -76,7 +76,11 @@ def add_logo():
 
     try:
         logo = plt.imread(
-            Path(__file__).parent / ".." / "assets" / "logo" / "logo_CCRES.png"
+            Path(__file__).parent.resolve()
+            / ".."
+            / "assets"
+            / "logo"
+            / "logo_CCRES.png"
         )
         plt.imshow(logo, origin="upper")
     except OSError:
