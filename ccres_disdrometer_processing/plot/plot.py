@@ -74,7 +74,7 @@ def plot_ql_overview(
 
     station = conf["location"]["STATION"]
     lat = data.attrs["geospatial_lat_max"]
-    lon = data.attrs["geospatial_lat_max"]
+    lon = data.attrs["geospatial_lon_max"]
     alt = data.attrs["geospatial_vertical_max"]
 
     fig, axes = plt.subplots(3, 2, figsize=(16, 10))
@@ -315,7 +315,7 @@ def plot_ql_overview_downgraded_mode(
 
     station = conf["location"]["STATION"]
     lat = data.attrs["geospatial_lat_max"]
-    lon = data.attrs["geospatial_lat_max"]
+    lon = data.attrs["geospatial_lon_max"]
     alt = data.attrs["geospatial_vertical_max"]
 
     fig, axes = plt.subplots(2, 2, figsize=(16, 10))
@@ -496,7 +496,7 @@ def plot_ql_overview_zh(
     site = data.attrs["location"]
     station = conf["location"]["STATION"]
     lat = data.attrs["geospatial_lat_max"]
-    lon = data.attrs["geospatial_lat_max"]
+    lon = data.attrs["geospatial_lon_max"]
     alt = data.attrs["geospatial_vertical_max"]
     alt_gate = conf["instrument_parameters"]["DCR_DZ_RANGE"]
     selected_alt = conf["plot_parameters"]["DCR_PLOTTED_RANGES"]
