@@ -132,6 +132,4 @@ compute_dz_1event.py
 explore_norunda_files.py
 disdro_lindenberg.py
 main.py
-
-# notebooks dir
-notebooks
+*.png

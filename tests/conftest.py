@@ -72,6 +72,43 @@ def data_out_dir(data_dir):
                 },
             },
         },
+        # # palaiseau
+        # {
+        #     "site": "palaiseau",
+        #     "date": "2022-10-13",
+        #     "radar": "basta",
+        #     "radar-pid": "https://hdl.handle.net/21.12132/3.643b7b5b43814e6f",
+        #     "disdro": "parsivel",
+        #     "disdro-pid": "https://hdl.handle.net/21.12132/3.7e13f3f243854ae8",
+        #     "meteo-available": True,
+        #     "meteo": "weather-station",
+        #     "meteo-pid": "https://hdl.handle.net/21.12132/3.739041931dac4de5",
+        #     "config_file": "config_palaiseau_basta-parsivel-ws.toml",
+        # },  # palaiseau
+        # {
+        #     "site": "palaiseau",
+        #     "date": "2022-10-14",
+        #     "radar": "basta",
+        #     "radar-pid": "https://hdl.handle.net/21.12132/3.643b7b5b43814e6f",
+        #     "disdro": "parsivel",
+        #     "disdro-pid": "https://hdl.handle.net/21.12132/3.7e13f3f243854ae8",
+        #     "meteo-available": True,
+        #     "meteo": "weather-station",
+        #     "meteo-pid": "https://hdl.handle.net/21.12132/3.739041931dac4de5",
+        #     "config_file": "config_palaiseau_basta-parsivel-ws.toml",
+        # },  # palaiseau
+        # {
+        #     "site": "palaiseau",
+        #     "date": "2022-10-15",
+        #     "radar": "basta",
+        #     "radar-pid": "https://hdl.handle.net/21.12132/3.643b7b5b43814e6f",
+        #     "disdro": "parsivel",
+        #     "disdro-pid": "https://hdl.handle.net/21.12132/3.7e13f3f243854ae8",
+        #     "meteo-available": True,
+        #     "meteo": "weather-station",
+        #     "meteo-pid": "https://hdl.handle.net/21.12132/3.739041931dac4de5",
+        #     "config_file": "config_palaiseau_basta-parsivel-ws.toml",
+        # },
         {
             "site": "palaiseau",
             "date": "2024-01-02",
