@@ -88,20 +88,55 @@ def extract_dcr_data(ds, conf):
 
     # DCR data extract
     ranges_to_keep = conf["plot_parameters"]["DCR_PLOTTED_RANGES"]
-    Ze_ds["Zdcr"] = ds["Zdcr"].sel({"range": ranges_to_keep}, method="nearest")
-    Ze_ds["DVdcr"] = ds["DVdcr"].sel({"range": ranges_to_keep}, method="nearest")
+    Ze_ds["Zdcr"] = xr.DataArray(
+        data=ds["Zdcr"].sel({"range": ranges_to_keep}, method="nearest").data,
+        dims=["time"],
+        attrs={
+            "long_name": "DCR reflectivity at the ranges defined in the station configuration file",  # noqa E501
+            "units": "dBZ",
+        },
+    )
+    Ze_ds["DVdcr"] = xr.DataArray(
+        data=ds["DVdcr"].sel({"range": ranges_to_keep}, method="nearest").data,
+        dims=["time"],
+        attrs={
+            "long_name": "DCR Doppler velocity",
+            "units": "m.s^-1",
+            "comment": "available at the ranges defined in the station configuration file",  # noqa E501
+        },
+    )
     # Disdrometer data extract
-    Ze_ds["Zdd"] = ds["Zdlog_vfov_modv_tm"].sel(
-        radar_frequencies=ds.radar_frequency, method="nearest"
+    Ze_ds["Zdd"] = xr.DataArray(
+        data=ds["Zdlog_vfov_modv_tm"]
+        .sel(radar_frequencies=ds.radar_frequency, method="nearest")
+        .data,
+        dims=["time"],
+        attrs={
+            "long_name": "Disdrometer forward-modeled reflectivity",
+            "units": "dBZ",
+            "comment": "available at the ranges defined in the station configuration file",  # noqa E501
+        },
     )
     Ze_ds["fallspeed_dd"] = xr.DataArray(
         data=np.nansum(
             np.nansum(ds["psd"].values, axis=2) * ds["measV"].values, axis=1
         ),
         dims=["time"],
+        attrs={
+            "long_name": "Average droplet fall speed seen by the disdrometer",
+            "units": "dBZ",
+        },
     )
     # Delta Ze
-    Ze_ds["Delta_Z"] = Ze_ds["Zdcr"] - Ze_ds["Zdd"]
+    Ze_ds["Delta_Z"] = xr.DataArray(
+        data=Ze_ds["Zdcr"].data - Ze_ds["Zdd"].data,
+        dims=["time"],
+        attrs={
+            "long_name": "Difference between DCR and disdrometer-modeled reflectivity",
+            "units": "dBZ",
+            "comment": "available at the ranges defined in the station configuration file",  # noqa E501
+        },
+    )
 
     return Ze_ds
 
@@ -150,12 +185,6 @@ def compute_quality_checks_weather(ds, conf, start, end):
     )
     main_wind_dir = (conf["instrument_parameters"]["DD_ORIENTATION"] + 90) % 360
     dd_angle = conf["thresholds"]["DD_ANGLE"]
-    x = 210
-    print("HELLO")
-    print(np.abs(x - main_wind_dir) < dd_angle)
-    print(np.abs(x - main_wind_dir) > 360 - dd_angle)
-    print(np.abs(x - (main_wind_dir + 180) % 360) < dd_angle)
-    print(np.abs(x - (main_wind_dir + 180) % 360) > 360 - dd_angle)
     qc_ds["QC_wd"] = xr.DataArray(
         (np.abs(ds["wd"] - main_wind_dir) < dd_angle)
         | (np.abs(ds["wd"] - main_wind_dir) > 360 - dd_angle)
@@ -231,6 +260,43 @@ def compute_quality_checks_weather(ds, conf, start, end):
         & qc_ds["QC_vdsd_t"]
     )
 
+    # Data attributes and types
+    for key in [
+        "flag_event",
+        "QF_rainfall_amount",
+        "QC_ta",
+        "QC_ws",
+        "QC_wd",
+        "QC_pr",
+        "QC_vdsd_t",
+        "QC_overall",
+    ]:
+        qc_ds[key].data.astype("i2")
+        qc_ds[key].attrs["flag_values"] = np.array([0, 1]).astype("i2")
+
+    qc_ds["flag_event"].attrs[
+        "flag_meanings"
+    ] = "timestep_part_of_an_event timestep_not_involved_in_any_avent"
+    qc_ds["QF_rainfall_amount"].attrs[
+        "flag_meanings"
+    ] = "less_rain_than_threshold_since_event_begin more_rain_than_threshold_since_event_begin"  # noqa E501
+    qc_ds["QC_ta"].attrs[
+        "flag_meanings"
+    ] = "temperature_lower_than_threshold temperature_ok"
+    qc_ds["QC_ws"].attrs[
+        "flag_meanings"
+    ] = "wind_speed_higher_than_threshold wind_speed_ok"
+    qc_ds["QC_wd"].attrs[
+        "flag_meanings"
+    ] = "wind_direction_outside_good_angle_range wind_direction_ok"
+    qc_ds["QC_pr"].attrs[
+        "flag_meanings"
+    ] = "precipitation_rate_above threshold precipitation_rate_ok"
+    qc_ds["QC_vdsd_t"].attrs[
+        "flag_meanings"
+    ] = "discrepancy_between_observed_and_modeled_disdrometer_droplet_fallspeed_above_threshold discrepancy_under_threshold"  # noqa e501
+    qc_ds["QC_overall"].attrs["flag_meanings"] = "at_least_one_QC_not_OK all_QC_OK"
+
     return qc_ds
 
 
@@ -292,47 +358,108 @@ def compute_quality_checks(ds, conf, start, end):
 
 
 def compute_todays_events_stats_weather(Ze_ds, conf, qc_ds, start, end):
-    dicos = []
+    n = 0
+    for s in start:
+        if (
+            pd.to_datetime(s).day
+            == pd.to_datetime(ds.time.isel(time=len(qc_ds.time) // 2).values).day
+        ):
+            n += 1
+    # n is the number of events to store in the dataset
+    # i.e. the number of events which begin at day D
+
+    stats_ds = xr.Dataset(coords=dict(events=(["events"], np.linspace(1, 1 + n, n))))
+
+    dZ_mean, dZ_med, dZ_q1, dZ_q3, dZ_min, dZ_max = (
+        np.zeros(n),
+        np.zeros(n),
+        np.zeros(n),
+        np.zeros(n),
+        np.zeros(n),
+        np.zeros(n),
+    )
+    event_length, rain_accumulation, nb_dz_computable_pts = (
+        np.zeros(n),
+        np.zeros(n),
+        np.zeros(n),
+    )
+    qc_ta_ratio, qc_ws_ratio, qc_wd_ratio, qc_vdsd_t_ratio, qc_overall_ratio = (
+        np.zeros(n),
+        np.zeros(n),
+        np.zeros(n),
+        np.zeros(n),
+        np.zeros(n),
+    )
+    start_event, end_event = np.zeros(n), np.zeros(n)
+
+    event = 0
     for s, e in zip(start, end):
         if (
             pd.to_datetime(s).day
             == pd.to_datetime(ds.time.isel(time=len(qc_ds.time) // 2).values).day
         ):
-            dico = {}
+            start_event[event] = s
+            end_event[event] = e
             r = conf["instrument_parameters"]["DCR_DZ_RANGE"]
             dz_r = Ze_ds["Delta_Z"].sel(time=slice(s, e)).sel(range=r, method="nearest")
             dz_r_nonan = dz_r[np.isfinite(dz_r)]
             # General info about the event
-            event_length = (e - s) / np.timedelta64(1, "m") + 1
-            rain_accumulation = qc_ds["ams_cum_since_event_begin"].loc[e]
-            nb_dz_computable_pts = len(dz_r)
+            event_length[event] = (e - s) / np.timedelta64(1, "m") + 1
+            rain_accumulation[event] = qc_ds["ams_cum_since_event_begin"].loc[e]
+            nb_dz_computable_pts[event] = len(dz_r)
             # QC passed ratios
             qc_ds_event = qc_ds.sel(time=slice(s, e)).loc[{"time": np.isfinite(dz_r)}]
             print(qc_ds_event.QC_ta.values.shape)
-            print(
-                "event length : ",
-                event_length,
-                "finite points : ",
-                nb_dz_computable_pts,
+            qc_ta_ratio[event] = np.sum(qc_ds_event["QC_ta"]) / len(qc_ds_event.time)
+            qc_ws_ratio[event] = np.sum(qc_ds_event["QC_ws"]) / len(qc_ds_event.time)
+            qc_wd_ratio[event] = np.sum(qc_ds_event["QC_wd"]) / len(qc_ds_event.time)
+            qc_vdsd_t_ratio[event] = np.sum(qc_ds_event["QC_vdsd_t"]) / len(
+                qc_ds_event.time
             )
-            qc_ta_ratio = np.sum(qc_ds_event["QC_ta"]) / len(qc_ds_event.time)
-            qc_ws_ratio = np.sum(qc_ds_event["QC_ws"]) / len(qc_ds_event.time)
-            qc_wd_ratio = np.sum(qc_ds_event["QC_wd"]) / len(qc_ds_event.time)
-            qc_vdsd_t_ratio = np.sum(qc_ds_event["QC_vdsd_t"]) / len(qc_ds_event.time)
-            # print(qc_ta_ratio, qc_ws_ratio, qc_wd_ratio, qc_vdsd_t_ratio)
-            # Delta Z statistics over computable points
-            dZ_mean = np.mean(dz_r_nonan)
-            dZ_med = np.median(dz_r_nonan)
-            dZ_q1 = np.quantile(dz_r_nonan, 0.25)
-            dZ_q3 = np.quantile(dz_r_nonan, 0.75)
-            dZ_min = np.min(dz_r_nonan)
-            dZ_max = np.max(dz_r_nonan)
+            qc_overall_ratio[event] = np.sum(
+                qc_ds_event["QC_overall"] / len(qc_ds_event.time)
+            )
 
-            dicos.append(dico)
+            # Delta Z statistics over computable points
+            dZ_mean[event] = np.mean(dz_r_nonan)
+            dZ_med[event] = np.median(dz_r_nonan)
+            dZ_q1[event] = np.quantile(dz_r_nonan, 0.25)
+            dZ_q3[event] = np.quantile(dz_r_nonan, 0.75)
+            dZ_min[event] = np.min(dz_r_nonan)
+            dZ_max[event] = np.max(dz_r_nonan)
+
+            event += 1
     print(rain_accumulation, qc_ta_ratio, qc_ws_ratio, qc_wd_ratio, qc_vdsd_t_ratio)
     print(dZ_mean, dZ_med, dZ_q1, dZ_q3, dZ_min, dZ_max)
-    # return event_stats_ds
-    return dicos
+
+    stats_ds["start_event"] = xr.DataArray(data=start_event, dims=["events"], attrs={})
+    stats_ds["end_event"] = xr.DataArray(data=end_event, dims=["events"], attrs={})
+    stats_ds["event_length"] = xr.DataArray(
+        data=event_length, dims=["events"], attrs={}
+    )
+    stats_ds["rain_accumulation"] = xr.DataArray(
+        data=rain_accumulation, dims=["events"], attrs={}
+    )
+    stats_ds["nb_dz_computable_pts"] = xr.DataArray(
+        data=nb_dz_computable_pts, dims=["events"], attrs={}
+    )
+    stats_ds["dZ_mean"] = xr.DataArray(data=dZ_mean, dims=["events"], attrs={})
+    stats_ds["dZ_med"] = xr.DataArray(data=dZ_med, dims=["events"], attrs={})
+    stats_ds["dZ_q1"] = xr.DataArray(data=dZ_q1, dims=["events"], attrs={})
+    stats_ds["dZ_q3"] = xr.DataArray(data=dZ_q3, dims=["events"], attrs={})
+    stats_ds["dZ_min"] = xr.DataArray(data=dZ_min, dims=["events"], attrs={})
+    stats_ds["dZ_max"] = xr.DataArray(data=dZ_max, dims=["events"], attrs={})
+    stats_ds["qc_ta_ratio"] = xr.DataArray(data=qc_ta_ratio, dims=["events"], attrs={})
+    stats_ds["qc_ws_ratio"] = xr.DataArray(data=qc_ws_ratio, dims=["events"], attrs={})
+    stats_ds["qc_wd_ratio"] = xr.DataArray(data=qc_wd_ratio, dims=["events"], attrs={})
+    stats_ds["qc_vdsd_t_ratio"] = xr.DataArray(
+        data=qc_vdsd_t_ratio, dims=["events"], attrs={}
+    )
+    stats_ds["qc_overall_ratio"] = xr.DataArray(
+        data=qc_overall_ratio, dims=["events"], attrs={}
+    )
+
+    return stats_ds
 
 
 def store_outputs(ds, conf):
