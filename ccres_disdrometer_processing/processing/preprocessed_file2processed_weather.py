@@ -6,22 +6,11 @@ Output : Daily processed file for day D
 
 import logging
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import toml
 import xarray as xr
 
 lgr = logging.getLogger(__name__)
-
-
-def merge_preprocessed_data(yesterday, today, tomorrow):
-    lgr.info("Beginning rain event selection")
-    yesterday = xr.open_dataset(yesterday)
-    today = xr.open_dataset(today)
-    tomorrow = xr.open_dataset(tomorrow)
-    ds = xr.concat((yesterday, today, tomorrow), dim="time")
-    return ds
 
 
 def rain_event_selection_weather(ds, conf):  # with no constraint on cum for the moment
@@ -49,96 +38,6 @@ def rain_event_selection_weather(ds, conf):  # with no constraint on cum for the
                 end.append(t[i].values)
             start_candidate = t[i + 1]
     return start, end
-
-
-def rain_event_selection_noweather(
-    ds, conf
-):  # with no constraint on cum for the moment
-    sel_ds = ds.isel({"time": np.where(ds.disdro_pr.values > 0)[0]})
-
-    min_duration, max_interval = (
-        conf["thresholds"]["MIN_DURATION"],
-        conf["thresholds"]["MAX_INTERVAL"],
-    )
-
-    t = sel_ds.time
-    start, end = [], []
-    start_candidate = t[0]
-    for i in range(len(t) - 1):
-        if t[i + 1] - t[i] > np.timedelta64(max_interval, "m"):
-            if t[i] - start_candidate >= np.timedelta64(min_duration, "m"):
-                start.append(start_candidate.values)
-                end.append(t[i].values)
-            start_candidate = t[i + 1]
-    return start, end
-
-
-def rain_event_selection(ds, conf):
-    if bool(ds["weather_data_avail"].values[0]) is True:
-        start, end = rain_event_selection_weather(ds, conf)
-    else:
-        start, end = rain_event_selection_noweather(ds, conf)
-    return start, end
-
-
-def extract_dcr_data(ds, conf):
-    # Extract DCR Ze at 3/4 relevant gates, extract DD Ze, compute Delta Ze
-    # Get Doppler velocity at relevant gates, compute avg disdrometer fall speed(t)
-    Ze_ds = xr.Dataset(coords=dict(time=(["time"], ds.time.data)))
-
-    # DCR data extract
-    ranges_to_keep = conf["plot_parameters"]["DCR_PLOTTED_RANGES"]
-    Ze_ds["Zdcr"] = xr.DataArray(
-        data=ds["Zdcr"].sel({"range": ranges_to_keep}, method="nearest").data,
-        dims=["time"],
-        attrs={
-            "long_name": "DCR reflectivity at the ranges defined in the station configuration file",  # noqa E501
-            "units": "dBZ",
-        },
-    )
-    Ze_ds["DVdcr"] = xr.DataArray(
-        data=ds["DVdcr"].sel({"range": ranges_to_keep}, method="nearest").data,
-        dims=["time"],
-        attrs={
-            "long_name": "DCR Doppler velocity",
-            "units": "m.s^-1",
-            "comment": "available at the ranges defined in the station configuration file",  # noqa E501
-        },
-    )
-    # Disdrometer data extract
-    Ze_ds["Zdd"] = xr.DataArray(
-        data=ds["Zdlog_vfov_modv_tm"]
-        .sel(radar_frequencies=ds.radar_frequency, method="nearest")
-        .data,
-        dims=["time"],
-        attrs={
-            "long_name": "Disdrometer forward-modeled reflectivity",
-            "units": "dBZ",
-            "comment": "available at the ranges defined in the station configuration file",  # noqa E501
-        },
-    )
-    Ze_ds["fallspeed_dd"] = xr.DataArray(
-        data=np.nansum(
-            np.nansum(ds["psd"].values, axis=2) * ds["measV"].values, axis=1
-        ),
-        dims=["time"],
-        attrs={
-            "long_name": "Average droplet fall speed seen by the disdrometer",
-            "units": "dBZ",
-        },
-    )
-    # Delta Ze
-    Ze_ds["Delta_Z"] = xr.DataArray(
-        data=Ze_ds["Zdcr"].data - Ze_ds["Zdd"].data,
-        dims=["time"],
-        attrs={
-            "long_name": "Difference between DCR and disdrometer-modeled reflectivity",
-            "units": "dBZ",
-            "comment": "available at the ranges defined in the station configuration file",  # noqa E501
-        },
-    )
-
-    return Ze_ds
 
 
 def compute_quality_checks_weather(ds, conf, start, end):
@@ -300,64 +199,7 @@ def compute_quality_checks_weather(ds, conf, start, end):
     return qc_ds
 
 
-def compute_quality_checks_noweather(ds, conf):
-    qc_ds = xr.Dataset(coords=dict(time=(["time"], ds.time.data)))
-
-    # flag the timesteps belonging to an event
-    qc_ds["flag_event"] = xr.DataArray(
-        data=np.full(len(ds.time), False, dtype=bool), dims=["time"]
-    )
-    # do a column for rain accumulation since last beginning of an event
-    qc_ds["disdro_cum_since_event_begin"] = xr.DataArray(
-        np.zeros(len(ds.time)), dims="time"
-    )
-    for s, e in zip(start, end):
-        qc_ds["flag_event"].loc[slice(s, e)] = True
-        qc_ds["disdro_cum_since_event_begin"].loc[slice(s, e)] = (
-            1 / 60 * np.nancumsum(ds["disdro_pr"].sel(time=slice(s, e)).values)
-        )
-
-    # Flag for condition (rainfall_amount > N mm)
-    qc_ds["QF_rainfall_amount"] = xr.DataArray(
-        qc_ds["disdro_cum_since_event_begin"]
-        >= conf["thresholds"]["MIN_RAINFALL_AMOUNT"],
-        dims="time",
-    )
-
-    # QC on DISDROMETER precipitation rate
-    qc_ds["QC_pr"] = xr.DataArray(
-        data=ds["disdro_pr"] < conf["thresholds"]["MAX_RR"], dims=["time"]
-    )
-
-    # QC relationship v(dsd)
-    vth_disdro = (
-        np.nansum(ds["psd"].values, axis=2) @ ds["modV"].isel(time=0).values
-    ) / np.nansum(
-        ds["psd"].values, axis=(1, 2)
-    )  # average fall speed weighed by (num_drops_per_time_and_diameter)
-    vobs_disdro = (
-        np.nansum(ds["psd"].values, axis=1) @ ds["speed_classes"].values
-    ) / np.nansum(ds["psd"].values, axis=(1, 2))
-    ratio_vdisdro_vth = vobs_disdro / vth_disdro
-
-    qc_ds["QC_vdsd_t"] = xr.DataArray(
-        data=(np.abs(ratio_vdisdro_vth - 1) <= 0.3), dims="time"
-    )
-
-    return qc_ds
-
-
-def compute_quality_checks(ds, conf, start, end):
-    if bool(ds["weather_data_avail"].values[0]) is True:
-        qc_ds = compute_quality_checks_weather(ds, conf, start, end)
-        lgr.info("Compute QC dataset (case with weather)")
-    else:
-        qc_ds = compute_quality_checks_noweather(ds, conf, start, end)
-        lgr.info("Compute QC dataset (case without weather)")
-    return qc_ds
-
-
-def compute_todays_events_stats_weather(Ze_ds, conf, qc_ds, start, end):
+def compute_todays_events_stats_weather(ds, Ze_ds, conf, qc_ds, start, end):
     n = 0
     for s in start:
         if (
@@ -383,7 +225,15 @@ def compute_todays_events_stats_weather(Ze_ds, conf, qc_ds, start, end):
         np.zeros(n),
         np.zeros(n),
     )
-    qc_ta_ratio, qc_ws_ratio, qc_wd_ratio, qc_vdsd_t_ratio, qc_overall_ratio = (
+    (
+        qc_ta_ratio,
+        qc_ws_ratio,
+        qc_wd_ratio,
+        qc_vdsd_t_ratio,
+        qc_pr_ratio,  # noqa # To be treated
+        qc_overall_ratio,
+    ) = (
+        np.zeros(n),
         np.zeros(n),
         np.zeros(n),
         np.zeros(n),
@@ -429,96 +279,129 @@ def compute_todays_events_stats_weather(Ze_ds, conf, qc_ds, start, end):
             dZ_max[event] = np.max(dz_r_nonan)
 
             event += 1
-    print(rain_accumulation, qc_ta_ratio, qc_ws_ratio, qc_wd_ratio, qc_vdsd_t_ratio)
-    print(dZ_mean, dZ_med, dZ_q1, dZ_q3, dZ_min, dZ_max)
+    # print(rain_accumulation, qc_ta_ratio, qc_ws_ratio, qc_wd_ratio, qc_vdsd_t_ratio)
+    # print(dZ_mean, dZ_med, dZ_q1, dZ_q3, dZ_min, dZ_max)
 
-    stats_ds["start_event"] = xr.DataArray(data=start_event, dims=["events"], attrs={})
-    stats_ds["end_event"] = xr.DataArray(data=end_event, dims=["events"], attrs={})
+    stats_ds["start_event"] = xr.DataArray(
+        data=start_event, dims=["events"], attrs={"long_name": "event start epoch"}
+    )
+    stats_ds["end_event"] = xr.DataArray(
+        data=end_event, dims=["events"], attrs={"long_name": "event end epoch"}
+    )
     stats_ds["event_length"] = xr.DataArray(
-        data=event_length, dims=["events"], attrs={}
+        data=event_length,
+        dims=["events"],
+        attrs={"long_name": "event duration", "unit": "mn"},
     )
     stats_ds["rain_accumulation"] = xr.DataArray(
-        data=rain_accumulation, dims=["events"], attrs={}
+        data=rain_accumulation,
+        dims=["events"],
+        attrs={"long_name": "ams rain accumulation over the whole event", "unit": "mm"},
     )
     stats_ds["nb_dz_computable_pts"] = xr.DataArray(
-        data=nb_dz_computable_pts, dims=["events"], attrs={}
+        data=nb_dz_computable_pts,
+        dims=["events"],
+        attrs={
+            "long_name": "number of timesteps for which Delta Z can be computed",
+            "unit": "1",
+        },
     )
-    stats_ds["dZ_mean"] = xr.DataArray(data=dZ_mean, dims=["events"], attrs={})
-    stats_ds["dZ_med"] = xr.DataArray(data=dZ_med, dims=["events"], attrs={})
-    stats_ds["dZ_q1"] = xr.DataArray(data=dZ_q1, dims=["events"], attrs={})
-    stats_ds["dZ_q3"] = xr.DataArray(data=dZ_q3, dims=["events"], attrs={})
-    stats_ds["dZ_min"] = xr.DataArray(data=dZ_min, dims=["events"], attrs={})
-    stats_ds["dZ_max"] = xr.DataArray(data=dZ_max, dims=["events"], attrs={})
-    stats_ds["qc_ta_ratio"] = xr.DataArray(data=qc_ta_ratio, dims=["events"], attrs={})
-    stats_ds["qc_ws_ratio"] = xr.DataArray(data=qc_ws_ratio, dims=["events"], attrs={})
-    stats_ds["qc_wd_ratio"] = xr.DataArray(data=qc_wd_ratio, dims=["events"], attrs={})
+    stats_ds["dZ_mean"] = xr.DataArray(
+        data=dZ_mean,
+        dims=["events"],
+        attrs={
+            "long_name": "average value of Delta Z for good timesteps",
+            "unit": "dBZ",
+        },
+    )
+    stats_ds["dZ_med"] = xr.DataArray(
+        data=dZ_med,
+        dims=["events"],
+        attrs={
+            "long_name": "median value of Delta Z for good timesteps",
+            "unit": "dBZ",
+        },
+    )
+    stats_ds["dZ_q1"] = xr.DataArray(
+        data=dZ_q1,
+        dims=["events"],
+        attrs={
+            "long_name": "first quartile of Delta Z distribution for good timesteps",
+            "unit": "dBZ",
+        },
+    )
+    stats_ds["dZ_q3"] = xr.DataArray(
+        data=dZ_q3,
+        dims=["events"],
+        attrs={
+            "long_name": "third quartile of Delta Z distribution for good timesteps",
+            "unit": "dBZ",
+        },
+    )
+    stats_ds["dZ_min"] = xr.DataArray(
+        data=dZ_min,
+        dims=["events"],
+        attrs={
+            "long_name": "minimum value of Delta Z for good timesteps",
+            "unit": "dBZ",
+        },
+    )
+    stats_ds["dZ_max"] = xr.DataArray(
+        data=dZ_max,
+        dims=["events"],
+        attrs={
+            "long_name": "maximum value of Delta Z for good timesteps",
+            "unit": "dBZ",
+        },
+    )
+    stats_ds["qc_ta_ratio"] = xr.DataArray(
+        data=qc_ta_ratio,
+        dims=["events"],
+        attrs={
+            "long_name": "ratio of timesteps where air temperature QC is good",
+            "unit": "1",
+            "comment": "among the timesteps for which Delta Z can be computed",
+        },
+    )
+    stats_ds["qc_ws_ratio"] = xr.DataArray(
+        data=qc_ws_ratio,
+        dims=["events"],
+        attrs={
+            "long_name": "ratio of timesteps where wind speed QC is good",
+            "unit": "1",
+            "comment": "among the timesteps for which Delta Z can be computed",
+        },
+    )
+    stats_ds["qc_wd_ratio"] = xr.DataArray(
+        data=qc_wd_ratio,
+        dims=["events"],
+        attrs={
+            "long_name": "ratio of timesteps where wind direction QC is good",
+            "unit": "1",
+            "comment": "among the timesteps for which Delta Z can be computed",
+        },
+    )
     stats_ds["qc_vdsd_t_ratio"] = xr.DataArray(
-        data=qc_vdsd_t_ratio, dims=["events"], attrs={}
+        data=qc_vdsd_t_ratio,
+        dims=["events"],
+        attrs={
+            "long_name": "ratio of timesteps where check on relationship betwee, droplet fall speed and diameter is good",  # noqa E501
+            "unit": "1",
+            "comment": "among the timesteps for which Delta Z can be computed",
+        },
     )
     stats_ds["qc_overall_ratio"] = xr.DataArray(
-        data=qc_overall_ratio, dims=["events"], attrs={}
+        data=qc_overall_ratio,
+        dims=["events"],
+        attrs={
+            "long_name": "ratio of timesteps where all checks are good",  # noqa E501
+            "unit": "1",
+            "comment": "Checks combined : ta, ws, wd, vdsd_t, pr",
+        },
     )
 
     return stats_ds
 
 
-def store_outputs(ds, conf):
-    pass
-
-
 if __name__ == "__main__":
-    yesterday = (
-        "../tests/data/outputs/palaiseau_2022-10-13_basta-parsivel-ws_preprocessed.nc"
-    )
-    today = (
-        "../tests/data/outputs/palaiseau_2022-10-14_basta-parsivel-ws_preprocessed.nc"
-    )
-    tomorrow = (
-        "../tests/data/outputs/palaiseau_2022-10-15_basta-parsivel-ws_preprocessed.nc"
-    )
-    conf = toml.load("../tests/data/conf/config_palaiseau_basta-parsivel-ws.toml")
-
-    y = xr.open_dataset(yesterday)
-    # print(y.dims)
-
-    ds = merge_preprocessed_data(yesterday, today, tomorrow)
-    start, end = rain_event_selection(ds, conf)
-
-    Ze_ds = extract_dcr_data(ds, conf)
-    # print(Ze_ds)
-    qc_ds = compute_quality_checks(ds, conf, start, end)
-    events_stats_ds = compute_todays_events_stats_weather(
-        Ze_ds, conf, qc_ds, start, end
-    )
-
-    plt.figure()
-    plt.plot(
-        qc_ds.time,
-        qc_ds.ams_cum_since_event_begin.values,
-        color="blue",
-        label="ams rainfall amount",
-    )
-    plt.plot(
-        qc_ds.time,
-        qc_ds.disdro_cum_since_event_begin.values,
-        color="red",
-        label="disdro rainfall amount",
-    )
-    plt.legend()
-    plt.savefig("./plot_diagnostic_preprocessing.png", dpi=300)
-    plt.close()
-
-    plt.figure()
-    # plt.plot(qc_ds.time, qc_ds.QC_ta, label="ta", alpha=0.4)
-    # plt.plot(qc_ds.time, qc_ds.QC_ws, label="ws", alpha=0.4)
-    plt.plot(qc_ds.time, 225 + 10 * qc_ds.QC_wd, label="qc_wd", alpha=1)
-    # plt.plot(qc_ds.time, qc_ds.QC_pr, label="pr", alpha=0.4)
-    # plt.plot(qc_ds.time, qc_ds.QC_vdsd_t, label="vd", alpha=0.4)
-    # plt.plot(qc_ds.time, qc_ds.QC_overall, label="overall")
-    # plt.plot(ds.time, ds.ws)
-    plt.plot(ds.time, ds.wd)
-    plt.axhline(y=225, alpha=0.3)
-    plt.xlim(left=start[0], right=end[0])
-    plt.legend()
-    plt.savefig("./plot_diagnostic_preprocessing2.png", dpi=300)
-    plt.close()
+    pass

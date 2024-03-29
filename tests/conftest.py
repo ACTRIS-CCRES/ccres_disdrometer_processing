@@ -52,42 +52,30 @@ def data_out_dir(data_dir):
 
 @pytest.fixture(
     params=[
-        # palaiseau
-        {
-            "site": "palaiseau",
-            "date": "2021-02-02",
-            "radar": "basta",
-            "radar-pid": "https://hdl.handle.net/21.12132/3.643b7b5b43814e6f",
-            "disdro": "parsivel",
-            "disdro-pid": "https://hdl.handle.net/21.12132/3.7e13f3f243854ae8",
-            "meteo-available": False,
-            "meteo": "weather-station",
-            "meteo-pid": "https://hdl.handle.net/21.12132/3.739041931dac4de5",
-            "config_file": "config_palaiseau_basta-parsivel-ws.toml",
-            "output": {
-                "preprocess": "palaiseau_2021-02-02_basta-parsivel-ws_preprocessed.nc",
-                "preprocessing_ql": {
-                    "weather-overview": "palaiseau_2021-02-02_basta-parsivel_preproc-weather-overview.png",  # noqa E501
-                    "zh-overview": "palaiseau_2021-02-02_basta-parsivel_zh-preproc-overview.png",  # noqa E501
-                },
-            },
-        },
         # # palaiseau
         # {
         #     "site": "palaiseau",
-        #     "date": "2022-10-13",
+        #     "date": "2021-02-02",
         #     "radar": "basta",
         #     "radar-pid": "https://hdl.handle.net/21.12132/3.643b7b5b43814e6f",
         #     "disdro": "parsivel",
         #     "disdro-pid": "https://hdl.handle.net/21.12132/3.7e13f3f243854ae8",
-        #     "meteo-available": True,
+        #     "meteo-available": False,
         #     "meteo": "weather-station",
         #     "meteo-pid": "https://hdl.handle.net/21.12132/3.739041931dac4de5",
         #     "config_file": "config_palaiseau_basta-parsivel-ws.toml",
-        # },  # palaiseau
+        #     "output": {
+        #         "preprocess": "palaiseau_2021-02-02_basta-parsivel-ws_preprocessed.nc",  # noqa E501
+        #         "preprocessing_ql": {
+        #             "weather-overview": "palaiseau_2021-02-02_basta-parsivel_preproc-weather-overview.png",  # noqa E501
+        #             "zh-overview": "palaiseau_2021-02-02_basta-parsivel_zh-preproc-overview.png",  # noqa E501
+        #         },
+        #     },
+        # },
+        # # palaiseau
         # {
         #     "site": "palaiseau",
-        #     "date": "2022-10-14",
+        #     "date": "2024-01-02",
         #     "radar": "basta",
         #     "radar-pid": "https://hdl.handle.net/21.12132/3.643b7b5b43814e6f",
         #     "disdro": "parsivel",
@@ -96,138 +84,133 @@ def data_out_dir(data_dir):
         #     "meteo": "weather-station",
         #     "meteo-pid": "https://hdl.handle.net/21.12132/3.739041931dac4de5",
         #     "config_file": "config_palaiseau_basta-parsivel-ws.toml",
-        # },  # palaiseau
+        #     "output": {
+        #         "preprocess": "palaiseau_2024-01-02_basta-parsivel-ws_preprocessed.nc",  # noqa E501
+        #         "preprocessing_ql": {
+        #             "weather-overview": "palaiseau_2021-02-02_basta-parsivel-ws_preproc-weather-overview.png",  # noqa E501
+        #             "zh-overview": "palaiseau_2021-02-02_basta-parsivel-ws_zh-preproc-overview.png",  # noqa E501
+        #         },
+        #     },
+        # },
         # {
         #     "site": "palaiseau",
-        #     "date": "2022-10-15",
+        #     "date": "2024-01-02",
         #     "radar": "basta",
         #     "radar-pid": "https://hdl.handle.net/21.12132/3.643b7b5b43814e6f",
-        #     "disdro": "parsivel",
-        #     "disdro-pid": "https://hdl.handle.net/21.12132/3.7e13f3f243854ae8",
+        #     "disdro": "thies-lnm",
+        #     "disdro-pid": "https://hdl.handle.net/21.12132/3.11d3217867474e22",
         #     "meteo-available": True,
         #     "meteo": "weather-station",
         #     "meteo-pid": "https://hdl.handle.net/21.12132/3.739041931dac4de5",
-        #     "config_file": "config_palaiseau_basta-parsivel-ws.toml",
+        #     "config_file": "config_palaiseau_basta-thies-ws.toml",
+        #     "output": {
+        #         "preprocess": "palaiseau_2024-01-02_basta-thies-ws_preprocessed.nc",
+        #         "preprocessing_ql": {
+        #             "weather-overview": "palaiseau_2021-02-02_basta-thies-ws_preproc-weather-overview.png",  # noqa E501
+        #             "zh-overview": "palaiseau_2021-02-02_basta-thies-ws_zh-preproc-overview.png",  # noqa E501
+        #         },
+        #     },
+        # },
+        # # lindenberg
+        # {
+        #     "site": "lindenberg",
+        #     "date": "2023-09-22",
+        #     "radar": "mira",
+        #     "radar-pid": "https://hdl.handle.net/21.12132/3.d6cc3d73f9dd4d4b",
+        #     "disdro": "thies-lnm",
+        #     "disdro-pid": "https://hdl.handle.net/21.12132/3.ddeab96e6197478a",
+        #     "meteo-available": True,
+        #     "meteo": "weather-station",
+        #     "meteo-pid": "https://hdl.handle.net/21.12132/3.ffb25f43330f4793",
+        #     "config_file": "config_lindenberg_mira-thies.toml",
+        #     "output": {
+        #         "preprocess": "lindenberg_2023-09-22_mira-thies_preprocessed.nc",
+        #         "preprocessing_ql": {
+        #             "weather-overview": "lindenberg_2023-09-22_mira-thies_preproc-weather-overview.png",  # noqa E501
+        #             "zh-overview": "lindenberg_2023-09-22_mira-thies_zh-preproc-overview.png",  # noqa E501
+        #         },
+        #     },
+        # },
+        # {
+        #     "site": "lindenberg",
+        #     "date": "2023-09-22",
+        #     "radar": "mira",
+        #     "radar-pid": "https://hdl.handle.net/21.12132/3.d6cc3d73f9dd4d4b",
+        #     "disdro": "parsivel",
+        #     "disdro-pid": "https://hdl.handle.net/21.12132/3.1b0966f63b2d41f2",
+        #     "meteo-available": True,
+        #     "meteo": "weather-station",
+        #     "meteo-pid": "https://hdl.handle.net/21.12132/3.ffb25f43330f4793",
+        #     "config_file": "config_lindenberg_mira-parsivel.toml",
+        #     "output": {
+        #         "preprocess": "lindenberg_2023-09-22_mira-parsivel_preprocessed.nc",
+        #         "preprocessing_ql": {
+        #             "weather-overview": "lindenberg_2023-09-22_mira-parsivel_preproc-weather-overview.png",  # noqa E501
+        #             "zh-overview": "lindenberg_2023-09-22_mira-parsivel_zh-preproc-overview.png",  # noqa E501
+        #         },
+        #     },
+        # },
+        # {
+        #     "site": "lindenberg",
+        #     "date": "2023-09-22",
+        #     "radar": "rpg-fmcw-94",
+        #     "radar-pid": "https://hdl.handle.net/21.12132/3.70dd09553d13484d",
+        #     "disdro": "thies-lnm",
+        #     "disdro-pid": "https://hdl.handle.net/21.12132/3.ddeab96e6197478a",
+        #     "meteo-available": True,
+        #     "meteo": "weather-station",
+        #     "meteo-pid": "https://hdl.handle.net/21.12132/3.ffb25f43330f4793",
+        #     "config_file": "config_lindenberg_rpg-thies.toml",
+        #     "output": {
+        #         "preprocess": "lindenberg_2023-09-22_rpg-thies_preprocessed.nc",
+        #         "preprocessing_ql": {
+        #             "weather-overview": "lindenberg_2023-09-22_rpg-thies_preproc-weather-overview.png",  # noqa E501
+        #             "zh-overview": "lindenberg_2023-09-22_rpg-thies_zh-preproc-overview.png",  # noqa E501
+        #         },
+        #     },
+        # },
+        # {
+        #     "site": "lindenberg",
+        #     "date": "2023-09-22",
+        #     "radar": "rpg-fmcw-94",
+        #     "radar-pid": "https://hdl.handle.net/21.12132/3.70dd09553d13484d",
+        #     "disdro": "parsivel",
+        #     "disdro-pid": "https://hdl.handle.net/21.12132/3.1b0966f63b2d41f2",
+        #     "meteo-available": True,
+        #     "meteo": "weather-station",
+        #     "meteo-pid": "https://hdl.handle.net/21.12132/3.ffb25f43330f4793",
+        #     "config_file": "config_lindenberg_rpg-parsivel.toml",
+        #     "output": {
+        #         "preprocess": "lindenberg_2023-09-22_rpg-parsivel_preprocessed.nc",
+        #         "preprocessing_ql": {
+        #             "weather-overview": "lindenberg_2023-09-22_rpg-parsivel_preproc-weather-overview.png",  # noqa E501
+        #             "zh-overview": "lindenberg_2023-09-22_rpg-parsivel_zh-preproc-overview.png",  # noqa E501
+        #         },
+        #     },
+        # },
+        # # juelich
+        # {
+        #     "site": "juelich",
+        #     "date": "2024-02-08",
+        #     "radar": "mira",
+        #     "radar-pid": "https://hdl.handle.net/21.12132/3.0366fa69504f4bd6",
+        #     "disdro": "parsivel",
+        #     "disdro-pid": "https://hdl.handle.net/21.12132/3.2a1ca46ed70c4929",
+        #     "meteo-available": False,
+        #     "meteo": "weather-station",
+        #     "meteo-pid": "",
+        #     "config_file": "config_juelich_mira-parsivel.toml",
+        #     "output": {
+        #         "preprocess": "juelich_2024-02-08_mira-parsivel_preprocessed.nc",
+        #         "preprocessing_ql": {
+        #             "weather-overview": "juelich_2024-02-08_mira-parsivel_preproc-weather-overview.png",  # noqa E501
+        #             "zh-overview": "juelich_2024-02-08_mira-parsivel_zh-preproc-overview.png",  # noqa E501
+        #         },
+        #     },
         # },
         {
-            "site": "palaiseau",
-            "date": "2024-01-02",
-            "radar": "basta",
-            "radar-pid": "https://hdl.handle.net/21.12132/3.643b7b5b43814e6f",
-            "disdro": "parsivel",
-            "disdro-pid": "https://hdl.handle.net/21.12132/3.7e13f3f243854ae8",
-            "meteo-available": True,
-            "meteo": "weather-station",
-            "meteo-pid": "https://hdl.handle.net/21.12132/3.739041931dac4de5",
-            "config_file": "config_palaiseau_basta-parsivel-ws.toml",
-            "output": {
-                "preprocess": "palaiseau_2024-01-02_basta-parsivel-ws_preprocessed.nc",
-                "preprocessing_ql": {
-                    "weather-overview": "palaiseau_2021-02-02_basta-parsivel-ws_preproc-weather-overview.png",  # noqa E501
-                    "zh-overview": "palaiseau_2021-02-02_basta-parsivel-ws_zh-preproc-overview.png",  # noqa E501
-                },
-            },
-        },
-        {
-            "site": "palaiseau",
-            "date": "2024-01-02",
-            "radar": "basta",
-            "radar-pid": "https://hdl.handle.net/21.12132/3.643b7b5b43814e6f",
-            "disdro": "thies-lnm",
-            "disdro-pid": "https://hdl.handle.net/21.12132/3.11d3217867474e22",
-            "meteo-available": True,
-            "meteo": "weather-station",
-            "meteo-pid": "https://hdl.handle.net/21.12132/3.739041931dac4de5",
-            "config_file": "config_palaiseau_basta-thies-ws.toml",
-            "output": {
-                "preprocess": "palaiseau_2024-01-02_basta-thies-ws_preprocessed.nc",
-                "preprocessing_ql": {
-                    "weather-overview": "palaiseau_2021-02-02_basta-thies-ws_preproc-weather-overview.png",  # noqa E501
-                    "zh-overview": "palaiseau_2021-02-02_basta-thies-ws_zh-preproc-overview.png",  # noqa E501
-                },
-            },
-        },
-        # lindenberg
-        {
-            "site": "lindenberg",
-            "date": "2023-09-22",
-            "radar": "mira",
-            "radar-pid": "https://hdl.handle.net/21.12132/3.d6cc3d73f9dd4d4b",
-            "disdro": "thies-lnm",
-            "disdro-pid": "https://hdl.handle.net/21.12132/3.ddeab96e6197478a",
-            "meteo-available": True,
-            "meteo": "weather-station",
-            "meteo-pid": "https://hdl.handle.net/21.12132/3.ffb25f43330f4793",
-            "config_file": "config_lindenberg_mira-thies.toml",
-            "output": {
-                "preprocess": "lindenberg_2023-09-22_mira-thies_preprocessed.nc",
-                "preprocessing_ql": {
-                    "weather-overview": "lindenberg_2023-09-22_mira-thies_preproc-weather-overview.png",  # noqa E501
-                    "zh-overview": "lindenberg_2023-09-22_mira-thies_zh-preproc-overview.png",  # noqa E501
-                },
-            },
-        },
-        {
-            "site": "lindenberg",
-            "date": "2023-09-22",
-            "radar": "mira",
-            "radar-pid": "https://hdl.handle.net/21.12132/3.d6cc3d73f9dd4d4b",
-            "disdro": "parsivel",
-            "disdro-pid": "https://hdl.handle.net/21.12132/3.1b0966f63b2d41f2",
-            "meteo-available": True,
-            "meteo": "weather-station",
-            "meteo-pid": "https://hdl.handle.net/21.12132/3.ffb25f43330f4793",
-            "config_file": "config_lindenberg_mira-parsivel.toml",
-            "output": {
-                "preprocess": "lindenberg_2023-09-22_mira-parsivel_preprocessed.nc",
-                "preprocessing_ql": {
-                    "weather-overview": "lindenberg_2023-09-22_mira-parsivel_preproc-weather-overview.png",  # noqa E501
-                    "zh-overview": "lindenberg_2023-09-22_mira-parsivel_zh-preproc-overview.png",  # noqa E501
-                },
-            },
-        },
-        {
-            "site": "lindenberg",
-            "date": "2023-09-22",
-            "radar": "rpg-fmcw-94",
-            "radar-pid": "https://hdl.handle.net/21.12132/3.70dd09553d13484d",
-            "disdro": "thies-lnm",
-            "disdro-pid": "https://hdl.handle.net/21.12132/3.ddeab96e6197478a",
-            "meteo-available": True,
-            "meteo": "weather-station",
-            "meteo-pid": "https://hdl.handle.net/21.12132/3.ffb25f43330f4793",
-            "config_file": "config_lindenberg_rpg-thies.toml",
-            "output": {
-                "preprocess": "lindenberg_2023-09-22_rpg-thies_preprocessed.nc",
-                "preprocessing_ql": {
-                    "weather-overview": "lindenberg_2023-09-22_rpg-thies_preproc-weather-overview.png",  # noqa E501
-                    "zh-overview": "lindenberg_2023-09-22_rpg-thies_zh-preproc-overview.png",  # noqa E501
-                },
-            },
-        },
-        {
-            "site": "lindenberg",
-            "date": "2023-09-22",
-            "radar": "rpg-fmcw-94",
-            "radar-pid": "https://hdl.handle.net/21.12132/3.70dd09553d13484d",
-            "disdro": "parsivel",
-            "disdro-pid": "https://hdl.handle.net/21.12132/3.1b0966f63b2d41f2",
-            "meteo-available": True,
-            "meteo": "weather-station",
-            "meteo-pid": "https://hdl.handle.net/21.12132/3.ffb25f43330f4793",
-            "config_file": "config_lindenberg_rpg-parsivel.toml",
-            "output": {
-                "preprocess": "lindenberg_2023-09-22_rpg-parsivel_preprocessed.nc",
-                "preprocessing_ql": {
-                    "weather-overview": "lindenberg_2023-09-22_rpg-parsivel_preproc-weather-overview.png",  # noqa E501
-                    "zh-overview": "lindenberg_2023-09-22_rpg-parsivel_zh-preproc-overview.png",  # noqa E501
-                },
-            },
-        },
-        # juelich
-        {
             "site": "juelich",
-            "date": "2024-02-08",
+            "date": "2021-12-02",
             "radar": "mira",
             "radar-pid": "https://hdl.handle.net/21.12132/3.0366fa69504f4bd6",
             "disdro": "parsivel",
@@ -237,10 +220,10 @@ def data_out_dir(data_dir):
             "meteo-pid": "",
             "config_file": "config_juelich_mira-parsivel.toml",
             "output": {
-                "preprocess": "juelich_2024-02-08_mira-parsivel_preprocessed.nc",
+                "preprocess": "juelich_2021-12-02_mira-parsivel_preprocessed.nc",
                 "preprocessing_ql": {
-                    "weather-overview": "juelich_2024-02-08_mira-parsivel_preproc-weather-overview.png",  # noqa E501
-                    "zh-overview": "juelich_2024-02-08_mira-parsivel_zh-preproc-overview.png",  # noqa E501
+                    "weather-overview": "juelich_2021-12-02_mira-parsivel_preproc-weather-overview.png",  # noqa E501
+                    "zh-overview": "juelich_2021-12-02_mira-parsivel_zh-preproc-overview.png",  # noqa E501
                 },
             },
         },
