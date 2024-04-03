@@ -14,6 +14,9 @@ import preprocessed_file2processed_weather as processing
 import toml
 import xarray as xr
 
+TIME_UNITS = "seconds since 2000-01-01T00:00:00.0Z"
+TIME_CALENDAR = "standard"
+
 lgr = logging.getLogger(__name__)
 
 
@@ -138,7 +141,9 @@ def store_outputs(ds, conf):
         ),
     )
     processed_ds["weather_data_avail"] = ds["weather_data_avail"]
-    processed_ds.to_netcdf(output_path)
+    processed_ds.to_netcdf(
+        output_path, encoding={"time": {"units": TIME_UNITS, "calendar": TIME_CALENDAR}}
+    )
     return processed_ds
 
 
@@ -199,13 +204,13 @@ if __name__ == "__main__":
     if test_noweather:
         # compare to values in events csv files used for "Heraklion" plots @ JOYCE
         yesterday = (
-            "../../tests/data/outputs/juelich_2021-12-03_mira-parsivel_preprocessed.nc"
-        )
-        today = (
             "../../tests/data/outputs/juelich_2021-12-04_mira-parsivel_preprocessed.nc"
         )
-        tomorrow = (
+        today = (
             "../../tests/data/outputs/juelich_2021-12-05_mira-parsivel_preprocessed.nc"
+        )
+        tomorrow = (
+            "../../tests/data/outputs/juelich_2021-12-06_mira-parsivel_preprocessed.nc"
         )
         conf = toml.load("../../tests/data/conf/config_juelich_mira-parsivel.toml")
 
