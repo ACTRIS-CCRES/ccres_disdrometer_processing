@@ -1,4 +1,5 @@
 """Console script for ccres_disdrometer_processing."""
+
 import logging
 import sys
 from pathlib import Path
@@ -7,6 +8,7 @@ import click
 import toml
 
 import ccres_disdrometer_processing.cli.preprocess_cli as preprocess_cli
+import ccres_disdrometer_processing.processing.preprocessed_file2processed as processing
 from ccres_disdrometer_processing.__init__ import __version__
 from ccres_disdrometer_processing.logger import LogLevels, init_logger
 from ccres_disdrometer_processing.plot import plot, utils
@@ -139,6 +141,79 @@ def preprocess_ql(file, output_ql_overview, output_ql_overview_zh, config_file):
         )
     plot.plot_ql_overview_zh(data, date, output_ql_overview_zh, config, __version__)
 
+    sys.exit(0)
+
+
+@cli.command()
+@click.option(
+    "--yesterday-preprocessed",
+    type=click.Path(
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        path_type=Path,
+        resolve_path=True,
+        readable=True,
+    ),
+    required=True,
+)
+@click.option(
+    "--today-preprocessed",
+    type=click.Path(
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        path_type=Path,
+        resolve_path=True,
+        readable=True,
+    ),
+    required=True,
+)
+@click.option(
+    "--tomorrow-preprocessed",
+    type=click.Path(
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        path_type=Path,
+        resolve_path=True,
+        readable=True,
+    ),
+    required=True,
+)
+@click.option(
+    "--config-file",
+    type=click.Path(
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        path_type=Path,
+        resolve_path=True,
+        readable=True,
+    ),
+    required=True,
+)
+@click.argument(
+    "output-file",
+    type=click.Path(file_okay=True, dir_okay=False, path_type=Path, resolve_path=True),
+)
+@click.option("-v", "verbosity", count=True)
+def process(
+    yesterday_preprocessed,
+    today_preprocessed,
+    tomorrow_preprocessed,
+    config_file,
+    output_file,
+    verbosity,
+):
+    processing.process(
+        yesterday_preprocessed,
+        today_preprocessed,
+        tomorrow_preprocessed,
+        config_file,
+        output_file,
+    )
+    click.echo("Processing : SUCCESS")
     sys.exit(0)
 
 
