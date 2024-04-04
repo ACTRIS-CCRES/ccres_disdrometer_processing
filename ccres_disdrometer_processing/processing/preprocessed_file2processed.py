@@ -165,6 +165,7 @@ def store_outputs(ds, conf):
 
 
 def process(yesterday, today, tomorrow, conf, output_file):
+    conf = toml.load(conf)
     ds = merge_preprocessed_data(yesterday, today, tomorrow)
     if (
         bool(ds["weather_data_avail"].values[0]) is False
