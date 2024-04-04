@@ -6,6 +6,7 @@ Output : Daily processed file for day D
 
 import logging
 
+import click
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -30,10 +31,13 @@ def merge_preprocessed_data(yesterday, today, tomorrow):
 
 
 def rain_event_selection(ds, conf):
-    if bool(ds["weather_data_avail"].values[0]) is True:
-        start, end = processing.rain_event_selection_weather(ds, conf)
-    else:
+    if (
+        bool(ds["weather_data_avail"].values[0]) is False
+        or bool(ds["weather_data_avail"].values[0]) is True
+    ):
         start, end = processing_noweather.rain_event_selection_noweather(ds, conf)
+    else:
+        start, end = processing.rain_event_selection_weather(ds, conf)
     return start, end
 
 
@@ -103,28 +107,34 @@ def extract_dcr_data(ds, conf):
 
 
 def compute_quality_checks(ds, conf, start, end):
-    if bool(ds["weather_data_avail"].values[0]) is True:
-        qc_ds = processing.compute_quality_checks_weather(ds, conf, start, end)
-        lgr.info("Compute QC dataset (case with weather)")
-    else:
+    if (
+        bool(ds["weather_data_avail"].values[0]) is False
+        or bool(ds["weather_data_avail"].values[0]) is True
+    ):
         qc_ds = processing_noweather.compute_quality_checks_noweather(
             ds, conf, start, end
         )
         lgr.info("Compute QC dataset (case without weather)")
+    else:
+        qc_ds = processing.compute_quality_checks_weather(ds, conf, start, end)
+        lgr.info("Compute QC dataset (case with weather)")
     return qc_ds
 
 
 def compute_todays_events_stats(ds, Ze_ds, conf, qc_ds, start, end):
-    if bool(ds["weather_data_avail"].values[0]) is True:
-        stats_ds = processing.compute_todays_events_stats_weather(
-            ds, Ze_ds, conf, qc_ds, start, end
-        )
-        lgr.info("Compute event stats dataset (case with weather)")
-    else:
+    if (
+        bool(ds["weather_data_avail"].values[0]) is False
+        or bool(ds["weather_data_avail"].values[0]) is True
+    ):
         stats_ds = processing_noweather.compute_todays_events_stats_noweather(
             ds, Ze_ds, conf, qc_ds, start, end
         )
         lgr.info("Compute event stats dataset (case without weather)")
+    else:
+        stats_ds = processing.compute_todays_events_stats_weather(
+            ds, Ze_ds, conf, qc_ds, start, end
+        )
+        lgr.info("Compute event stats dataset (case with weather)")
     return stats_ds
 
 
@@ -145,6 +155,25 @@ def store_outputs(ds, conf):
         output_path, encoding={"time": {"units": TIME_UNITS, "calendar": TIME_CALENDAR}}
     )
     return processed_ds
+
+
+def process(yesterday, today, tomorrow, conf, output_file):
+    ds = merge_preprocessed_data(yesterday, today, tomorrow)
+    if (
+        bool(ds["weather_data_avail"].values[0]) is False
+        or bool(ds["weather_data_avail"].values[0]) is True
+    ):
+        click.echo("Downgraded mode (no weather data is used)")
+    start, end = rain_event_selection(ds, conf)
+    Ze_ds = extract_dcr_data(ds, conf)
+    qc_ds = compute_quality_checks(ds, conf, start, end)
+    stats_ds = compute_todays_events_stats(ds, Ze_ds, conf, qc_ds, start, end)
+    processed_ds = xr.merge([Ze_ds, qc_ds, stats_ds], combine_attrs="no_conflicts")
+    processed_ds["weather_data_avail"] = ds["weather_data_avail"]
+    processed_ds.to_netcdf(
+        output_file, encoding={"time": {"units": TIME_UNITS, "calendar": TIME_CALENDAR}}
+    )
+    return
 
 
 if __name__ == "__main__":
