@@ -262,3 +262,30 @@ def data_out_dir(data_dir):
 def test_data_preprocessing(request):
     param = request.param
     yield param
+
+
+@pytest.fixture(
+    params=[
+        # juelich
+        {
+            "site": "juelich",
+            "radar": "mira",
+            "radar-pid": "https://hdl.handle.net/21.12132/3.0366fa69504f4bd6",
+            "disdro": "parsivel",
+            "disdro-pid": "https://hdl.handle.net/21.12132/3.2a1ca46ed70c4929",
+            "meteo-available": False,
+            "meteo": "weather-station",
+            "meteo-pid": "",
+            "config_file": "config_juelich_mira-parsivel.toml",
+            "list_dates": ["2021-12-03", "2021-12-04", "2021-12-05", "2021-12-06"],
+            "output": {
+                "preprocess_tmpl": "juelich_{}_mira-parsivel_preprocessed.nc",
+                "process_tmpl": "juelich_{}_mira-parsivel_processed.nc",
+            },
+        },
+    ]
+)
+def test_data_processing_ndays(request):
+    """Data to test processing on several days."""
+    param = request.param
+    yield param
