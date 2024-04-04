@@ -10,10 +10,11 @@ import click
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import preprocessed_file2processed_noweather as processing_noweather
-import preprocessed_file2processed_weather as processing
 import toml
 import xarray as xr
+
+from . import preprocessed_file2processed_noweather as processing_noweather
+from . import preprocessed_file2processed_weather as processing
 
 TIME_UNITS = "seconds since 2000-01-01T00:00:00.0Z"
 TIME_CALENDAR = "standard"
@@ -23,10 +24,16 @@ lgr = logging.getLogger(__name__)
 
 def merge_preprocessed_data(yesterday, today, tomorrow):
     lgr.info("Beginning rain event selection")
-    yesterday = xr.open_dataset(yesterday)
-    today = xr.open_dataset(today)
-    tomorrow = xr.open_dataset(tomorrow)
-    ds = xr.concat((yesterday, today, tomorrow), dim="time")
+
+    # TODO: add log for missing files
+    list_files = [yesterday, today, tomorrow]
+    list_files = [f for f in list_files if f is not None]
+
+    tmp_data = []
+    for file in list_files:
+        tmp_data.append(xr.open_dataset(file))
+
+    ds = xr.concat(tmp_data, dim="time")
     return ds
 
 

@@ -146,7 +146,20 @@ def preprocess_ql(file, output_ql_overview, output_ql_overview_zh, config_file):
 
 @cli.command()
 @click.option(
-    "--yesterday-preprocessed",
+    "--yesterday",
+    type=click.Path(
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        path_type=Path,
+        resolve_path=True,
+        readable=True,
+    ),
+    required=False,
+    default=None,
+)
+@click.option(
+    "--today",
     type=click.Path(
         exists=True,
         file_okay=True,
@@ -158,7 +171,7 @@ def preprocess_ql(file, output_ql_overview, output_ql_overview_zh, config_file):
     required=True,
 )
 @click.option(
-    "--today-preprocessed",
+    "--tomorrow",
     type=click.Path(
         exists=True,
         file_okay=True,
@@ -167,19 +180,8 @@ def preprocess_ql(file, output_ql_overview, output_ql_overview_zh, config_file):
         resolve_path=True,
         readable=True,
     ),
-    required=True,
-)
-@click.option(
-    "--tomorrow-preprocessed",
-    type=click.Path(
-        exists=True,
-        file_okay=True,
-        dir_okay=False,
-        path_type=Path,
-        resolve_path=True,
-        readable=True,
-    ),
-    required=True,
+    required=False,
+    default=None,
 )
 @click.option(
     "--config-file",
@@ -199,17 +201,17 @@ def preprocess_ql(file, output_ql_overview, output_ql_overview_zh, config_file):
 )
 @click.option("-v", "verbosity", count=True)
 def process(
-    yesterday_preprocessed,
-    today_preprocessed,
-    tomorrow_preprocessed,
+    yesterday,
+    today,
+    tomorrow,
     config_file,
     output_file,
     verbosity,
 ):
     processing.process(
-        yesterday_preprocessed,
-        today_preprocessed,
-        tomorrow_preprocessed,
+        yesterday,
+        today,
+        tomorrow,
         config_file,
         output_file,
     )
