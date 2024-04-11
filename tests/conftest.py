@@ -280,7 +280,7 @@ def test_data_preprocessing(request):
             "list_dates": ["2021-12-03", "2021-12-04", "2021-12-05", "2021-12-06"],
             "output": {
                 "preprocess_tmpl": "juelich_{}_mira-parsivel_preprocessed.nc",
-                "process_tmpl": "juelich_{}_mira-parsivel_processed.nc",
+                "process_tmpl": "juelich_{}_mira-parsivel_processed_ndays.nc",
             },
         },
     ]

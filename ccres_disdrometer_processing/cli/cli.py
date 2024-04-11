@@ -208,13 +208,7 @@ def process(
     output_file,
     verbosity,
 ):
-    processing.process(
-        yesterday,
-        today,
-        tomorrow,
-        config_file,
-        output_file,
-    )
+    processing.process(yesterday, today, tomorrow, config_file, output_file, verbosity)
     click.echo("Processing : SUCCESS")
     sys.exit(0)
 

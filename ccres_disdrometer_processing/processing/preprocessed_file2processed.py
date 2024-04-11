@@ -10,14 +10,19 @@ import click
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+
+# from . import preprocessed_file2processed_noweather as processing_noweather
+# from . import preprocessed_file2processed_weather as processing
+import preprocessed_file2processed_noweather as processing_noweather
+import preprocessed_file2processed_weather as processing
 import toml
 import xarray as xr
 
-from . import preprocessed_file2processed_noweather as processing_noweather
-from . import preprocessed_file2processed_weather as processing
+from ccres_disdrometer_processing.logger import LogLevels, init_logger
 
 TIME_UNITS = "seconds since 2000-01-01T00:00:00.0Z"
 TIME_CALENDAR = "standard"
+QC_FILL_VALUE = -9
 
 lgr = logging.getLogger(__name__)
 
@@ -27,14 +32,17 @@ def merge_preprocessed_data(yesterday, today, tomorrow):
 
     # TODO: add log for missing files
     list_files = [yesterday, today, tomorrow]
-    list_files = [f for f in list_files if f is not None]
+    files_provided = [f is not None for f in list_files]
+    list_available_files = [f for f in list_files if f is not None]
+    if list_files != list_available_files:
+        lgr.info("At least one daily file is missing, preliminary processing")
 
     tmp_data = []
-    for file in list_files:
+    for file in list_available_files:
         tmp_data.append(xr.open_dataset(file))
 
     ds = xr.concat(tmp_data, dim="time")
-    return ds
+    return ds, files_provided
 
 
 def rain_event_selection(ds, conf):
@@ -158,28 +166,68 @@ def store_outputs(ds, conf):
         ),
     )
     processed_ds["weather_data_avail"] = ds["weather_data_avail"]
+    print(type(processed_ds.time.values[0]))
+    print(type(processed_ds.start_event.values[0]))
+    print(type(processed_ds.end_event.values[0]))
     processed_ds.to_netcdf(
-        output_path, encoding={"time": {"units": TIME_UNITS, "calendar": TIME_CALENDAR}}
+        output_path,
+        encoding={
+            "time": {"units": TIME_UNITS, "calendar": TIME_CALENDAR},
+            "start_event": {"units": TIME_UNITS, "calendar": TIME_CALENDAR},
+            "end_event": {"units": TIME_UNITS, "calendar": TIME_CALENDAR},
+        },
     )
     return processed_ds
 
 
-def process(yesterday, today, tomorrow, conf, output_file):
+def process(yesterday, today, tomorrow, conf, output_file, verbosity):
+    """Use to build command line interface for processing step."""
+    log_level = LogLevels.get_by_verbosity_count(verbosity)
+    init_logger(log_level)
+    click.echo("CCRES disdrometer processing : CLI")
+
     conf = toml.load(conf)
-    ds = merge_preprocessed_data(yesterday, today, tomorrow)
+    ds, files_provided = merge_preprocessed_data(yesterday, today, tomorrow)
+
     if (
         bool(ds["weather_data_avail"].values[0]) is False
         or bool(ds["weather_data_avail"].values[0]) is True
     ):
         click.echo("Downgraded mode (no weather data is used)")
+
     start, end = rain_event_selection(ds, conf)
     Ze_ds = extract_dcr_data(ds, conf)
     qc_ds = compute_quality_checks(ds, conf, start, end)
     stats_ds = compute_todays_events_stats(ds, Ze_ds, conf, qc_ds, start, end)
     processed_ds = xr.merge([Ze_ds, qc_ds, stats_ds], combine_attrs="no_conflicts")
+    # attributes / flags
     processed_ds["weather_data_avail"] = ds["weather_data_avail"]
+    str_files_provided = ""
+    daily_files = ["D-1", "D", "D+1"]
+    for i in range(len(files_provided)):
+        if files_provided[i] is True:
+            if str_files_provided != "":
+                str_files_provided += " "
+            str_files_provided += daily_files[i]
+    processed_ds.attrs["files_provided"] = str_files_provided
+    processed_ds.attrs["number_files_provided"] = np.sum(np.array(files_provided) * 1)
+    # save to netCDF
     processed_ds.to_netcdf(
-        output_file, encoding={"time": {"units": TIME_UNITS, "calendar": TIME_CALENDAR}}
+        output_file,
+        encoding={
+            "time": {"units": TIME_UNITS, "calendar": TIME_CALENDAR},
+            "start_event": {"units": TIME_UNITS, "calendar": TIME_CALENDAR},
+            "end_event": {"units": TIME_UNITS, "calendar": TIME_CALENDAR},
+            "ams_cum_since_event_begin": {"_FillValue": "NaN"},
+            "QC_ta": {"_FillValue": QC_FILL_VALUE},
+            "QC_ws": {"_FillValue": QC_FILL_VALUE},
+            "QC_wd": {"_FillValue": QC_FILL_VALUE},
+            "QF_rg_dd": {"_FillValue": QC_FILL_VALUE},
+            "qc_ta_ratio": {"_FillValue": "NaN"},
+            "qc_ws_ratio": {"_FillValue": "NaN"},
+            "qc_wd_ratio": {"_FillValue": "NaN"},
+            "qf_rg_dd": {"_FillValue": QC_FILL_VALUE},
+        },
     )
     return
 
@@ -196,7 +244,7 @@ if __name__ == "__main__":
             "../../tests/data/conf/config_palaiseau_basta-parsivel-ws.toml"
         )
 
-        ds = merge_preprocessed_data(yesterday, today, tomorrow)
+        ds, files_provided = merge_preprocessed_data(yesterday, today, tomorrow)
         start, end = rain_event_selection(ds, conf)
 
         Ze_ds = extract_dcr_data(ds, conf)
@@ -241,19 +289,31 @@ if __name__ == "__main__":
     if test_noweather:
         # compare to values in events csv files used for "Heraklion" plots @ JOYCE
         yesterday = (
-            "../../tests/data/outputs/juelich_2021-12-04_mira-parsivel_preprocessed.nc"
+            "../../tests/data/outputs/juelich_2021-12-03_mira-parsivel_preprocessed.nc"
         )
         today = (
-            "../../tests/data/outputs/juelich_2021-12-05_mira-parsivel_preprocessed.nc"
+            "../../tests/data/outputs/juelich_2021-12-04_mira-parsivel_preprocessed.nc"
         )
         tomorrow = (
-            "../../tests/data/outputs/juelich_2021-12-06_mira-parsivel_preprocessed.nc"
+            "../../tests/data/outputs/juelich_2021-12-05_mira-parsivel_preprocessed.nc"
         )
-        conf = toml.load("../../tests/data/conf/config_juelich_mira-parsivel.toml")
+        conf = "../../tests/data/conf/config_juelich_mira-parsivel.toml"
 
-        ds = merge_preprocessed_data(yesterday, today, tomorrow)
-        print(ds.attrs)
-        processed_ds = store_outputs(ds, conf)
+        # ds, f = merge_preprocessed_data(yesterday, today, tomorrow)
+        # processed_ds = store_outputs(ds, toml.load(conf))
+
+        ds, files_provided = merge_preprocessed_data(yesterday, today, tomorrow)
+        print(files_provided)
+        output_file = "./{}_{}_processed.nc".format(
+            ds.attrs["station_name"],
+            pd.to_datetime(ds.time.isel(time=len(ds.time) // 2).values).strftime(
+                "%Y-%m-%d"
+            ),
+        )
+        process(yesterday, today, tomorrow, conf, output_file, 1)
+
+        processed_ds = xr.open_dataset("./JOYCE_2021-12-05_processed.nc")
+        print(processed_ds.attrs)
 
         print(processed_ds.dims)
         print(processed_ds.attrs)

@@ -108,6 +108,7 @@ def test_run_ndays(
         dm1_file = data_out_dir / test_data_processing_ndays["output"][
             "preprocess_tmpl"
         ].format(date_dm1)
+        print(dm1_file, dm1_file.exists())
         if not dm1_file.exists():
             dm1_file = None
         dp1_file = data_out_dir / test_data_processing_ndays["output"][
@@ -134,7 +135,7 @@ def test_run_ndays(
             args += ["--tomorrow", str(dp1_file)]
 
         # required args
-        args = [
+        args += [
             "--today",
             str(d_file),
             "--config-file",

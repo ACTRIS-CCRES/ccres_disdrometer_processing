@@ -12,6 +12,8 @@ import xarray as xr
 
 lgr = logging.getLogger(__name__)
 
+QC_FILL_VALUE = -9
+
 
 def rain_event_selection_noweather(
     ds, conf
@@ -55,6 +57,16 @@ def compute_quality_checks_noweather(ds, conf, start, end):
         },
     )
     # do a column for rain accumulation since last beginning of an event
+    print(np.zeros(len(ds.time)).shape)
+    qc_ds["ams_cum_since_event_begin"] = xr.DataArray(
+        np.nan * np.zeros(len(ds.time)),
+        dims=["time"],
+        attrs={
+            "long_name": "pluviometer rain accumulation since last begin of an event",
+            "unit": "mm",
+            "comment": "not computable when no AMS data is provided",
+        },
+    )
     qc_ds["disdro_cum_since_event_begin"] = xr.DataArray(
         np.zeros(len(ds.time)),
         dims="time",
@@ -112,6 +124,19 @@ def compute_quality_checks_noweather(ds, conf, start, end):
             "comment": f"threshold = {conf['thresholds']['DD_FALLSPEED_RATIO']:.1f} i.e. {100*conf['thresholds']['DD_FALLSPEED_RATIO']:.0f}% of relative error between average fall speed computed from speed distribution and average fall speed modeled from diameter distribution",  # noqa E501,
         },
     )
+
+    # Create non-computable QC variables in the dataset
+    for key in ["QC_ta", "QC_wd", "QC_ws", "QF_rg_dd"]:
+        qc_ds[key] = xr.DataArray(
+            data=QC_FILL_VALUE * np.ones(len(ds.time)).astype("i2"),
+            attrs={"comment": "not computable when no AMS data is provided"},
+        )
+    qc_ds["QC_ta"].attrs["long_name"] = "Quality check for air temperature"
+    qc_ds["QC_wd"].attrs["long_name"] = "Quality check for wind direction"
+    qc_ds["QC_ws"].attrs["long_name"] = "Quality check for wind speed"
+    qc_ds["QF_rg_dd"].attrs[
+        "long_name"
+    ] = "Quality flag for discrepancy between rain gauge and disdrometer precipitation rate"  # noqa
 
     # Overall QC : ta, ws, wd, ams_pr, v(d)
     qc_ds["QC_overall"] = xr.DataArray(
@@ -185,7 +210,10 @@ def compute_todays_events_stats_noweather(ds, Ze_ds, conf, qc_ds, start, end):
         np.zeros(n),
         np.zeros(n),
     )
-    start_event, end_event = np.zeros(n), np.zeros(n)
+    start_event, end_event = (
+        np.empty(n, dtype="datetime64[ns]"),
+        np.empty(n, dtype="datetime64[ns]"),
+    )
 
     event = 0
     for s, e in zip(start, end):
@@ -193,8 +221,10 @@ def compute_todays_events_stats_noweather(ds, Ze_ds, conf, qc_ds, start, end):
             pd.to_datetime(s).day
             == pd.to_datetime(ds.time.isel(time=len(qc_ds.time) // 2).values).day
         ):
+            print(s.dtype, e.dtype)
             start_event[event] = s
             end_event[event] = e
+            print(type(start_event[event]), type(end_event[event]))
             r = conf["instrument_parameters"]["DCR_DZ_RANGE"]
             dz_r = Ze_ds["Delta_Z"].sel(time=slice(s, e)).sel(range=r, method="nearest")
             dz_r_nonan = dz_r[np.isfinite(dz_r)]
@@ -268,6 +298,17 @@ def compute_todays_events_stats_noweather(ds, Ze_ds, conf, qc_ds, start, end):
             "flag_meanings": "accumulation_above_threshold accumulation_over_threshold",
         },
     )
+
+    stats_ds["qf_rg_dd"] = xr.DataArray(
+        data=QC_FILL_VALUE * np.zeros(len(stats_ds.events)),
+        dims=["events"],
+        attrs={
+            "long_name": "Flag on deviation between rain gauge and disdrometer precipitation rate at the end of an event",  # noqa
+            "flag_values": np.array([0, 1]).astype("i2"),
+            "flag_meanings": "accumulation_above_threshold accumulation_over_threshold",  # noqa
+            "comment": "not computable when no AMS data is provided",
+        },
+    )
     stats_ds["nb_dz_computable_pts"] = xr.DataArray(
         data=nb_dz_computable_pts,
         dims=["events"],
@@ -295,6 +336,24 @@ def compute_todays_events_stats_noweather(ds, Ze_ds, conf, qc_ds, start, end):
             "comment": "among the timesteps for which Delta Z can be computed",
         },
     )
+
+    for key in ["qc_ta_ratio", "qc_wd_ratio", "qc_ws_ratio"]:
+        stats_ds[key] = xr.DataArray(
+            data=np.nan * np.zeros(len(stats_ds.events)),
+            dims=["events"],
+            attrs={
+                "comment": "not computable when no AMS data is provided",
+            },
+        )
+    stats_ds["qc_ta_ratio"].attrs[
+        "long_name"
+    ] = "ratio of timesteps where check for air temperature is good"
+    stats_ds["qc_wd_ratio"].attrs[
+        "long_name"
+    ] = "ratio of timesteps where check for wind direction is good"
+    stats_ds["qc_ws_ratio"].attrs[
+        "long_name"
+    ] = "ratio of timesteps where check for wind speed is good"
 
     stats_ds["qc_overall_ratio"] = xr.DataArray(
         data=qc_overall_ratio,
