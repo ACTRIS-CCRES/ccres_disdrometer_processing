@@ -4,6 +4,7 @@ Input : Daily preprocessed files at days D and D-1
 Output : Daily processed file for day D
 """
 
+import datetime
 import logging
 
 import click
@@ -18,8 +19,10 @@ import preprocessed_file2processed_weather as processing
 import toml
 import xarray as xr
 
+from ccres_disdrometer_processing.__init__ import __version__, script_name
 from ccres_disdrometer_processing.logger import LogLevels, init_logger
 
+ISO_DATE_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 TIME_UNITS = "seconds since 2000-01-01T00:00:00.0Z"
 TIME_CALENDAR = "standard"
 QC_FILL_VALUE = -9
@@ -165,7 +168,11 @@ def store_outputs(ds, conf):
             "%Y-%m-%d"
         ),
     )
-    processed_ds["weather_data_avail"] = ds["weather_data_avail"]
+    processed_ds["weather_data_avail"] = xr.DataArray(
+        ds["weather_data_avail"].values[0].astype("i2"),
+        dims=None,
+        attrs=ds["weather_data_avail"].attrs,
+    )
     print(type(processed_ds.time.values[0]))
     print(type(processed_ds.start_event.values[0]))
     print(type(processed_ds.end_event.values[0]))
@@ -178,6 +185,119 @@ def store_outputs(ds, conf):
         },
     )
     return processed_ds
+
+
+def add_attributes(processed_ds, preprocessed_ds):
+    # Add global attributes specified in the file format
+    keys_from_preprocessed = [
+        "year",
+        "month",
+        "day",
+        "location",
+        "disdrometer_source",
+        "disdrometer_pid",
+        "radar_source",
+        "radar_pid",
+        "station_name",
+        "axis_ratioMethod",
+        "fallspeedFormula",
+    ]
+    for key in keys_from_preprocessed:
+        print(type(preprocessed_ds.attrs[key]))
+        processed_ds.attrs[key] = preprocessed_ds.attrs[key]
+
+    processed_ds.attrs["title"] = f""  # noqa E501 # TODO
+    processed_ds.attrs["summary"] = f""  # noqa E501 # TODO
+
+    for key in [
+        "keywords",
+        "keywords_vocabulary",
+        "Conventions",
+        "id",
+        "naming_authority",
+    ]:
+        processed_ds.attrs[key] = preprocessed_ds.attrs[key]
+
+    date_created = datetime.datetime.utcnow().strftime(ISO_DATE_FORMAT)
+    processed_ds.attrs[
+        "history"
+    ] = f"created on {date_created} by {script_name}, v{__version__}"
+    processed_ds["date_created"] = date_created
+    weather_str = ""
+    if processed_ds.weather_data_avail.values[0]:
+        weather_str = " and AMS"
+    processed_ds.attrs[
+        "source"
+    ] = f"surface observation from {processed_ds.radar_source} DCR, {processed_ds.disdrometer_source} disdrometer{weather_str}, processed by CloudNet"  # noqa
+    processed_ds.attrs["processing_level"] = ""  # TODO
+
+    for key in [
+        "comment",
+        "acknowledgement",
+        "license",
+        "standard_name_vocabulary",
+        "creator_name",
+        "creator_email",
+        "creator_url",
+        "creator_type",
+        "creator_institution",
+        "project",
+        "publisher_name",
+        "publisher_email",
+        "publisher_url",
+        "publisher_type",
+        "publisher_institution",
+        "contributor_name",
+        "contributor_role",
+    ]:
+        processed_ds.attrs[key] = preprocessed_ds.attrs[key]
+
+    for key in [
+        "geospatial_bounds",
+        "geospatial_bounds_crs",
+        "geospatial_bounds_vertical_crs",
+        "geospatial_lat_min",
+        "geospatial_lat_max",
+        "geospatial_lat_units",
+        "geospatial_lat_resolution",
+        "geospatial_lon_min",
+        "geospatial_lon_max",
+        "geospatial_lon_units",
+        "geospatial_lon_resolution",
+        "geospatial_vertical_min",
+        "geospatial_vertical_max",
+        "geospatial_vertical_units",
+        "geospatial_vertical_resolution",
+        "geospatial_vertical_positive",
+        "time_coverage_start",
+        "time_coverage_end",
+        "time_coverage_duration",
+        "time_coverage_resolution",
+        "program",
+    ]:
+        processed_ds.attrs[key] = preprocessed_ds.attrs[key]
+
+    processed_ds.attrs["date_modified"] = date_created
+    processed_ds.attrs[
+        "date_issued"
+    ] = date_created  # file made available immediately to the users after creation
+    processed_ds.attrs[
+        "date_metadata_modified"
+    ] = ""  # will be set when everything will be of ; modify it if some fields evolve
+    processed_ds.attrs["product_version"] = __version__
+
+    for key in [
+        "platform",
+        "platform_vocabulary",
+        "instrument",
+        "instrument_vocabulary",
+        "cdm_data_type",
+        "metadata_link",
+        "references",
+    ]:
+        processed_ds.attrs[key] = preprocessed_ds.attrs[key]
+
+    return
 
 
 def process(yesterday, today, tomorrow, conf, output_file, verbosity):
@@ -200,8 +320,10 @@ def process(yesterday, today, tomorrow, conf, output_file, verbosity):
     qc_ds = compute_quality_checks(ds, conf, start, end)
     stats_ds = compute_todays_events_stats(ds, Ze_ds, conf, qc_ds, start, end)
     processed_ds = xr.merge([Ze_ds, qc_ds, stats_ds], combine_attrs="no_conflicts")
-    # attributes / flags
+    # get variable for weather data availability from prepro file
     processed_ds["weather_data_avail"] = ds["weather_data_avail"]
+    # set attributes
+    add_attributes(processed_ds, ds)
     str_files_provided = ""
     daily_files = ["D-1", "D", "D+1"]
     for i in range(len(files_provided)):
@@ -212,21 +334,26 @@ def process(yesterday, today, tomorrow, conf, output_file, verbosity):
     processed_ds.attrs["files_provided"] = str_files_provided
     processed_ds.attrs["number_files_provided"] = np.sum(np.array(files_provided) * 1)
     # save to netCDF
+    processed_ds.rename_dims({"events": "event"})
     processed_ds.to_netcdf(
         output_file,
         encoding={
             "time": {"units": TIME_UNITS, "calendar": TIME_CALENDAR},
             "start_event": {"units": TIME_UNITS, "calendar": TIME_CALENDAR},
             "end_event": {"units": TIME_UNITS, "calendar": TIME_CALENDAR},
-            "ams_cum_since_event_begin": {"_FillValue": "NaN"},
+            "ams_cp_since_event_begin": {"_FillValue": "NaN"},
+            "disdro_cp_since_event_begin": {"_FillValue": "NaN"},
             "QC_ta": {"_FillValue": QC_FILL_VALUE},
+            "QC_pr": {"_FillValue": QC_FILL_VALUE},
+            "QC_vdsd_t": {"_FillValue": QC_FILL_VALUE},
+            "QF_rainfall_amount": {"_FillValue": QC_FILL_VALUE},
             "QC_ws": {"_FillValue": QC_FILL_VALUE},
             "QC_wd": {"_FillValue": QC_FILL_VALUE},
             "QF_rg_dd": {"_FillValue": QC_FILL_VALUE},
-            "qc_ta_ratio": {"_FillValue": "NaN"},
-            "qc_ws_ratio": {"_FillValue": "NaN"},
-            "qc_wd_ratio": {"_FillValue": "NaN"},
-            "qf_rg_dd": {"_FillValue": QC_FILL_VALUE},
+            "QC_ta_ratio": {"_FillValue": "NaN"},
+            "QC_ws_ratio": {"_FillValue": "NaN"},
+            "QC_wd_ratio": {"_FillValue": "NaN"},
+            "QF_rg_dd_event": {"_FillValue": QC_FILL_VALUE},
         },
     )
     return
@@ -312,13 +439,11 @@ if __name__ == "__main__":
         )
         process(yesterday, today, tomorrow, conf, output_file, 1)
 
-        processed_ds = xr.open_dataset("./JOYCE_2021-12-05_processed.nc")
-        print(processed_ds.attrs)
-
-        print(processed_ds.dims)
-        print(processed_ds.attrs)
-        print(list(processed_ds.keys()))
+        processed_ds = xr.open_dataset("./JOYCE_2021-12-04_processed.nc")
+        # print(processed_ds.attrs)
+        # print(processed_ds.dims)
+        # print(list(processed_ds.keys()))
         for key in processed_ds.keys():  # noqa
-            # print(key, processed_ds[key].attrs)
-            if processed_ds[key].attrs == {}:
-                print(key)
+            print(key, processed_ds[key].dims)
+            # if processed_ds[key].attrs == {}:
+            #     print(key)
