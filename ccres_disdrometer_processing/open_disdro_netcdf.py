@@ -538,6 +538,7 @@ def reflectivity_model_multilambda_measmodV_hvfov(
                 / F
                 / t
             )  # mm6/m3
+            model.Ze_tm[np.where(model.Ze_tm == 0)] = np.nan
 
             model.attenuation[ii, k % fr, k // fr, :] = (
                 np.nansum(
