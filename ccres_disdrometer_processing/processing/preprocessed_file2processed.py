@@ -11,9 +11,6 @@ import click
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-
-# from . import preprocessed_file2processed_noweather as processing_noweather
-# from . import preprocessed_file2processed_weather as processing
 import preprocessed_file2processed_noweather as processing_noweather
 import preprocessed_file2processed_weather as processing
 import toml
@@ -21,6 +18,9 @@ import xarray as xr
 
 from ccres_disdrometer_processing.__init__ import __version__, script_name
 from ccres_disdrometer_processing.logger import LogLevels, init_logger
+
+# from . import preprocessed_file2processed_noweather as processing_noweather
+# from . import preprocessed_file2processed_weather as processing
 
 ISO_DATE_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 TIME_UNITS = "seconds since 2000-01-01T00:00:00.0Z"
@@ -206,8 +206,12 @@ def add_attributes(processed_ds, preprocessed_ds):
         print(type(preprocessed_ds.attrs[key]))
         processed_ds.attrs[key] = preprocessed_ds.attrs[key]
 
-    processed_ds.attrs["title"] = f""  # noqa E501 # TODO
-    processed_ds.attrs["summary"] = f""  # noqa E501 # TODO
+    processed_ds.attrs[
+        "title"
+    ] = f"CCRES processing output file for Doppler cloud radar stability monitoring with disdrometer at {processed_ds.attrs['location']} site"  # noqa E501
+    processed_ds.attrs[
+        "summary"
+    ] = f"Significant rain events are identified, and statistics of reflectivity differences between DCR and disdrometer-modeled data are computed at relevant radar ranges over each rain event period, after applying a filter based on several quality checks."  # noqa E501
 
     for key in [
         "keywords",
@@ -229,7 +233,7 @@ def add_attributes(processed_ds, preprocessed_ds):
     processed_ds.attrs[
         "source"
     ] = f"surface observation from {processed_ds.radar_source} DCR, {processed_ds.disdrometer_source} disdrometer{weather_str}, processed by CloudNet"  # noqa
-    processed_ds.attrs["processing_level"] = ""  # TODO
+    processed_ds.attrs["processing_level"] = "2b"
 
     for key in [
         "comment",
@@ -320,6 +324,11 @@ def process(yesterday, today, tomorrow, conf, output_file, verbosity):
     qc_ds = compute_quality_checks(ds, conf, start, end)
     stats_ds = compute_todays_events_stats(ds, Ze_ds, conf, qc_ds, start, end)
     processed_ds = xr.merge([Ze_ds, qc_ds, stats_ds], combine_attrs="no_conflicts")
+    # Select only timesteps from the day to process
+    today_ds = xr.open_dataset(today)
+    processed_ds = processed_ds.sel(
+        {"time": slice(today_ds.time.values[0], today_ds.time.values[-1])}
+    )
     # get variable for weather data availability from prepro file
     processed_ds["weather_data_avail"] = ds["weather_data_avail"]
     # set attributes
@@ -441,9 +450,10 @@ if __name__ == "__main__":
 
         processed_ds = xr.open_dataset("./JOYCE_2021-12-04_processed.nc")
         # print(processed_ds.attrs)
-        # print(processed_ds.dims)
+        print(processed_ds.dims)
+        print(processed_ds.time.values[[0, -1]])
         # print(list(processed_ds.keys()))
-        for key in processed_ds.keys():  # noqa
-            print(key, processed_ds[key].dims)
-            # if processed_ds[key].attrs == {}:
-            #     print(key)
+        # for key in processed_ds.keys():  # noqa
+        #     print(key, processed_ds[key].dims)
+        # if processed_ds[key].attrs == {}:
+        #     print(key)

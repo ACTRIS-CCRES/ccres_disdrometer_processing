@@ -57,7 +57,6 @@ def compute_quality_checks_noweather(ds, conf, start, end):
         },
     )
     # do a column for rain accumulation since last beginning of an event
-    print(np.zeros(len(ds.time)).shape)
     qc_ds["ams_cp_since_event_begin"] = xr.DataArray(
         np.nan * np.zeros(len(ds.time)),
         dims=["time"],
@@ -130,7 +129,10 @@ def compute_quality_checks_noweather(ds, conf, start, end):
         qc_ds[key] = xr.DataArray(
             data=QC_FILL_VALUE * np.ones(len(ds.time)).astype("i2"),
             dims="time",
-            attrs={"comment": "not computable when no AMS data is provided"},
+            attrs={
+                "unit": "1",
+                "comment": "not computable when no AMS data is provided",
+            },
         )
     qc_ds["QC_ta"].attrs["long_name"] = "Quality check for air temperature"
     qc_ds["QC_wd"].attrs["long_name"] = "Quality check for wind direction"
@@ -139,7 +141,7 @@ def compute_quality_checks_noweather(ds, conf, start, end):
         "long_name"
     ] = "Quality flag for discrepancy between rain gauge and disdrometer precipitation rate"  # noqa
 
-    # Overall QC : ta, ws, wd, ams_pr, v(d)
+    # Overall QC : disdro_pr, v(d)
     qc_ds["QC_overall"] = xr.DataArray(
         data=qc_ds["QC_pr"] & qc_ds["QC_vdsd_t"],
         dims="time",
