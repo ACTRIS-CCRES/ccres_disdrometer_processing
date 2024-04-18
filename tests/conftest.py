@@ -257,6 +257,27 @@ def data_out_dir(data_dir):
                 "process": "hyytiala_2023-10-15_rpg-parsivel_processed.nc",
             },
         },
+        # bucharest
+        {
+            "site": "bucharest",
+            "date": "2024-04-17",
+            "radar": "rpg-fmcw-94",
+            "radar-pid": "https://hdl.handle.net/21.12132/3.90b1e5245b11487d",
+            "disdro": "parsivel",
+            "disdro-pid": "https://hdl.handle.net/21.12132/3.a75d4215f338412e",
+            "meteo-available": False,
+            "meteo": "weather-station",
+            "meteo-pid": "",
+            "config_file": "config_bucharest_rpg-parsivel.toml",
+            "output": {
+                "preprocess": "bucharest_2024-04-17_rpg-parsivel_preprocessed.nc",
+                "preprocessing_ql": {
+                    "weather-overview": "hyytiala_2024-04-17_rpg-parsivel_preproc-weather-overview.png",  # noqa E501
+                    "zh-overview": "hyytiala_2024-04-17_rpg-parsivel_zh-preproc-overview.png",  # noqa E501
+                },
+                "process": "hyytiala_2024-04-17_rpg-parsivel_processed.nc",
+            },
+        },
     ]
 )
 def test_data_preprocessing(request):
