@@ -260,7 +260,7 @@ def data_out_dir(data_dir):
         # bucharest
         {
             "site": "bucharest",
-            "date": "2024-04-17",
+            "date": "2024-03-25",
             "radar": "rpg-fmcw-94",
             "radar-pid": "https://hdl.handle.net/21.12132/3.90b1e5245b11487d",
             "disdro": "parsivel",
@@ -270,12 +270,33 @@ def data_out_dir(data_dir):
             "meteo-pid": "",
             "config_file": "config_bucharest_rpg-parsivel.toml",
             "output": {
-                "preprocess": "bucharest_2024-04-17_rpg-parsivel_preprocessed.nc",
+                "preprocess": "bucharest_2024-03-25_rpg-parsivel_preprocessed.nc",
                 "preprocessing_ql": {
-                    "weather-overview": "hyytiala_2024-04-17_rpg-parsivel_preproc-weather-overview.png",  # noqa E501
-                    "zh-overview": "hyytiala_2024-04-17_rpg-parsivel_zh-preproc-overview.png",  # noqa E501
+                    "weather-overview": "bucharest_2024-03-25_rpg-parsivel_preproc-weather-overview.png",  # noqa E501
+                    "zh-overview": "bucharest_2024-03-25_rpg-parsivel_zh-preproc-overview.png",  # noqa E501
                 },
-                "process": "hyytiala_2024-04-17_rpg-parsivel_processed.nc",
+                "process": "bucharest_2024-03-25_rpg-parsivel_processed.nc",
+            },
+        },
+        # granada
+        {
+            "site": "granada",
+            "date": "2024-03-09",
+            "radar": "rpg-fmcw-94",
+            "radar-pid": "https://hdl.handle.net/21.12132/3.1e67e6c234d84b19",
+            "disdro": "parsivel",
+            "disdro-pid": "https://hdl.handle.net/21.12132/3.8f31e16545d14ff3",
+            "meteo-available": False,
+            "meteo": "weather-station",
+            "meteo-pid": "",
+            "config_file": "config_granada_rpg-parsivel.toml",
+            "output": {
+                "preprocess": "granada_2024-03-09_rpg-parsivel_preprocessed.nc",
+                "preprocessing_ql": {
+                    "weather-overview": "granada_2024-03-09_rpg-parsivel_preproc-weather-overview.png",  # noqa E501
+                    "zh-overview": "granada_2024-03-09_rpg-parsivel_zh-preproc-overview.png",  # noqa E501
+                },
+                "process": "granada_2024-03-09_rpg-parsivel_processed.nc",
             },
         },
     ]

@@ -11,16 +11,17 @@ import click
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import preprocessed_file2processed_noweather as processing_noweather
-import preprocessed_file2processed_weather as processing
+
+# import preprocessed_file2processed_noweather as processing_noweather
+# import preprocessed_file2processed_weather as processing
 import toml
 import xarray as xr
 
 from ccres_disdrometer_processing.__init__ import __version__, script_name
 from ccres_disdrometer_processing.logger import LogLevels, init_logger
 
-# from . import preprocessed_file2processed_noweather as processing_noweather
-# from . import preprocessed_file2processed_weather as processing
+from . import preprocessed_file2processed_noweather as processing_noweather
+from . import preprocessed_file2processed_weather as processing
 
 ISO_DATE_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 TIME_UNITS = "seconds since 2000-01-01T00:00:00.0Z"
