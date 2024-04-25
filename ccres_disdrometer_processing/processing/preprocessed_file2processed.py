@@ -11,17 +11,16 @@ import click
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-
-# import preprocessed_file2processed_noweather as processing_noweather
-# import preprocessed_file2processed_weather as processing
+import preprocessed_file2processed_noweather as processing_noweather
+import preprocessed_file2processed_weather as processing
 import toml
 import xarray as xr
 
 from ccres_disdrometer_processing.__init__ import __version__, script_name
 from ccres_disdrometer_processing.logger import LogLevels, init_logger
 
-from . import preprocessed_file2processed_noweather as processing_noweather
-from . import preprocessed_file2processed_weather as processing
+# from . import preprocessed_file2processed_noweather as processing_noweather
+# from . import preprocessed_file2processed_weather as processing
 
 ISO_DATE_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 TIME_UNITS = "seconds since 2000-01-01T00:00:00.0Z"
@@ -174,9 +173,7 @@ def store_outputs(ds, conf):
         dims=None,
         attrs=ds["weather_data_avail"].attrs,
     )
-    print(type(processed_ds.time.values[0]))
-    print(type(processed_ds.start_event.values[0]))
-    print(type(processed_ds.end_event.values[0]))
+
     processed_ds.to_netcdf(
         output_path,
         encoding={
@@ -204,7 +201,6 @@ def add_attributes(processed_ds, preprocessed_ds):
         "fallspeedFormula",
     ]
     for key in keys_from_preprocessed:
-        print(type(preprocessed_ds.attrs[key]))
         processed_ds.attrs[key] = preprocessed_ds.attrs[key]
 
     processed_ds.attrs[
@@ -227,7 +223,7 @@ def add_attributes(processed_ds, preprocessed_ds):
     processed_ds.attrs[
         "history"
     ] = f"created on {date_created} by {script_name}, v{__version__}"
-    processed_ds["date_created"] = date_created
+    processed_ds.attrs["date_created"] = date_created
     weather_str = ""
     if processed_ds.weather_data_avail.values[0]:
         weather_str = " and AMS"
@@ -385,7 +381,6 @@ if __name__ == "__main__":
         start, end = rain_event_selection(ds, conf)
 
         Ze_ds = extract_dcr_data(ds, conf)
-        # print(Ze_ds)
         qc_ds = compute_quality_checks(ds, conf, start, end)
         events_stats_ds = processing.compute_todays_events_stats_weather(
             Ze_ds, conf, qc_ds, start, end
@@ -440,7 +435,6 @@ if __name__ == "__main__":
         # processed_ds = store_outputs(ds, toml.load(conf))
 
         ds, files_provided = merge_preprocessed_data(yesterday, today, tomorrow)
-        print(files_provided)
         output_file = "./{}_{}_processed.nc".format(
             ds.attrs["station_name"],
             pd.to_datetime(ds.time.isel(time=len(ds.time) // 2).values).strftime(
@@ -453,8 +447,14 @@ if __name__ == "__main__":
         # print(processed_ds.attrs)
         print(processed_ds.dims)
         print(processed_ds.time.values[[0, -1]])
+        print(list(processed_ds.keys()))
         # print(list(processed_ds.keys()))
         # for key in processed_ds.keys():  # noqa
         #     print(key, processed_ds[key].dims)
         # if processed_ds[key].attrs == {}:
         #     print(key)
+        print(processed_ds.reg_slope.values, processed_ds.reg_intercept.values)
+        print(
+            processed_ds.nb_dz_computable_pts.values,
+            processed_ds.good_points_number.values,
+        )

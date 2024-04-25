@@ -9,6 +9,8 @@ import logging
 import numpy as np
 import pandas as pd
 import xarray as xr
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import root_mean_squared_error as rmse
 
 lgr = logging.getLogger(__name__)
 
@@ -218,16 +220,21 @@ def compute_todays_events_stats_noweather(ds, Ze_ds, conf, qc_ds, start, end):
         np.empty(n, dtype="datetime64[ns]"),
     )
 
+    slope, intercept, r2, rms_error = (
+        np.zeros(n),
+        np.zeros(n),
+        np.zeros(n),
+        np.zeros(n),
+    )
+
     event = 0
     for s, e in zip(start, end):
         if (
             pd.to_datetime(s).day
             == pd.to_datetime(ds.time.isel(time=len(qc_ds.time) // 2).values).day
         ):
-            print(s.dtype, e.dtype)
             start_event[event] = s
             end_event[event] = e
-            print(type(start_event[event]), type(end_event[event]))
             r = conf["instrument_parameters"]["DCR_DZ_RANGE"]
             dz_r = Ze_ds["Delta_Z"].sel(time=slice(s, e)).sel(range=r, method="nearest")
             dz_r_nonan = dz_r[np.isfinite(dz_r)]
@@ -260,6 +267,28 @@ def compute_todays_events_stats_noweather(ds, Ze_ds, conf, qc_ds, start, end):
             dZ_q3[event] = np.quantile(dz_r_good, 0.75)
             dZ_min[event] = np.min(dz_r_good)
             dZ_max[event] = np.max(dz_r_good)
+
+            # Stats for regression Zdcr/Zdd
+            z_dcr_nonan = (
+                Ze_ds["Zdcr"]
+                .sel(time=slice(s, e))
+                .sel(range=r, method="nearest")[np.isfinite(dz_r)]
+            )
+            z_dd_nonan = Ze_ds["Zdd"].sel(time=slice(s, e))[np.isfinite(dz_r)]
+            z_dcr_nonan = z_dcr_nonan.isel(
+                time=np.where(qc_ds_event["QC_overall"] == 1)[0]
+            ).values.reshape((-1, 1))
+            z_dd_nonan = z_dd_nonan.isel(
+                time=np.where(qc_ds_event["QC_overall"] == 1)[0]
+            ).values.reshape((-1, 1))
+
+            model = LinearRegression()
+            model.fit(z_dd_nonan, z_dcr_nonan)
+            z_dcr_hat = model.predict(z_dd_nonan)
+            slope[event] = model.coef_[0]
+            intercept[event] = model.intercept_
+            r2[event] = model.score(z_dd_nonan, z_dcr_nonan)
+            rms_error[event] = rmse(z_dcr_nonan, z_dcr_hat)
 
             event += 1
     stats_ds["start_event"] = xr.DataArray(
@@ -409,6 +438,42 @@ def compute_todays_events_stats_noweather(ds, Ze_ds, conf, qc_ds, start, end):
         attrs={
             "long_name": "maximum value of Delta Z for good timesteps",
             "unit": "dBZ",
+        },
+    )
+
+    stats_ds["reg_slope"] = xr.DataArray(
+        data=slope,
+        dims=["events"],
+        attrs={
+            "long_name": "slope of the linear regression Zdd/Zdcr for each event",
+            "unit": "1",
+        },
+    )
+    stats_ds["reg_intercept"] = xr.DataArray(
+        data=intercept,
+        dims=["events"],
+        attrs={
+            "long_name": "intercept of the linear regression Zdd/Zdcr for each event",
+            "unit": "1",
+            "comment": "expected to be related to the bias i.e. to mean Delta Z",
+        },
+    )
+
+    stats_ds["reg_score"] = xr.DataArray(
+        data=r2,
+        dims=["events"],
+        attrs={
+            "long_name": "R_squared of the linear regression Zdd/Zdcr for each event",
+            "unit": "1",
+        },
+    )
+
+    stats_ds["reg_rmse"] = xr.DataArray(
+        data=rms_error,
+        dims=["events"],
+        attrs={
+            "long_name": "RMSE of the linear regression Zdd/Zdcr for each event",
+            "unit": "1",
         },
     )
 
