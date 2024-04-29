@@ -90,7 +90,7 @@ def compute_quality_checks_noweather(ds, conf, start, end):
         attrs={
             "long_name": "Quality flag for minimum rainfall amount",
             "unit": "1",
-            "comment": f"threshold = {conf['thresholds']['MIN_RAINFALL_AMOUNT']:.0f} mm",  # noqa E501
+            "comment": f"Flag based on disdrometer data ; threshold = {conf['thresholds']['MIN_RAINFALL_AMOUNT']:.0f} mm",  # noqa E501
         },
     )
 
@@ -245,7 +245,7 @@ def compute_todays_events_stats_noweather(ds, Ze_ds, conf, qc_ds, start, end):
             rain_accumulation[event] = qc_ds["disdro_cp_since_event_begin"].loc[e]
             qf_rain[event] = qc_ds["QF_rainfall_amount"].loc[e]
             nb_dz_computable_pts[event] = len(dz_r_nonan)
-
+            # Qc passed ratios
             qc_ds_event = qc_ds.sel(time=slice(s, e)).loc[{"time": np.isfinite(dz_r)}]
             qc_pr_ratio[event] = np.sum(qc_ds_event["QC_pr"]) / len(qc_ds_event.time)
             qc_vdsd_t_ratio[event] = np.sum(qc_ds_event["QC_vdsd_t"]) / len(
@@ -277,10 +277,10 @@ def compute_todays_events_stats_noweather(ds, Ze_ds, conf, qc_ds, start, end):
             z_dd_nonan = Ze_ds["Zdd"].sel(time=slice(s, e))[np.isfinite(dz_r)]
             z_dcr_nonan = z_dcr_nonan.isel(
                 time=np.where(qc_ds_event["QC_overall"] == 1)[0]
-            ).values.reshape((-1, 1))
+            ).values.reshape((-1, 1))  # keep only QC passed timesteps for regression
             z_dd_nonan = z_dd_nonan.isel(
                 time=np.where(qc_ds_event["QC_overall"] == 1)[0]
-            ).values.reshape((-1, 1))
+            ).values.reshape((-1, 1))  # keep only QC passed timesteps for regression
 
             model = LinearRegression()
             model.fit(z_dd_nonan, z_dcr_nonan)
@@ -305,7 +305,10 @@ def compute_todays_events_stats_noweather(ds, Ze_ds, conf, qc_ds, start, end):
     stats_ds["rain_accumulation"] = xr.DataArray(
         data=rain_accumulation,
         dims=["events"],
-        attrs={"long_name": "ams rain accumulation over the whole event", "unit": "mm"},
+        attrs={
+            "long_name": "disdrometer rain accumulation over the whole event",
+            "unit": "mm",
+        },
     )
     stats_ds["QF_rain_accumulation"] = xr.DataArray(
         data=qf_rain.astype("i2"),
@@ -356,7 +359,7 @@ def compute_todays_events_stats_noweather(ds, Ze_ds, conf, qc_ds, start, end):
         },
     )
 
-    for key in ["QC_ta_ratio", "QC_wd_ratio", "QC_ws_ratio"]:
+    for key in ["QC_ta_ratio", "QC_ws_ratio", "QC_wd_ratio"]:
         stats_ds[key] = xr.DataArray(
             data=np.nan * np.zeros(len(stats_ds.events)),
             dims=["events"],
