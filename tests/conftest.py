@@ -299,6 +299,27 @@ def data_out_dir(data_dir):
                 "process": "granada_2024-03-09_rpg-parsivel_processed.nc",
             },
         },
+        # galati
+        {
+            "site": "galati",
+            "date": "2024-04-17",
+            "radar": "rpg-fmcw-94",
+            "radar-pid": "https://hdl.handle.net/21.12132/3.71dad3ea36ab476a",
+            "disdro": "parsivel",
+            "disdro-pid": "https://hdl.handle.net/21.12132/3.070929c5502747f6",
+            "meteo-available": False,
+            "meteo": "weather-station",
+            "meteo-pid": "",
+            "config_file": "config_galati_rpg-parsivel.toml",
+            "output": {
+                "preprocess": "galati_2024-04-17_rpg-parsivel_preprocessed.nc",
+                "preprocessing_ql": {
+                    "weather-overview": "galati_2024-04-17_rpg-parsivel_preproc-weather-overview.png",  # noqa E501
+                    "zh-overview": "galati_2024-04-17_rpg-parsivel_zh-preproc-overview.png",  # noqa E501
+                },
+                "process": "galati_2024-04-17_rpg-parsivel_processed.nc",
+            },
+        },
     ]
 )
 def test_data_preprocessing(request):
