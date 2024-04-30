@@ -22,7 +22,7 @@ def rain_event_selection_weather(ds, conf):  # with no constraint on cum for the
         {
             "time": np.where(
                 ds.ams_pr.values / 60
-                >= conf["instrument_parameters"]["RAIN_GAUGE_SAMPLING"]
+                >= 0  # conf["instrument_parameters"]["RAIN_GAUGE_SAMPLING"]
             )[0]
         }
     )  # noqa
@@ -344,7 +344,7 @@ def compute_todays_events_stats_weather(ds, Ze_ds, conf, qc_ds, start, end):
             dz_r_nonan = dz_r[np.isfinite(dz_r)]
             # General info about the event
             event_length[event] = (e - s) / np.timedelta64(1, "m") + 1
-            rain_accumulation[event] = qc_ds["ams_cum_since_event_begin"].loc[e]
+            rain_accumulation[event] = qc_ds["ams_cp_since_event_begin"].loc[e]
             qf_rain[event] = qc_ds["QF_rainfall_amount"].loc[e]
             qf_rg_dd[event] = qc_ds["QF_rg_dd"].loc[e]
             nb_dz_computable_pts[event] = len(dz_r_nonan)
@@ -604,23 +604,44 @@ def compute_quality_checks_weather_low_sampling(
 ):  # example of use : Lindenberg
     qc_ds = xr.Dataset(coords=dict(time=(["time"], ds.time.data)))
     # Get AMS data time sampling
-    ams_time_sampling = ds.time.isel({"time": np.where(np.isfinite(ds["ta"]))})
+    data_avail = ds.time.isel({"time": np.where(np.isfinite(ds["ta"]))[0]}).values
+    ams_time_sampling = (data_avail[1] - data_avail[0]) / np.timedelta64(1, "m")
     print("AMS time sampling : ", ams_time_sampling)
 
-    # CWork on a copy of the preprocessed dataset to build cp/QC
+    # Work on a copy of the preprocessed dataset to build cp/QC
     copy = ds.copy(deep=True)
-    for t in copy.time:
-        copy["ams_pr"].loc[t] = (
-            ds["ams_pr"]
-            .isel({"time": np.where(np.isfinite(copy["ams_pr"]))})
-            .sel(time=t, method="backfill")
-        )
+    for t in copy.time.values[0 : -int(ams_time_sampling + 1)]:
         for key in ["ta", "ws", "wd"]:
             copy[key].loc[t] = (
                 ds[key]
-                .isel({"time": np.where(np.isfinite(copy[key]))})
+                .isel({"time": np.where(np.isfinite(copy[key]))[0]})
                 .sel(time=t, method="nearest")
             )
+        # copy["ams_pr"].loc[t] = (
+        #     ds["ams_pr"]
+        #     .isel({"time": np.where(np.isfinite(copy["ams_pr"]))[0]})
+        #     .sel(time=t, method="backfill")
+        # )
+        next_valid_index_pr = (
+            ds["ams_pr"]
+            .isel({"time": np.where(np.isfinite(copy["ams_pr"]))[0]})
+            .time.searchsorted(t)
+        )
+        copy["ams_pr"].loc[t] = (
+            ds["ams_pr"]
+            .isel({"time": np.where(np.isfinite(copy["ams_pr"]))[0]})
+            .isel(time=next_valid_index_pr)
+        )
+        next_valid_index_cp = (
+            ds["ams_cp"]
+            .isel({"time": np.where(np.isfinite(copy["ams_cp"]))[0]})
+            .time.searchsorted(t)
+        )
+        copy["ams_cp"].loc[t] = (
+            ds["ams_pr"]
+            .isel({"time": np.where(np.isfinite(copy["ams_cp"]))[0]})
+            .isel(time=next_valid_index_cp)
+        )
 
     # flag the timesteps belonging to an event
     qc_ds["flag_event"] = xr.DataArray(
@@ -657,13 +678,11 @@ def compute_quality_checks_weather_low_sampling(
         qc_ds["flag_event"].loc[slice(s, e)] = True
 
         # qc_ds["ams_cp_since_event_begin"].loc[slice(s, e)] = (
-        #     1
-        #     / 60
-        #     * ams_time_sampling
-        #     * np.nancumsum(ds["ams_pr"].sel(time=slice(s, e)).values)
+        #     1 / 60 * np.nancumsum(copy["ams_pr"].sel(time=slice(s, e)).values)
         # )
         qc_ds["ams_cp_since_event_begin"].loc[slice(s, e)] = (
-            1 / 60 * np.nancumsum(copy["ams_pr"].sel(time=slice(s, e)).values)
+            copy["ams_cp"].sel(time=slice(s, e)).values
+            - copy["ams_cp"].sel(time=s).values[0]
         )
         qc_ds["disdro_cp_since_event_begin"].loc[slice(s, e)] = (
             1 / 60 * np.nancumsum(ds["disdro_pr"].sel(time=slice(s, e)).values)
@@ -699,7 +718,7 @@ def compute_quality_checks_weather_low_sampling(
         )
         for start_time_chunk, stop_time_chunk in zip(time_chunks[:-1], time_chunks[1:]):
             RR_chunk = (
-                ds["ams_pr"]
+                copy["ams_pr"]
                 .sel(
                     {
                         "time": slice(
@@ -736,23 +755,23 @@ def compute_quality_checks_weather_low_sampling(
 
     # Temperature QC
     qc_ds["QC_ta"] = xr.DataArray(
-        ds["ta"].values > conf["thresholds"]["MIN_TEMP"],
+        copy["ta"].values > conf["thresholds"]["MIN_TEMP"],
         dims="time",
         attrs={"long_name": "Quality check for air temperature"},
     )
     # Wind speed and direction QCs
     qc_ds["QC_ws"] = xr.DataArray(
-        ds["ws"].values < conf["thresholds"]["MAX_WS"],
+        copy["ws"].values < conf["thresholds"]["MAX_WS"],
         dims="time",
         attrs={"long_name": "Quality check for wind speed"},
     )
     main_wind_dir = (conf["instrument_parameters"]["DD_ORIENTATION"] + 90) % 360
     dd_angle = conf["thresholds"]["DD_ANGLE"]
     qc_ds["QC_wd"] = xr.DataArray(
-        (np.abs(ds["wd"] - main_wind_dir) < dd_angle)
-        | (np.abs(ds["wd"] - main_wind_dir) > 360 - dd_angle)
-        | (np.abs(ds["wd"] - (main_wind_dir + 180) % 360) < dd_angle)
-        | (np.abs(ds["wd"] - (main_wind_dir + 180) % 360) > 360 - dd_angle),
+        (np.abs(copy["wd"] - main_wind_dir) < dd_angle)
+        | (np.abs(copy["wd"] - main_wind_dir) > 360 - dd_angle)
+        | (np.abs(copy["wd"] - (main_wind_dir + 180) % 360) < dd_angle)
+        | (np.abs(copy["wd"] - (main_wind_dir + 180) % 360) > 360 - dd_angle),
         dims="time",
         attrs={"long_name": "Quality check for wind direction"},
     )  # data is between 0 and 360°

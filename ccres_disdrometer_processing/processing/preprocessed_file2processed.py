@@ -49,12 +49,13 @@ def merge_preprocessed_data(yesterday, today, tomorrow):
 
 
 def rain_event_selection(ds, conf):
-    if (
-        bool(ds["weather_data_avail"].values[0]) is False
-        or bool(ds["weather_data_avail"].values[0]) is True
-    ):
+    if bool(ds["weather_data_avail"].values[0]) is False:
+        lgr.info(
+            "Rain event selection (no rain gauge data, disdrometer precipitation is used)"  # noqa
+        )
         start, end = processing_noweather.rain_event_selection_noweather(ds, conf)
     else:
+        lgr.info("Rain event selection (from rain gauge data)")
         start, end = processing.rain_event_selection_weather(ds, conf)
     return start, end
 
@@ -125,25 +126,29 @@ def extract_dcr_data(ds, conf):
 
 
 def compute_quality_checks(ds, conf, start, end):
-    if (
-        bool(ds["weather_data_avail"].values[0]) is False
-        or bool(ds["weather_data_avail"].values[0]) is True
-    ):
+    if bool(ds["weather_data_avail"].values[0]) is False:
         qc_ds = processing_noweather.compute_quality_checks_noweather(
             ds, conf, start, end
         )
         lgr.info("Compute QC dataset (case without weather)")
     else:
-        qc_ds = processing.compute_quality_checks_weather(ds, conf, start, end)
+        data_avail = ds.time.isel({"time": np.where(np.isfinite(ds["ta"]))[0]}).values
+        ams_time_sampling = (data_avail[1] - data_avail[0]) / np.timedelta64(1, "m")
+        print(f"AMS time sampling : {ams_time_sampling:.0f}")
+        if ams_time_sampling < 1.5:
+            lgr.info("AMS data available at 1mn frequency")
+            qc_ds = processing.compute_quality_checks_weather(ds, conf, start, end)
+        else:
+            qc_ds = processing.compute_quality_checks_noweather(
+                ds, conf, start, end
+            )  # TODO : finish function compute_quality_checks_low_sampling to be able to use it here  # noqa
+            lgr.info("AMS data available at a frequency > 1mn : not used")
         lgr.info("Compute QC dataset (case with weather)")
     return qc_ds
 
 
 def compute_todays_events_stats(ds, Ze_ds, conf, qc_ds, start, end):
-    if (
-        bool(ds["weather_data_avail"].values[0]) is False
-        or bool(ds["weather_data_avail"].values[0]) is True
-    ):
+    if bool(ds["weather_data_avail"].values[0]) is False:
         stats_ds = processing_noweather.compute_todays_events_stats_noweather(
             ds, Ze_ds, conf, qc_ds, start, end
         )
@@ -310,10 +315,7 @@ def process(yesterday, today, tomorrow, conf, output_file, verbosity):
     conf = toml.load(conf)
     ds, files_provided = merge_preprocessed_data(yesterday, today, tomorrow)
 
-    if (
-        bool(ds["weather_data_avail"].values[0]) is False
-        or bool(ds["weather_data_avail"].values[0]) is True
-    ):
+    if bool(ds["weather_data_avail"].values[0]) is False:
         click.echo("Downgraded mode (no weather data is used)")
 
     start, end = rain_event_selection(ds, conf)
@@ -367,56 +369,114 @@ def process(yesterday, today, tomorrow, conf, output_file, verbosity):
 
 if __name__ == "__main__":
     test_weather = False
-    test_noweather = True
+    test_weather_downgraded = True
+    test_noweather = False
+
+    if test_weather_downgraded:
+        yesterday = None
+        today = "../../tests/data/outputs/lindenberg_2023-09-22_rpg-parsivel_preprocessed.nc"  # noqa E501
+        tomorrow = None  # noqa E501
+        conf = "../../tests/data/conf/config_lindenberg_rpg-parsivel.toml"
+
+        ds, files_provided = merge_preprocessed_data(yesterday, today, tomorrow)
+        output_file = "./{}_{}_processed_downgraded.nc".format(
+            ds.attrs["station_name"],
+            pd.to_datetime(ds.time.isel(time=len(ds.time) // 2).values).strftime(
+                "%Y-%m-%d"
+            ),
+        )
+        process(yesterday, today, tomorrow, conf, output_file, 1)
+        processed_ds = xr.open_dataset(output_file)
+        print(list(processed_ds.keys()))
 
     if test_weather:
         yesterday = "../../tests/data/outputs/palaiseau_2022-10-13_basta-parsivel-ws_preprocessed.nc"  # noqa E501
         today = "../../tests/data/outputs/palaiseau_2022-10-14_basta-parsivel-ws_preprocessed.nc"  # noqa E501
         tomorrow = "../../tests/data/outputs/palaiseau_2022-10-15_basta-parsivel-ws_preprocessed.nc"  # noqa E501
-        conf = toml.load(
-            "../../tests/data/conf/config_palaiseau_basta-parsivel-ws.toml"
-        )
+        conf = "../../tests/data/conf/config_palaiseau_basta-parsivel-ws.toml"
 
         ds, files_provided = merge_preprocessed_data(yesterday, today, tomorrow)
-        start, end = rain_event_selection(ds, conf)
-
-        Ze_ds = extract_dcr_data(ds, conf)
-        qc_ds = compute_quality_checks(ds, conf, start, end)
-        events_stats_ds = processing.compute_todays_events_stats_weather(
-            Ze_ds, conf, qc_ds, start, end
+        output_file = "./{}_{}_processed.nc".format(
+            ds.attrs["station_name"],
+            pd.to_datetime(ds.time.isel(time=len(ds.time) // 2).values).strftime(
+                "%Y-%m-%d"
+            ),
         )
+        process(yesterday, today, tomorrow, conf, output_file, 1)
+        processed_ds = xr.open_dataset(output_file)
+        QCwd = processed_ds.QC_wd.values
+        print(len(QCwd[np.where(QCwd == 1)]))
+        for key in list(processed_ds.keys()):
+            if "events" in processed_ds[key].dims:
+                print(key)
 
         plt.figure()
         plt.plot(
-            qc_ds.time,
-            qc_ds.ams_cum_since_event_begin.values,
+            processed_ds.time,
+            processed_ds.ams_cp_since_event_begin.values,
             color="blue",
             label="ams rainfall amount",
         )
         plt.plot(
-            qc_ds.time,
-            qc_ds.disdro_cum_since_event_begin.values,
+            processed_ds.time,
+            processed_ds.disdro_cp_since_event_begin.values,
             color="red",
             label="disdro rainfall amount",
+        )
+        plt.plot(
+            processed_ds.time,
+            processed_ds.QC_pr.values * 8,
+            color="green",
+            label="QC pr",
         )
         plt.legend()
         plt.savefig("./plot_diagnostic_preprocessing.png", dpi=300)
         plt.close()
 
-        plt.figure()
-        # plt.plot(qc_ds.time, qc_ds.QC_ta, label="ta", alpha=0.4)
-        # plt.plot(qc_ds.time, qc_ds.QC_ws, label="ws", alpha=0.4)
-        plt.plot(qc_ds.time, 225 + 10 * qc_ds.QC_wd, label="qc_wd", alpha=1)
-        # plt.plot(qc_ds.time, qc_ds.QC_pr, label="pr", alpha=0.4)
-        # plt.plot(qc_ds.time, qc_ds.QC_vdsd_t, label="vd", alpha=0.4)
-        # plt.plot(qc_ds.time, qc_ds.QC_overall, label="overall")
-        # plt.plot(ds.time, ds.ws)
-        plt.plot(ds.time, ds.wd)
-        plt.axhline(y=225, alpha=0.3)
-        plt.xlim(left=start[0], right=end[0])
-        plt.legend()
-        plt.savefig("./plot_diagnostic_preprocessing2.png", dpi=300)
-        plt.close()
+        # processed_ds = xr.open_dataset("./JOYCE_2021-12-04_processed.nc")
+
+        # ds, files_provided = merge_preprocessed_data(yesterday, today, tomorrow)
+        # start, end = rain_event_selection(ds, conf)
+
+        # Ze_ds = extract_dcr_data(ds, conf)
+        # qc_ds = compute_quality_checks(ds, conf, start, end)
+        # events_stats_ds = processing.compute_todays_events_stats_weather(
+        #     Ze_ds, conf, qc_ds, start, end
+        # )
+
+        # plot = False
+        # if plot:
+        #     plt.figure()
+        #     plt.plot(
+        #         qc_ds.time,
+        #         qc_ds.ams_cum_since_event_begin.values,
+        #         color="blue",
+        #         label="ams rainfall amount",
+        #     )
+        #     plt.plot(
+        #         qc_ds.time,
+        #         qc_ds.disdro_cum_since_event_begin.values,
+        #         color="red",
+        #         label="disdro rainfall amount",
+        #     )
+        #     plt.legend()
+        #     plt.savefig("./plot_diagnostic_preprocessing.png", dpi=300)
+        #     plt.close()
+
+        #     plt.figure()
+        #     # plt.plot(qc_ds.time, qc_ds.QC_ta, label="ta", alpha=0.4)
+        #     # plt.plot(qc_ds.time, qc_ds.QC_ws, label="ws", alpha=0.4)
+        #     plt.plot(qc_ds.time, 225 + 10 * qc_ds.QC_wd, label="qc_wd", alpha=1)
+        #     # plt.plot(qc_ds.time, qc_ds.QC_pr, label="pr", alpha=0.4)
+        #     # plt.plot(qc_ds.time, qc_ds.QC_vdsd_t, label="vd", alpha=0.4)
+        #     # plt.plot(qc_ds.time, qc_ds.QC_overall, label="overall")
+        #     # plt.plot(ds.time, ds.ws)
+        #     plt.plot(ds.time, ds.wd)
+        #     plt.axhline(y=225, alpha=0.3)
+        #     plt.xlim(left=start[0], right=end[0])
+        #     plt.legend()
+        #     plt.savefig("./plot_diagnostic_preprocessing2.png", dpi=300)
+        #     plt.close()
 
     if test_noweather:
         # compare to values in events csv files used for "Heraklion" plots @ JOYCE
@@ -448,13 +508,11 @@ if __name__ == "__main__":
         print(processed_ds.dims)
         print(processed_ds.time.values[[0, -1]])
         print(list(processed_ds.keys()))
-        # print(list(processed_ds.keys()))
         # for key in processed_ds.keys():  # noqa
         #     print(key, processed_ds[key].dims)
         # if processed_ds[key].attrs == {}:
         #     print(key)
-        print(processed_ds.reg_slope.values, processed_ds.reg_intercept.values)
-        print(
-            processed_ds.nb_dz_computable_pts.values,
-            processed_ds.good_points_number.values,
-        )
+        # print(
+        #     processed_ds.nb_dz_computable_pts.values,
+        #     processed_ds.good_points_number.values,
+        # )
