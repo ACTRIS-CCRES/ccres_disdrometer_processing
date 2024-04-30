@@ -139,7 +139,7 @@ def compute_quality_checks(ds, conf, start, end):
             lgr.info("AMS data available at 1mn frequency")
             qc_ds = processing.compute_quality_checks_weather(ds, conf, start, end)
         else:
-            qc_ds = processing.compute_quality_checks_noweather(
+            qc_ds = processing_noweather.compute_quality_checks_noweather(
                 ds, conf, start, end
             )  # TODO : finish function compute_quality_checks_low_sampling to be able to use it here  # noqa
             lgr.info("AMS data available at a frequency > 1mn : not used")
@@ -387,7 +387,8 @@ if __name__ == "__main__":
         )
         process(yesterday, today, tomorrow, conf, output_file, 1)
         processed_ds = xr.open_dataset(output_file)
-        print(list(processed_ds.keys()))
+        print(processed_ds["QC_overall"].attrs)
+        print(processed_ds.dims)
 
     if test_weather:
         yesterday = "../../tests/data/outputs/palaiseau_2022-10-13_basta-parsivel-ws_preprocessed.nc"  # noqa E501
