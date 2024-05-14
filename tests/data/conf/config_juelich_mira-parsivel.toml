@@ -19,7 +19,7 @@ RAIN_GAUGE_SAMPLING = 0 # mm ; default value ; no weather available at Juelich b
 DD_ORIENTATION = 0 # degree, from North ; fill with the real value
 
 [plot_parameters]
-DCR_PLOTTED_RANGES = [50, 150, 300] # fill with the good values
+DCR_PLOTTED_RANGES = [150, 200, 300] # fill with the good values
 
 [thresholds]
 MAX_RR = 3  # mm/h

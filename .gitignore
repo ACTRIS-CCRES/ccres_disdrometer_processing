@@ -133,3 +133,5 @@ explore_norunda_files.py
 disdro_lindenberg.py
 main.py
 *.png
+ccres_disdrometer_processing/processing/*.nc
+ccres_disdrometer_processing/processing/check_test_files.py

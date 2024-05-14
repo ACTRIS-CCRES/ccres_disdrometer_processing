@@ -337,7 +337,7 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file, verbo
     ] = "GCMD:Earth Remote Sensing Instruments, GCMD:Active Remote Sensing, GCMD:Profilers/Sounders, GCMD:Radar Sounders, GCMD:DOPPLER RADAR, GCMD:FMCWR, GCMD:VERTICAL POINTING RADAR, GCMD:In Situ/Laboratory Instruments, GCMD:Gauges, GCMD:RAIN GAUGES, GCMD:Recorders/Loggers, GCMD:DISDROMETERS, GCMD:Temperature/Humidity Sensors, GCMD:TEMPERATURE SENSORS, GCMD:HUMIDITY SENSORS, GCMD:Current/Wind Meters, GCMD:WIND MONITOR, GCMD:Pressure/Height Meters, GCMD:BAROMETERS"  # noqa
     final_data.attrs["instrument_vocabulary"] = "GCMD:GCMD Keywords"
     final_data.attrs["cdm_data_type"] = config["nc_meta"]["cdm_data_type"]  # empty
-    final_data.attrs["metadata_link"] = config["nc_meta"]["cdm_data_type"]  # empty
+    final_data.attrs["metadata_link"] = config["nc_meta"]["metadata_link"]  # empty
     # TODO: add the reference quotation to the code if an article is published
     final_data.attrs["references"] = ""
 

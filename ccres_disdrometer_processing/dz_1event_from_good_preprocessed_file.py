@@ -408,6 +408,10 @@ def dz_per_event(
 
         if filtered is True:
             dZdisdro = dZdisdro[MN : -MN - 1][filter][good[0]]
+            print("START TIME : ", start_time)
+            print("range : ", Z_dcr_200m.range.values)
+            print("DCR Z : ", Z_dcr_200m[MN : -MN - 1][filter][good[0]])
+            print("DD Z :", Z_disdro[MN : -MN - 1][filter][good[0]])
             dd_tr = disdro_tr[MN : -MN - 1, :, :]
             dd_tr = dd_tr[filter, :, :]
             INTEGRATED_DSD = dd_tr[good[0], :, :].sum(axis=(0, 2))
@@ -932,12 +936,18 @@ if __name__ == "__main__":
     # data_dir = "/home/ygrit/Documents/dcrcc_data/{}".format(station)
     data_dir = str(sys.argv[4])  # includes station name
     gate = int(sys.argv[5])
+    # lst_preprocessed_files = sorted(
+    #     glob.glob(
+    #         data_dir
+    #         + f"/disdrometer_preprocessed/*degrade_{disdro_type}_{radar_type}.nc"
+    #     )
+    # )[-350:]
     lst_preprocessed_files = sorted(
         glob.glob(
             data_dir
-            + f"/disdrometer_preprocessed/*degrade_{disdro_type}_{radar_type}.nc"
+            + f"/disdrometer_preprocessed/2021120*degrade_{disdro_type}_{radar_type}.nc"
         )
-    )[-350:]
+    )[:]
     print(f"{len(lst_preprocessed_files)} DD preprocessed files")
     print("start file : ", lst_preprocessed_files[0])
     print("end file : ", lst_preprocessed_files[-1])

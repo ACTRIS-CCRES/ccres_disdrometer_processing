@@ -14,12 +14,12 @@ MAX_ALTITUDE_RADAR_DATA = 2500
 
 [instrument_parameters]
 DD_SAMPLING_AREA = 0.0054 # m^2 ; Parsivel2 sampling surface
-DCR_DZ_RANGE = 150        # m ; height at which to compute Delta Z
+DCR_DZ_RANGE = 300        # m ; height at which to compute Delta Z
 RAIN_GAUGE_SAMPLING = 0.2 # mm
 DD_ORIENTATION = 0        # degree, from North
 
 [plot_parameters]
-DCR_PLOTTED_RANGES = [50, 150, 300]
+DCR_PLOTTED_RANGES = [100, 200, 300]
 
 [thresholds]
 MAX_RR = 3                   # mm/h

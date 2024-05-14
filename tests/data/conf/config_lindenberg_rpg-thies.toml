@@ -16,12 +16,12 @@ MAX_ALTITUDE_RADAR_DATA = 2500
 AU = 1009
 DD_SAMPLING_AREA_DEFAULT = 0.0046
 DD_SAMPLING_AREA = 0.0046414 # m^2 ; = SAMPLING_AREA_DEFAULT*AU/1000
-DCR_DZ_RANGE = 150 # m ; height at which to compute Delta Z ; fill with the real value
-RAIN_GAUGE_SAMPLING = 0.2 # mm ; fill with the real value
+DCR_DZ_RANGE = 120 # m ; height at which to compute Delta Z ; fill with the real value
+RAIN_GAUGE_SAMPLING = 0.01 # mm ; fill with the real value
 DD_ORIENTATION = 0 # degree, from North ; fill with the real value
 
 [plot_parameters]
-DCR_PLOTTED_RANGES = [50, 150, 300] # ; fill with the good values
+DCR_PLOTTED_RANGES = [120, 180, 240] # ; fill with the good values
 
 [thresholds]
 MAX_RR = 3  # mm/h
