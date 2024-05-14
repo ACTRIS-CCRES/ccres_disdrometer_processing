@@ -11,16 +11,17 @@ import click
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import preprocessed_file2processed_noweather as processing_noweather
-import preprocessed_file2processed_weather as processing
 import toml
 import xarray as xr
 
 from ccres_disdrometer_processing.__init__ import __version__, script_name
 from ccres_disdrometer_processing.logger import LogLevels, init_logger
-
-# from . import preprocessed_file2processed_noweather as processing_noweather
-# from . import preprocessed_file2processed_weather as processing
+from ccres_disdrometer_processing.processing import (
+    preprocessed_file2processed_noweather as processing_noweather,
+)
+from ccres_disdrometer_processing.processing import (
+    preprocessed_file2processed_weather as processing,
+)
 
 ISO_DATE_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 TIME_UNITS = "seconds since 2000-01-01T00:00:00.0Z"
@@ -141,7 +142,7 @@ def compute_quality_checks(ds, conf, start, end):
         else:
             qc_ds = processing_noweather.compute_quality_checks_noweather(
                 ds, conf, start, end
-            )  # TODO : finish function compute_quality_checks_low_sampling to be able to use it here  # noqa
+            )
             lgr.info("AMS data available at a frequency > 1mn : not used")
         lgr.info("Compute QC dataset (case with weather)")
     return qc_ds
@@ -159,35 +160,6 @@ def compute_todays_events_stats(ds, Ze_ds, conf, qc_ds, start, end):
         )
         lgr.info("Compute event stats dataset (case with weather)")
     return stats_ds
-
-
-def store_outputs(ds, conf):
-    start, end = rain_event_selection(ds, conf)
-    Ze_ds = extract_dcr_data(ds, conf)
-    qc_ds = compute_quality_checks(ds, conf, start, end)
-    stats_ds = compute_todays_events_stats(ds, Ze_ds, conf, qc_ds, start, end)
-    processed_ds = xr.merge([Ze_ds, qc_ds, stats_ds], combine_attrs="no_conflicts")
-    output_path = "./{}_{}_processed.nc".format(
-        ds.attrs["station_name"],
-        pd.to_datetime(ds.time.isel(time=len(qc_ds.time) // 2).values).strftime(
-            "%Y-%m-%d"
-        ),
-    )
-    processed_ds["weather_data_avail"] = xr.DataArray(
-        ds["weather_data_avail"].values[0].astype("i2"),
-        dims=None,
-        attrs=ds["weather_data_avail"].attrs,
-    )
-
-    processed_ds.to_netcdf(
-        output_path,
-        encoding={
-            "time": {"units": TIME_UNITS, "calendar": TIME_CALENDAR},
-            "start_event": {"units": TIME_UNITS, "calendar": TIME_CALENDAR},
-            "end_event": {"units": TIME_UNITS, "calendar": TIME_CALENDAR},
-        },
-    )
-    return processed_ds
 
 
 def add_attributes(processed_ds, preprocessed_ds):
@@ -491,9 +463,6 @@ if __name__ == "__main__":
             "../../tests/data/outputs/juelich_2021-12-05_mira-parsivel_preprocessed.nc"
         )
         conf = "../../tests/data/conf/config_juelich_mira-parsivel.toml"
-
-        # ds, f = merge_preprocessed_data(yesterday, today, tomorrow)
-        # processed_ds = store_outputs(ds, toml.load(conf))
 
         ds, files_provided = merge_preprocessed_data(yesterday, today, tomorrow)
         output_file = "./{}_{}_processed.nc".format(
