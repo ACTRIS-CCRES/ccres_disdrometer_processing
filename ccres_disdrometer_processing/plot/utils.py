@@ -274,3 +274,52 @@ def get_min_max_limits(zh_dd, zh_gate):
         return lim_min, lim_max
     else:
         return 0, 10
+
+
+def linear_reg_scipy(x, y):
+    """Do linear regression.
+
+    Parameters
+    ----------
+    x: np.array()
+        var 1 (if time -> int or float)
+    y: np.array()
+        var 2
+
+    Returns
+    -------
+    slope: float
+        Slope of the regression line.
+    intercept: float
+        Intercept of the regression line.
+    r_value: float
+        Correlation coefficient.
+    p_value: float
+        The p-value for a hypothesis test whose null hypothesis is that the slope
+        is zero, using Wald Test with t-distribution of the test statistic.
+    std_err: float
+        Standard error of the estimated slope (gradient), under the assumption of
+        residual normality.
+    """
+    slope, intercept, r_value, p_value, std_err = stats.linregress(x, y)
+    return slope, intercept, r_value, p_value, std_err
+
+
+def read_and_concatenante_preprocessed_ds(
+    ds_pro: xr.Dataset, mask_preprocessing_file: str
+):
+    """Read and concatenate preprocessed file.
+
+    :param ds_pro: _description_
+    :type ds_pro: xr.Dataset
+    :param mask_preprocessing_file: _description_
+    :type mask_preprocessing_file: str
+    :return: _description_
+    :rtype: _type_
+    """
+    dates = pd.to_datetime(np.unique(ds_pro["time"].dt.floor("D").values))
+    tmp_ds = []
+    for date in dates:
+        tmp_ds.append(read_nc(mask_preprocessing_file.format(date)))
+    ds_prepro = xr.concat(tmp_ds, dim="time")
+    return ds_prepro
