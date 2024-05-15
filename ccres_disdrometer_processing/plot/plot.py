@@ -501,7 +501,8 @@ def plot_preprocessed_ql_overview_zh(
     lon = data.attrs["geospatial_lon_max"]
     alt = data.attrs["geospatial_vertical_max"]
     alt_gate = conf["instrument_parameters"]["DCR_DZ_RANGE"]
-    selected_alt = conf["plot_parameters"]["DCR_PLOTTED_RANGES"]
+    # TODO: properly
+    selected_alt = [conf["plot_parameters"]["DCR_DZ_RANGE"]]
 
     fig, axes = plt.subplot_mosaic(
         [["top", "top"], ["left", "right"]], constrained_layout=True, figsize=(16, 10)
@@ -890,7 +891,8 @@ def plot_processed_ql_detailled(
     version : str
         Version of the code.
     """
-    selected_alt = conf["plot_parameters"]["DCR_PLOTTED_RANGES"]
+    # TODO: properly
+    selected_alt = [conf["plot_parameters"]["DCR_DZ_RANGE"]]
 
     if ds_pro.events.size != 0:
         for n, event in enumerate(ds_pro["events"]):  # noqa B007
