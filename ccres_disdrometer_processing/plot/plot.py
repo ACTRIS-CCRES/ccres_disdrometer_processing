@@ -500,9 +500,7 @@ def plot_preprocessed_ql_overview_zh(
     lat = data.attrs["geospatial_lat_max"]
     lon = data.attrs["geospatial_lon_max"]
     alt = data.attrs["geospatial_vertical_max"]
-    alt_gate = conf["instrument_parameters"]["DCR_DZ_RANGE"]
-    # TODO: properly
-    selected_alt = [conf["plot_parameters"]["DCR_DZ_RANGE"]]
+    selected_alt = conf["plot_parameters"]["DCR_DZ_RANGE"]
 
     fig, axes = plt.subplot_mosaic(
         [["top", "top"], ["left", "right"]], constrained_layout=True, figsize=(16, 10)
@@ -513,14 +511,13 @@ def plot_preprocessed_ql_overview_zh(
     ZH_DD = data["Zdlog_vfov_modv_tm"].sel(
         radar_frequencies=data["radar_frequency"].values, method="nearest"
     )
-    for r in selected_alt:
-        ZH_DCR = data["Zdcr"].sel(range=r, method="nearest")
-        axes["top"].plot(
-            data.time,
-            ZH_DCR,
-            label=r"$Z_{H}$" + f" from DCR @ {ZH_DCR.range.values:.0f}m",
-            lw=2,
-        )
+    ZH_DCR = data["Zdcr"].sel(range=selected_alt, method="nearest")
+    axes["top"].plot(
+        data.time,
+        ZH_DCR,
+        label=r"$Z_{H}$" + f" from DCR @ {ZH_DCR.range.values:.0f}m",
+        lw=2,
+    )
     axes["top"].plot(
         data.time, ZH_DD, color="k", label=r"$Z_{H}$ modeled from DD", lw=2
     )
@@ -542,7 +539,7 @@ def plot_preprocessed_ql_overview_zh(
     # 1 - PDF of Zh differences between DCR and disdrometer
     # ------------------------------------------------------------------------
     # Plot Delta Z pdf at a defined range (given in a configuration file)
-    ZH_gate = data["Zdcr"].sel(range=alt_gate, method="nearest")
+    ZH_gate = data["Zdcr"].sel(range=selected_alt, method="nearest")
     true_alt_zh_gate = ZH_gate.range.values
     delta_ZH = ZH_gate.values - ZH_DD.values
     ind = np.where(np.isfinite(delta_ZH))[0]
@@ -589,7 +586,7 @@ def plot_preprocessed_ql_overview_zh(
         r"PDF of differences : $Z_{H}$ from "
         + dcr_source
         + " @ "
-        + str(alt_gate)
+        + f"{ZH_DCR.range.values:.0f}m"
         + "m - "
         + r"$Z_{H}$"
         + " from "
@@ -690,7 +687,7 @@ def plot_processed_ql_summary(
     version : str
         Version of the code.
     """
-    selected_alt = conf["plot_parameters"]["DCR_PLOTTED_RANGES"]
+    selected_alt = conf["plot_parameters"]["DCR_DZ_RANGE"]
 
     if ds_pro.events.size != 0:
         for n, event in enumerate(ds_pro["events"]):  # noqa B007
@@ -706,17 +703,21 @@ def plot_processed_ql_summary(
             # 0 - PDF
             # ------------------------------------------------------------
             ax02 = axes[0].twinx()
-            mask_valid = np.isfinite(subdata["Delta_Z"][:, selected_alt]) & (
-                subdata["QC_overall"] == 1
+            mask_valid = np.isfinite(
+                subdata["Delta_Z"].sel(range=selected_alt, method="nearest")
+            ) & (subdata["QC_overall"] == 1)
+            delta_Z = (
+                subdata["Delta_Z"]
+                .sel(range=selected_alt, method="nearest")[mask_valid]
+                .values
             )
-            delta_Z = subdata["Delta_Z"][:, selected_alt][mask_valid].values
             vlim = np.ceil(np.max(np.abs([delta_Z.min(), delta_Z.max()])))
             bins = np.arange(-vlim, vlim + 0.1, 1)
             axes[0].hist(
                 delta_Z,
                 bins=bins,
                 weights=(np.ones(delta_Z.size) / delta_Z.size) * 100,
-                label=f"DCR range gate at {subdata['Delta_Z']['range'][selected_alt].values}m",  # noqa E501
+                label=f"DCR range gate at {delta_Z.range.values:.0f}m",
             )
             sigma = np.nanstd(delta_Z)
             ymin, ymax = axes[0].get_ylim()
@@ -749,21 +750,33 @@ def plot_processed_ql_summary(
             # 1 - scatter & fit
             # ------------------------------------------------------------
             mask_Z_valid = (
-                np.isfinite(subdata["Zdcr"][:, selected_alt])
+                np.isfinite(subdata["Zdcr"].sel(range=selected_alt, method="nearest"))
                 & np.isfinite(subdata["Zdd"])
-                & np.isfinite(subdata["Delta_Z"][:, selected_alt])
+                & np.isfinite(
+                    subdata["Delta_Z"].sel(range=selected_alt, method="nearest")
+                )
                 & (subdata["QC_overall"] == 1)
             )
             mask_Z_false = (
-                np.isfinite(subdata["Zdcr"][:, selected_alt])
+                np.isfinite(subdata["Zdcr"].sel(range=selected_alt, method="nearest"))
                 & np.isfinite(subdata["Zdd"])
-                & np.isfinite(subdata["Delta_Z"][:, selected_alt])
+                & np.isfinite(
+                    subdata["Delta_Z"].sel(range=selected_alt, method="nearest")
+                )
                 & (subdata["QC_overall"] == 0)
             )
 
-            Z_dcr_valid = subdata["Zdcr"][:, selected_alt][mask_Z_valid].values
+            Z_dcr_valid = (
+                subdata["Zdcr"]
+                .sel(range=selected_alt, method="nearest")[mask_Z_valid]
+                .values
+            )
             Z_dd_valid = subdata["Zdd"][mask_Z_valid].values
-            Z_dcr_false = subdata["Zdcr"][:, selected_alt][mask_Z_false].values
+            Z_dcr_false = (
+                subdata["Zdcr"]
+                .sel(range=selected_alt, method="nearest")[mask_Z_false]
+                .values
+            )
             Z_dd_false = subdata["Zdd"][mask_Z_false].values
 
             axes[1].scatter(Z_dd_valid, Z_dcr_valid, s=30, edgecolor=None)
@@ -923,15 +936,21 @@ def plot_processed_ql_detailled(
             # 1 - PDF
             # ------------------------------------------------------------
             ax12 = axes[0].twinx()
-            mask = np.isfinite(subdata_pro["Delta_Z"][:, selected_alt])
-            delta_Z = subdata_pro["Delta_Z"][:, selected_alt][mask].values
+            mask = np.isfinite(
+                subdata_pro["Delta_Z"].sel(range=selected_alt, method="nearest")
+            )
+            delta_Z = (
+                subdata_pro["Delta_Z"]
+                .sel(range=selected_alt, method="nearest")[mask]
+                .values
+            )
             vlim = np.ceil(np.max(np.abs([delta_Z.min(), delta_Z.max()])))
             bins = np.arange(-vlim, vlim + 0.1, 1)
             ax1.hist(
                 delta_Z,
                 bins=bins,
                 weights=(np.ones(delta_Z.size) / delta_Z.size) * 100,
-                label=f"range gate at {subdata_pro['Delta_Z']['range'][selected_alt].values}m",  # noqa B007
+                label=f"range gate at {delta_Z.range.values:.0f}m",
             )
             ax1.yaxis.set_major_locator(MultipleLocator(5))
             ax1.yaxis.set_minor_locator(MultipleLocator(1))
@@ -964,10 +983,14 @@ def plot_processed_ql_detailled(
 
             # 2 - scatter & fit
             # ------------------------------------------------------------
-            mask_Z = np.isfinite(subdata_pro["Zdcr"][:, selected_alt]) & np.isfinite(
-                subdata_pro["Zdd"]
+            mask_Z = np.isfinite(
+                subdata_pro["Zdcr"].sel(range=selected_alt, method="nearest")
+            ) & np.isfinite(subdata_pro["Zdd"])
+            Z_dcr = (
+                subdata_pro["Zdcr"]
+                .sel(range=selected_alt, method="nearest")[mask_Z]
+                .values
             )
-            Z_dcr = subdata_pro["Zdcr"][:, selected_alt][mask_Z].values
             Z_dd = subdata_pro["Zdd"][mask_Z].values
             ax2.scatter(Z_dd, Z_dcr, s=30, edgecolor=None)
             zmin, zmax = (
@@ -1011,7 +1034,7 @@ def plot_processed_ql_detailled(
             # ------------------------------------------------------------
             ax4.plot(
                 subdata_pro.time,
-                subdata_pro.Zdcr[:, selected_alt],
+                subdata_pro.Zdcr.sel(range=selected_alt, method="nearest"),
                 lw=2,
                 color="g",
                 label="$Z_{DCR}$",
@@ -1033,7 +1056,7 @@ def plot_processed_ql_detailled(
             # ------------------------------------------------------------
             ax5.scatter(
                 subdata_pro.time,
-                subdata_pro.Delta_Z[:, selected_alt],
+                subdata_pro.Delta_Z.sel(range=selected_alt, method="nearest"),
                 s=30,
                 color="DimGray",
             )
