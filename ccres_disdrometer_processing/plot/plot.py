@@ -905,7 +905,7 @@ def plot_processed_ql_detailled(
         Version of the code.
     """
     # TODO: properly
-    selected_alt = [conf["plot_parameters"]["DCR_DZ_RANGE"]]
+    selected_alt = conf["plot_parameters"]["DCR_DZ_RANGE"]
 
     if ds_pro.events.size != 0:
         for n, event in enumerate(ds_pro["events"]):  # noqa B007
