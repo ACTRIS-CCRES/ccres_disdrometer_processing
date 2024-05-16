@@ -263,15 +263,18 @@ def processed_ql(
     ds_pro = utils.read_nc(file)
 
     # 2b - get preprocessed data
-    ds_prepro = utils.read_and_concatenante_preprocessed_ds(
-        ds_pro, mask_preprocessing_file
-    )
+    if ds_pro.events.size != 0:
+        ds_prepro = utils.read_and_concatenante_preprocessed_ds(
+            ds_pro, mask_preprocessing_file
+        )
 
-    # 3 - Plot
-    plot.plot_processed_ql_summary(ds_pro, mask_output_ql_summary, config, __version__)
-    plot.plot_processed_ql_detailled(
-        ds_pro, ds_prepro, mask_output_ql_detailled, config, __version__
-    )
+        # 3 - Plot
+        plot.plot_processed_ql_summary(
+            ds_pro, mask_output_ql_summary, config, __version__
+        )
+        plot.plot_processed_ql_detailled(
+            ds_pro, ds_prepro, mask_output_ql_detailled, config, __version__
+        )
 
     sys.exit(0)
 

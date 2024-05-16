@@ -317,7 +317,15 @@ def read_and_concatenante_preprocessed_ds(
     :return: _description_
     :rtype: _type_
     """
-    dates = pd.to_datetime(np.unique(ds_pro["time"].dt.floor("D").values))
+    dates = pd.date_range(
+        pd.to_datetime(
+            (ds_pro.start_event[0] - np.timedelta64(1, "h")).dt.floor("D").values
+        ),
+        pd.to_datetime(
+            (ds_pro.end_event[-1] + np.timedelta64(1, "h")).dt.floor("D").values
+        ),
+        freq="1D",
+    )
     tmp_ds = []
     for date in dates:
         tmp_ds.append(read_nc(mask_preprocessing_file.format(date)))
