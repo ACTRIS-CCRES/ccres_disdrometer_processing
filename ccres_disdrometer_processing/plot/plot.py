@@ -1070,7 +1070,7 @@ def plot_processed_ql_detailled(
             # ------------------------------------------------------------
             ax6.fill_between(
                 x=subdata_pro.time,
-                y1=subdata_pro.disdro_cum_since_event_begin,
+                y1=subdata_pro.disdro_cp_since_event_begin,
             )
             ax6.hlines(3, date_start, date_end, lw=1, color="k")
             ax6.set_ylabel("DD acc.\n[mm]", fontsize=asize)
