@@ -313,8 +313,9 @@ def process(yesterday, today, tomorrow, conf, output_file, verbosity):
             str_files_provided += daily_files[i]
     processed_ds.attrs["files_provided"] = str_files_provided
     processed_ds.attrs["number_files_provided"] = np.sum(np.array(files_provided) * 1)
+
+    processed_ds.rename_dims({"events": "event"})  # rename dimension
     # save to netCDF
-    processed_ds.rename_dims({"events": "event"})
     processed_ds.to_netcdf(
         output_file,
         encoding={

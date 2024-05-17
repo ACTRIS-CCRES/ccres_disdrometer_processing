@@ -193,7 +193,9 @@ def compute_todays_events_stats_noweather(ds, Ze_ds, conf, qc_ds, start, end):
     # n is the number of events to store in the dataset
     # i.e. the number of events which begin at day D
 
-    stats_ds = xr.Dataset(coords=dict(events=(["events"], np.linspace(1, n, n))))
+    stats_ds = xr.Dataset(
+        coords=dict(events=(["events"], np.linspace(1, n, n, dtype="int32")))
+    )
 
     dZ_mean, dZ_med, dZ_q1, dZ_q3, dZ_min, dZ_max = (
         np.zeros(n),
@@ -298,7 +300,7 @@ def compute_todays_events_stats_noweather(ds, Ze_ds, conf, qc_ds, start, end):
         data=end_event, dims=["events"], attrs={"long_name": "event end epoch"}
     )
     stats_ds["event_length"] = xr.DataArray(
-        data=event_length,
+        data=event_length.astype("i4"),
         dims=["events"],
         attrs={"long_name": "event duration", "unit": "mn"},
     )
@@ -322,7 +324,7 @@ def compute_todays_events_stats_noweather(ds, Ze_ds, conf, qc_ds, start, end):
     )
 
     stats_ds["QF_rg_dd_event"] = xr.DataArray(
-        data=QC_FILL_VALUE * np.zeros(len(stats_ds.events)),
+        data=QC_FILL_VALUE * np.zeros(len(stats_ds.events)).astype("i2"),
         dims=["events"],
         attrs={
             "long_name": "Flag on deviation between rain gauge and disdrometer precipitation rate at the end of an event",  # noqa
@@ -332,7 +334,7 @@ def compute_todays_events_stats_noweather(ds, Ze_ds, conf, qc_ds, start, end):
         },
     )
     stats_ds["nb_dz_computable_pts"] = xr.DataArray(
-        data=nb_dz_computable_pts,
+        data=nb_dz_computable_pts.astype("i4"),
         dims=["events"],
         attrs={
             "long_name": "number of timesteps for which Delta Z can be computed",
@@ -387,7 +389,7 @@ def compute_todays_events_stats_noweather(ds, Ze_ds, conf, qc_ds, start, end):
         },
     )
     stats_ds["good_points_number"] = xr.DataArray(
-        data=nb_good_points,
+        data=nb_good_points.astype("i4"),
         dims=["events"],
         attrs={
             "long_name": "number of timesteps where all checks are good",
