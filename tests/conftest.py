@@ -363,7 +363,7 @@ def data_out_dir(data_dir):
             "site": "granada",
             "date": "2024-03-09",
             "radar": "rpg-fmcw-94",
-            "radar-pid": "https://hdl.handle.net/21.12132/3.1e67e6c234d84b19",
+            "radar-pid": "https://hdl.handle.net/21.12132/3.20570e63f7b1496c",
             "disdro": "parsivel",
             "disdro-pid": "https://hdl.handle.net/21.12132/3.8f31e16545d14ff3",
             "meteo-available": False,
