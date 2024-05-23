@@ -11,33 +11,6 @@ from ccres_disdrometer_processing.processing import (
     extract_data_for_dynamic_plots as extract,
 )
 
-event_stats = [
-    "start_event",
-    "end_event",
-    "event_length",
-    "rain_accumulation",
-    "QF_rain_accumulation",
-    "QF_rg_dd_event",
-    "nb_dz_computable_pts",
-    "QC_vdsd_t_ratio",
-    "QC_pr_ratio",
-    "QC_ta_ratio",
-    "QC_ws_ratio",
-    "QC_wd_ratio",
-    "QC_overall_ratio",
-    "good_points_number",
-    "dZ_mean",
-    "dZ_med",
-    "dZ_q1",
-    "dZ_q3",
-    "dZ_min",
-    "dZ_max",
-    "reg_slope",
-    "reg_intercept",
-    "reg_score",
-    "reg_rmse",
-]
-
 MIN_TIMESTEPS = 50  # minimum number of good timesteps to consider the event statistics are robust enough for being plotted in the monitoring timeseries  # noqa
 
 
@@ -51,11 +24,12 @@ def monitoring_timeseries(
     files = sorted(glob.glob(folder))
     print("number of files : ", len(files))
     f0 = xr.open_dataset(files[0])
-    print(f0[event_stats].dims)
+    event_stats = []
+    for key in list(f0.keys()):
+        if "events" in f0[key].dims:
+            event_stats.append(key)
+    # print(event_stats)
     ds = xr.concat([xr.open_dataset(file)[event_stats] for file in files], dim="events")
-    print(ds.dims)
-    print(ds.events.values)
-    print(ds.dZ_max.values)
 
     fig, ax = plt.subplots(figsize=((20, 6)))
     ax.axhline(y=0, color="blue")
