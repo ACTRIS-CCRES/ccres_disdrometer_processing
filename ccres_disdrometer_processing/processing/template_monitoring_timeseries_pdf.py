@@ -1,5 +1,6 @@
 import glob
 
+import extract_data_for_dynamic_plots as extract
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
@@ -220,10 +221,74 @@ def monitoring_timeseries(
         fontsize=14,
         ha="center",
     )
-
-    plt.savefig("plot_test_template_timeseries.png", dpi=400)
     plt.close()
 
+    return fig, ax
+
+
+def timestep_pdf(
+    folder,
+    conf,
+):
+    processed_ds0 = xr.open_dataset(sorted(glob.glob(folder))[0])
+    fig, ax = plt.subplots()
+    ax.set_xlim(left=-30, right=30)
+
+    # gather and plot "good" timesteps
+    timestep_df = extract.extract_1mn_events_data(folder, conf)
+    ax.hist(
+        timestep_df["Delta_Z"],
+        color="green",
+        alpha=0.5,
+        bins=np.arange(-30, 31, 1),
+        density=True,
+    )
+
+    # plot vertical lines for mean/median
+    median_dz = np.nanmedian(timestep_df["Delta_Z"])
+    mean_dz = np.nanmean(timestep_df["Delta_Z"])
+    stdev_dz = np.nanstd(timestep_df["Delta_Z"])
+    ax.axvline(
+        x=median_dz,
+        color="red",
+        label=rf"Median $\Delta Z$ = {median_dz:.2f} dBZ",
+    )
+    ax.axvline(
+        x=mean_dz,
+        color="blue",
+        label=rf"Mean $\Delta Z$ = {mean_dz:.2f} dBZ",
+    )
+    ax.axvline(
+        x=mean_dz + stdev_dz,
+        color="blue",
+        alpha=0.5,
+        linestyle="--",
+        label=rf"Mean $\Delta Z \pm \sigma_{{\Delta Z}}$, $\sigma_{{\Delta Z}}$ = {stdev_dz:.2f} dBZ",  # noqa
+    )
+    ax.axvline(
+        x=mean_dz - stdev_dz,
+        color="blue",
+        alpha=0.5,
+        linestyle="--",
+    )
+
+    ax.grid()
+    ax.set_xlabel(r"$Z_{radar} - Z_{disdrometer}$ [dBZ]")
+    ax.set_ylabel("% of values")
+    ax.set_ylim(top=0.25)
+    ax.set_yticklabels(np.round(100 * np.array(ax.get_yticks()), decimals=0))
+    ax.legend()
+    ax.set_title(
+        "PDF of $\Delta Z$ timestep by timestep \n"
+        + "Studied period : {} - {} \n".format(
+            timestep_df.index[0].strftime("%Y/%m"),
+            timestep_df.index[-1].strftime("%Y/%m"),
+        )
+        + f"Disdrometer : {processed_ds0.disdrometer_source}, DCR : {processed_ds0.radar_source}",  # noqa
+        fontsize=11,
+        fontweight="semibold",
+    )
+    plt.close()
     return fig, ax
 
 
@@ -233,4 +298,7 @@ if __name__ == "__main__":
     conf = toml.load(
         "/home/ygrit/disdro_processing/ccres_disdrometer_processing/tests/data/inputs/config_files/conf_stations/conf_juelich_mira-parsivel.toml"
     )
-    monitoring_timeseries(folder, conf)
+    fig, ax = monitoring_timeseries(folder, conf)
+    fig.savefig("./plot_test_template_timeseries.png", dpi=400)
+    fig, ax = timestep_pdf(folder, conf)
+    fig.savefig("./plot_test_template_pdf.png", dpi=400)
