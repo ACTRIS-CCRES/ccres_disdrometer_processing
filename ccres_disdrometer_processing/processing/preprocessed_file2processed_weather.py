@@ -9,12 +9,15 @@ import logging
 import numpy as np
 import pandas as pd
 import xarray as xr
-from sklearn.linear_model import LinearRegression
-from sklearn.metrics import root_mean_squared_error as rmse
+from scipy.stats import linregress
 
 lgr = logging.getLogger(__name__)
 
 QC_FILL_VALUE = -9
+
+
+def rmse(y, y_hat):  # rmse func to remove dependency from sklearn rmse
+    return np.sqrt(((y - y_hat) ** 2).mean())
 
 
 def rain_event_selection_weather(ds, conf):  # with no constraint on cum for the moment
@@ -390,12 +393,13 @@ def compute_todays_events_stats_weather(ds, Ze_ds, conf, qc_ds, start, end):
                 time=np.where(qc_ds_event["QC_overall"] == 1)[0]
             ).values.reshape((-1, 1))  # keep only QC passed timesteps for regression
 
-            model = LinearRegression()
-            model.fit(z_dd_nonan, z_dcr_nonan)
-            z_dcr_hat = model.predict(z_dd_nonan)
-            slope[event] = model.coef_[0]
-            intercept[event] = model.intercept_
-            r2[event] = model.score(z_dd_nonan, z_dcr_nonan)
+            slope_event, intercept_event, r_event, p, se = linregress(
+                z_dd_nonan.flatten(), z_dcr_nonan.flatten()
+            )
+            z_dcr_hat = intercept_event + slope_event * z_dd_nonan
+            slope[event] = slope_event
+            intercept[event] = intercept_event
+            r2[event] = r_event**2
             rms_error[event] = rmse(z_dcr_nonan, z_dcr_hat)
 
             event += 1

@@ -342,8 +342,8 @@ def process(yesterday, today, tomorrow, conf, output_file, verbosity):
 
 if __name__ == "__main__":
     test_weather = False
-    test_weather_downgraded = True
-    test_noweather = False
+    test_weather_downgraded = False
+    test_noweather = True
 
     if test_weather_downgraded:
         yesterday = None
@@ -466,7 +466,7 @@ if __name__ == "__main__":
         conf = "../../tests/data/conf/config_juelich_mira-parsivel.toml"
 
         ds, files_provided = merge_preprocessed_data(yesterday, today, tomorrow)
-        output_file = "./{}_{}_processed.nc".format(
+        output_file = "./{}_{}_processed_scipy.nc".format(
             ds.attrs["station_name"],
             pd.to_datetime(ds.time.isel(time=len(ds.time) // 2).values).strftime(
                 "%Y-%m-%d"
@@ -474,7 +474,7 @@ if __name__ == "__main__":
         )
         process(yesterday, today, tomorrow, conf, output_file, 1)
 
-        processed_ds = xr.open_dataset("./JOYCE_2021-12-04_processed.nc")
+        processed_ds = xr.open_dataset("./JOYCE_2021-12-04_processed_scipy.nc")
         # print(processed_ds.attrs)
         print(processed_ds.dims)
         print(processed_ds.time.values[[0, -1]])
