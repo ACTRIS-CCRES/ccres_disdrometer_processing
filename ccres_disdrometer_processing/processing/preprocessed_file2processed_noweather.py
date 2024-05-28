@@ -9,12 +9,15 @@ import logging
 import numpy as np
 import pandas as pd
 import xarray as xr
-from sklearn.linear_model import LinearRegression
-from sklearn.metrics import root_mean_squared_error as rmse
+from scipy.stats import linregress
 
 lgr = logging.getLogger(__name__)
 
 QC_FILL_VALUE = -9
+
+
+def rmse(y, y_hat):  # rmse func to remove dependency from sklearn rmse
+    return np.sqrt(((y - y_hat) ** 2).mean())
 
 
 def rain_event_selection_noweather(
@@ -193,7 +196,9 @@ def compute_todays_events_stats_noweather(ds, Ze_ds, conf, qc_ds, start, end):
     # n is the number of events to store in the dataset
     # i.e. the number of events which begin at day D
 
-    stats_ds = xr.Dataset(coords=dict(events=(["events"], np.linspace(1, n, n))))
+    stats_ds = xr.Dataset(
+        coords=dict(events=(["events"], np.linspace(1, n, n, dtype="int32")))
+    )
 
     dZ_mean, dZ_med, dZ_q1, dZ_q3, dZ_min, dZ_max = (
         np.zeros(n),
@@ -282,12 +287,13 @@ def compute_todays_events_stats_noweather(ds, Ze_ds, conf, qc_ds, start, end):
                 time=np.where(qc_ds_event["QC_overall"] == 1)[0]
             ).values.reshape((-1, 1))  # keep only QC passed timesteps for regression
 
-            model = LinearRegression()
-            model.fit(z_dd_nonan, z_dcr_nonan)
-            z_dcr_hat = model.predict(z_dd_nonan)
-            slope[event] = model.coef_[0]
-            intercept[event] = model.intercept_
-            r2[event] = model.score(z_dd_nonan, z_dcr_nonan)
+            slope_event, intercept_event, r_event, p, se = linregress(
+                z_dd_nonan.flatten(), z_dcr_nonan.flatten()
+            )
+            z_dcr_hat = intercept_event + slope_event * z_dd_nonan
+            slope[event] = slope_event
+            intercept[event] = intercept_event
+            r2[event] = r_event**2
             rms_error[event] = rmse(z_dcr_nonan, z_dcr_hat)
 
             event += 1
@@ -298,7 +304,7 @@ def compute_todays_events_stats_noweather(ds, Ze_ds, conf, qc_ds, start, end):
         data=end_event, dims=["events"], attrs={"long_name": "event end epoch"}
     )
     stats_ds["event_length"] = xr.DataArray(
-        data=event_length,
+        data=event_length.astype("i4"),
         dims=["events"],
         attrs={"long_name": "event duration", "unit": "mn"},
     )
@@ -322,7 +328,7 @@ def compute_todays_events_stats_noweather(ds, Ze_ds, conf, qc_ds, start, end):
     )
 
     stats_ds["QF_rg_dd_event"] = xr.DataArray(
-        data=QC_FILL_VALUE * np.zeros(len(stats_ds.events)),
+        data=QC_FILL_VALUE * np.zeros(len(stats_ds.events)).astype("i2"),
         dims=["events"],
         attrs={
             "long_name": "Flag on deviation between rain gauge and disdrometer precipitation rate at the end of an event",  # noqa
@@ -332,7 +338,7 @@ def compute_todays_events_stats_noweather(ds, Ze_ds, conf, qc_ds, start, end):
         },
     )
     stats_ds["nb_dz_computable_pts"] = xr.DataArray(
-        data=nb_dz_computable_pts,
+        data=nb_dz_computable_pts.astype("i4"),
         dims=["events"],
         attrs={
             "long_name": "number of timesteps for which Delta Z can be computed",
@@ -387,7 +393,7 @@ def compute_todays_events_stats_noweather(ds, Ze_ds, conf, qc_ds, start, end):
         },
     )
     stats_ds["good_points_number"] = xr.DataArray(
-        data=nb_good_points,
+        data=nb_good_points.astype("i4"),
         dims=["events"],
         attrs={
             "long_name": "number of timesteps where all checks are good",

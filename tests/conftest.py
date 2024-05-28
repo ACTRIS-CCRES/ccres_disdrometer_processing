@@ -236,6 +236,86 @@ def data_out_dir(data_dir):
                 "process": "juelich_2021-12-02_mira-parsivel_processed.nc",
             },
         },
+        {
+            "site": "juelich",
+            "date": "2021-12-03",
+            "radar": "mira",
+            "radar-pid": "https://hdl.handle.net/21.12132/3.0366fa69504f4bd6",
+            "disdro": "parsivel",
+            "disdro-pid": "https://hdl.handle.net/21.12132/3.2a1ca46ed70c4929",
+            "meteo-available": False,
+            "meteo": "weather-station",
+            "meteo-pid": "",
+            "config_file": "config_juelich_mira-parsivel.toml",
+            "output": {
+                "preprocess": "juelich_2021-12-03_mira-parsivel_preprocessed.nc",
+                "preprocessing_ql": {
+                    "weather-overview": "juelich_2021-12-03_mira-parsivel_preproc-weather-overview.png",  # noqa E501
+                    "zh-overview": "juelich_2021-12-03_mira-parsivel_zh-preproc-overview.png",  # noqa E501
+                },
+                "process": "juelich_2021-12-03_mira-parsivel_processed.nc",
+            },
+        },
+        {
+            "site": "juelich",
+            "date": "2021-12-04",
+            "radar": "mira",
+            "radar-pid": "https://hdl.handle.net/21.12132/3.0366fa69504f4bd6",
+            "disdro": "parsivel",
+            "disdro-pid": "https://hdl.handle.net/21.12132/3.2a1ca46ed70c4929",
+            "meteo-available": False,
+            "meteo": "weather-station",
+            "meteo-pid": "",
+            "config_file": "config_juelich_mira-parsivel.toml",
+            "output": {
+                "preprocess": "juelich_2021-12-04_mira-parsivel_preprocessed.nc",
+                "preprocessing_ql": {
+                    "weather-overview": "juelich_2021-12-04_mira-parsivel_preproc-weather-overview.png",  # noqa E501
+                    "zh-overview": "juelich_2021-12-04_mira-parsivel_zh-preproc-overview.png",  # noqa E501
+                },
+                "process": "juelich_2021-12-04_mira-parsivel_processed.nc",
+            },
+        },
+        {
+            "site": "juelich",
+            "date": "2021-12-05",
+            "radar": "mira",
+            "radar-pid": "https://hdl.handle.net/21.12132/3.0366fa69504f4bd6",
+            "disdro": "parsivel",
+            "disdro-pid": "https://hdl.handle.net/21.12132/3.2a1ca46ed70c4929",
+            "meteo-available": False,
+            "meteo": "weather-station",
+            "meteo-pid": "",
+            "config_file": "config_juelich_mira-parsivel.toml",
+            "output": {
+                "preprocess": "juelich_2021-12-05_mira-parsivel_preprocessed.nc",
+                "preprocessing_ql": {
+                    "weather-overview": "juelich_2021-12-05_mira-parsivel_preproc-weather-overview.png",  # noqa E501
+                    "zh-overview": "juelich_2021-12-05_mira-parsivel_zh-preproc-overview.png",  # noqa E501
+                },
+                "process": "juelich_2021-12-05_mira-parsivel_processed.nc",
+            },
+        },
+        {
+            "site": "juelich",
+            "date": "2021-12-06",
+            "radar": "mira",
+            "radar-pid": "https://hdl.handle.net/21.12132/3.0366fa69504f4bd6",
+            "disdro": "parsivel",
+            "disdro-pid": "https://hdl.handle.net/21.12132/3.2a1ca46ed70c4929",
+            "meteo-available": False,
+            "meteo": "weather-station",
+            "meteo-pid": "",
+            "config_file": "config_juelich_mira-parsivel.toml",
+            "output": {
+                "preprocess": "juelich_2021-12-06_mira-parsivel_preprocessed.nc",
+                "preprocessing_ql": {
+                    "weather-overview": "juelich_2021-12-06_mira-parsivel_preproc-weather-overview.png",  # noqa E501
+                    "zh-overview": "juelich_2021-12-06_mira-parsivel_zh-preproc-overview.png",  # noqa E501
+                },
+                "process": "juelich_2021-12-06_mira-parsivel_processed.nc",
+            },
+        },
         # hyytiala
         {
             "site": "hyytiala",
@@ -283,7 +363,7 @@ def data_out_dir(data_dir):
             "site": "granada",
             "date": "2024-03-09",
             "radar": "rpg-fmcw-94",
-            "radar-pid": "https://hdl.handle.net/21.12132/3.1e67e6c234d84b19",
+            "radar-pid": "https://hdl.handle.net/21.12132/3.20570e63f7b1496c",
             "disdro": "parsivel",
             "disdro-pid": "https://hdl.handle.net/21.12132/3.8f31e16545d14ff3",
             "meteo-available": False,
