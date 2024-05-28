@@ -50,7 +50,10 @@ def merge_preprocessed_data(yesterday, today, tomorrow):
 
 
 def rain_event_selection(ds, conf):
-    if bool(ds["weather_data_avail"].values[0]) is False:
+    if (
+        bool(ds["weather_data_avail"].values[0]) is False
+        or ds.attrs["location"] == "Lindenberg"
+    ):
         lgr.info(
             "Rain event selection (no rain gauge data, disdrometer precipitation is used)"  # noqa
         )
@@ -127,7 +130,10 @@ def extract_dcr_data(ds, conf):
 
 
 def compute_quality_checks(ds, conf, start, end):
-    if bool(ds["weather_data_avail"].values[0]) is False:
+    if (
+        bool(ds["weather_data_avail"].values[0]) is False
+        or ds.attrs["location"] == "Lindenberg"
+    ):
         qc_ds = processing_noweather.compute_quality_checks_noweather(
             ds, conf, start, end
         )
@@ -149,7 +155,10 @@ def compute_quality_checks(ds, conf, start, end):
 
 
 def compute_todays_events_stats(ds, Ze_ds, conf, qc_ds, start, end):
-    if bool(ds["weather_data_avail"].values[0]) is False:
+    if (
+        bool(ds["weather_data_avail"].values[0]) is False
+        or ds.attrs["location"] == "Lindenberg"
+    ):
         stats_ds = processing_noweather.compute_todays_events_stats_noweather(
             ds, Ze_ds, conf, qc_ds, start, end
         )
@@ -287,7 +296,10 @@ def process(yesterday, today, tomorrow, conf, output_file, verbosity):
     conf = toml.load(conf)
     ds, files_provided = merge_preprocessed_data(yesterday, today, tomorrow)
 
-    if bool(ds["weather_data_avail"].values[0]) is False:
+    if (
+        bool(ds["weather_data_avail"].values[0]) is False
+        or ds.attrs["location"] == "Lindenberg"
+    ):
         click.echo("Downgraded mode (no weather data is used)")
 
     start, end = rain_event_selection(ds, conf)
@@ -343,7 +355,17 @@ def process(yesterday, today, tomorrow, conf, output_file, verbosity):
 if __name__ == "__main__":
     test_weather = False
     test_weather_downgraded = False
-    test_noweather = True
+    test_noweather = False
+    test_lindenberg_10mn = True
+
+    if test_lindenberg_10mn:
+        yesterday = None
+        today = "../../tests/data/outputs/lindenberg_2023-09-22_rpg-parsivel_preprocessed.nc"  # noqa E501
+        tomorrow = None  # noqa E501
+        ds, files_provided = merge_preprocessed_data(yesterday, today, tomorrow)
+        conf = "../../tests/data/conf/config_lindenberg_rpg-parsivel.toml"
+        start, end = processing.rain_event_selection_weather(ds, toml.load(conf))
+        print(start, end)
 
     if test_weather_downgraded:
         yesterday = None
@@ -353,7 +375,7 @@ if __name__ == "__main__":
 
         ds, files_provided = merge_preprocessed_data(yesterday, today, tomorrow)
         output_file = "./{}_{}_processed_downgraded.nc".format(
-            ds.attrs["station_name"],
+            ds.attrs["location"].lower(),
             pd.to_datetime(ds.time.isel(time=len(ds.time) // 2).values).strftime(
                 "%Y-%m-%d"
             ),

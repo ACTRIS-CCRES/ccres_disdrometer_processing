@@ -25,10 +25,11 @@ def rain_event_selection_weather(ds, conf):  # with no constraint on cum for the
         {
             "time": np.where(
                 ds.ams_pr.values / 60
-                >= 0  # conf["instrument_parameters"]["RAIN_GAUGE_SAMPLING"]
+                > 0  # conf["instrument_parameters"]["RAIN_GAUGE_SAMPLING"]
             )[0]
         }
     )  # noqa
+    print(sel_ds.ams_pr.to_dataframe())
 
     min_duration, max_interval = (
         conf["thresholds"]["MIN_DURATION"],
