@@ -199,6 +199,13 @@ def preprocess_ql(file, output_ql_overview, output_ql_overview_zh, config_file):
     "output-file",
     type=click.Path(file_okay=True, dir_okay=False, path_type=Path, resolve_path=True),
 )
+@click.option(
+    "--no-meteo",
+    is_flag=True,
+    show_default=True,
+    default=False,
+    help="if specified, if weather data is available in preprocessing files, this data is not used for processing",  # noqa E501
+)
 @click.option("-v", "verbosity", count=True)
 def process(
     yesterday,
@@ -206,9 +213,12 @@ def process(
     tomorrow,
     config_file,
     output_file,
+    no_meteo,
     verbosity,
 ):
-    processing.process(yesterday, today, tomorrow, config_file, output_file, verbosity)
+    processing.process(
+        yesterday, today, tomorrow, config_file, output_file, no_meteo, verbosity
+    )
     click.echo("Processing : SUCCESS")
     sys.exit(0)
 
