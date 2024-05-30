@@ -68,7 +68,7 @@ def extract_dcr_data(ds, conf):
     Ze_ds = xr.Dataset(
         coords=dict(
             time=(["time"], ds.time.data),
-            range=(["range"], np.array(ranges_to_keep)),
+            range=(["range"], np.array(ranges_to_keep, dtype=np.single)),
         )
     )
 
@@ -94,7 +94,7 @@ def extract_dcr_data(ds, conf):
     Ze_ds["Zdd"] = xr.DataArray(
         data=ds["Zdlog_vfov_modv_tm"]
         .sel(radar_frequencies=ds.radar_frequency, method="nearest")
-        .data,
+        .data.astype(np.single),
         dims=["time"],
         attrs={
             "long_name": "Disdrometer forward-modeled reflectivity",
@@ -105,7 +105,7 @@ def extract_dcr_data(ds, conf):
     Ze_ds["fallspeed_dd"] = xr.DataArray(
         data=np.nansum(
             np.nansum(ds["psd"].values, axis=2) * ds["measV"].values, axis=1
-        ),
+        ).astype(np.single),
         dims=["time"],
         attrs={
             "long_name": "Average droplet fall speed seen by the disdrometer",
@@ -114,7 +114,7 @@ def extract_dcr_data(ds, conf):
     )
     # Delta Ze
     Ze_ds["Delta_Z"] = xr.DataArray(
-        data=Ze_ds["Zdcr"].data - Ze_ds["Zdd"].data.reshape((-1, 1)),
+        data=Ze_ds["Zdcr"].data - Ze_ds["Zdd"].data.reshape((-1, 1)).astype(np.single),
         dims=["time", "range"],
         attrs={
             "long_name": "Difference between DCR and disdrometer-modeled reflectivity",
@@ -322,8 +322,8 @@ def process(yesterday, today, tomorrow, conf, output_file, no_meteo, verbosity):
             "time": {"units": TIME_UNITS, "calendar": TIME_CALENDAR},
             "start_event": {"units": TIME_UNITS, "calendar": TIME_CALENDAR},
             "end_event": {"units": TIME_UNITS, "calendar": TIME_CALENDAR},
-            "ams_cp_since_event_begin": {"_FillValue": "NaN"},
-            "disdro_cp_since_event_begin": {"_FillValue": "NaN"},
+            "ams_cp_since_event_begin": {"_FillValue": np.nan},
+            "disdro_cp_since_event_begin": {"_FillValue": np.nan},
             "QC_ta": {"_FillValue": QC_FILL_VALUE},
             "QC_pr": {"_FillValue": QC_FILL_VALUE},
             "QC_vdsd_t": {"_FillValue": QC_FILL_VALUE},
@@ -331,9 +331,9 @@ def process(yesterday, today, tomorrow, conf, output_file, no_meteo, verbosity):
             "QC_ws": {"_FillValue": QC_FILL_VALUE},
             "QC_wd": {"_FillValue": QC_FILL_VALUE},
             "QF_rg_dd": {"_FillValue": QC_FILL_VALUE},
-            "QC_ta_ratio": {"_FillValue": "NaN"},
-            "QC_ws_ratio": {"_FillValue": "NaN"},
-            "QC_wd_ratio": {"_FillValue": "NaN"},
+            "QC_ta_ratio": {"_FillValue": np.nan},
+            "QC_ws_ratio": {"_FillValue": np.nan},
+            "QC_wd_ratio": {"_FillValue": np.nan},
             "QF_rg_dd_event": {"_FillValue": QC_FILL_VALUE},
         },
     )

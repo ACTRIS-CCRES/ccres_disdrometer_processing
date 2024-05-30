@@ -54,7 +54,7 @@ def compute_quality_checks_noweather(ds, conf, start, end):
 
     # flag the timesteps belonging to an event
     qc_ds["flag_event"] = xr.DataArray(
-        data=np.full(len(ds.time), False, dtype=bool),
+        data=np.full(len(ds.time), 0, dtype="i2"),
         dims=["time"],
         attrs={
             "long_name": "flag to describe if a timestep belongs to a rain event",
@@ -63,7 +63,7 @@ def compute_quality_checks_noweather(ds, conf, start, end):
     )
     # do a column for rain accumulation since last beginning of an event
     qc_ds["ams_cp_since_event_begin"] = xr.DataArray(
-        np.nan * np.zeros(len(ds.time)),
+        np.nan * np.zeros(len(ds.time)).astype(np.single),
         dims=["time"],
         attrs={
             "long_name": "pluviometer rain accumulation since last begin of an event",
@@ -72,7 +72,7 @@ def compute_quality_checks_noweather(ds, conf, start, end):
         },
     )
     qc_ds["disdro_cp_since_event_begin"] = xr.DataArray(
-        np.zeros(len(ds.time)),
+        np.zeros(len(ds.time)).astype(np.single),
         dims="time",
         attrs={
             "long_name": "disdrometer rain accumulation since last begin of an event",
@@ -80,15 +80,17 @@ def compute_quality_checks_noweather(ds, conf, start, end):
         },
     )
     for s, e in zip(start, end):
-        qc_ds["flag_event"].loc[slice(s, e)] = True
+        qc_ds["flag_event"].loc[slice(s, e)] = 1
         qc_ds["disdro_cp_since_event_begin"].loc[slice(s, e)] = (
             1 / 60 * np.nancumsum(ds["disdro_pr"].sel(time=slice(s, e)).values)
         )
 
     # Flag for condition (rainfall_amount > N mm)
     qc_ds["QF_rainfall_amount"] = xr.DataArray(
-        qc_ds["disdro_cp_since_event_begin"]
-        >= conf["thresholds"]["MIN_RAINFALL_AMOUNT"],
+        (
+            qc_ds["disdro_cp_since_event_begin"]
+            >= conf["thresholds"]["MIN_RAINFALL_AMOUNT"]
+        ).astype("i2"),
         dims="time",
         attrs={
             "long_name": "Quality flag for minimum rainfall amount",
@@ -99,7 +101,7 @@ def compute_quality_checks_noweather(ds, conf, start, end):
 
     # QC on DISDROMETER precipitation rate
     qc_ds["QC_pr"] = xr.DataArray(
-        data=ds["disdro_pr"] < conf["thresholds"]["MAX_RR"],
+        data=(ds["disdro_pr"] < conf["thresholds"]["MAX_RR"]).astype("i2"),
         dims=["time"],
         attrs={
             "long_name": "Quality check for rainfall rate",
@@ -120,7 +122,7 @@ def compute_quality_checks_noweather(ds, conf, start, end):
     ratio_vdisdro_vth = vobs_disdro / vth_disdro
 
     qc_ds["QC_vdsd_t"] = xr.DataArray(
-        data=(np.abs(ratio_vdisdro_vth - 1) <= 0.3),
+        data=(np.abs(ratio_vdisdro_vth - 1) <= 0.3).astype("i2"),
         dims="time",
         attrs={
             "long_name": "Quality check for cohence between fall speed and droplet diameter",  # noqa E501
@@ -137,6 +139,7 @@ def compute_quality_checks_noweather(ds, conf, start, end):
             attrs={
                 "unit": "1",
                 "comment": "not computable when no AMS data is provided",
+                "flag_values": np.array([0, 1]).astype("i2"),
             },
         )
     qc_ds["QC_ta"].attrs["long_name"] = "Quality check for air temperature"
@@ -145,6 +148,14 @@ def compute_quality_checks_noweather(ds, conf, start, end):
     qc_ds["QF_rg_dd"].attrs[
         "long_name"
     ] = "Quality flag for discrepancy between rain gauge and disdrometer precipitation rate"  # noqa
+    qc_ds["QC_ta"].attrs["flag_meanings"] = "temperature_under_threshold temperature_ok"
+    qc_ds["QC_wd"].attrs[
+        "flag_meanings"
+    ] = "wind_direction_out_of_good_range wind_direction_within_good_range"
+    qc_ds["QC_ws"].attrs["flag_meanings"] = "wind_speed_over_threshold wind_speed_ok"
+    qc_ds["QF_rg_dd"].attrs[
+        "flag_meanings"
+    ] = "discrepancy_rain_gauge_disdrometer_above_threshold discrepancy_rain_gauge_disdrometer_ok"  # noqa
 
     # Overall QC : disdro_pr, v(d)
     qc_ds["QC_overall"] = xr.DataArray(
@@ -165,12 +176,11 @@ def compute_quality_checks_noweather(ds, conf, start, end):
         "QC_vdsd_t",
         "QC_overall",
     ]:
-        qc_ds[key].data.astype("i2")
         qc_ds[key].attrs["flag_values"] = np.array([0, 1]).astype("i2")
 
     qc_ds["flag_event"].attrs[
         "flag_meanings"
-    ] = "timestep_part_of_an_event timestep_not_involved_in_any_avent"
+    ] = "timestep_not_involved_in_any_event timestep_part_of_an_event"
     qc_ds["QF_rainfall_amount"].attrs[
         "flag_meanings"
     ] = "less_rain_than_threshold_since_event_begin more_rain_than_threshold_since_event_begin"  # noqa E501
