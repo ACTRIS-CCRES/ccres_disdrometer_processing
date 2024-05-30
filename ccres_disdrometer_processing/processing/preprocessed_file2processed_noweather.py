@@ -302,10 +302,10 @@ def compute_todays_events_stats_noweather(ds, Ze_ds, conf, qc_ds, start, end):
 
             event += 1
     stats_ds["start_event"] = xr.DataArray(
-        data=start_event, dims=["events"], attrs={"long_name": "event start epoch"}
+        data=start_event, dims=["events"], attrs={"long_name": "event start date"}
     )
     stats_ds["end_event"] = xr.DataArray(
-        data=end_event, dims=["events"], attrs={"long_name": "event end epoch"}
+        data=end_event, dims=["events"], attrs={"long_name": "event end date"}
     )
     stats_ds["event_length"] = xr.DataArray(
         data=event_length.astype("i4"),
