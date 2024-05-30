@@ -341,9 +341,9 @@ def process(yesterday, today, tomorrow, conf, output_file, no_meteo, verbosity):
 
 
 if __name__ == "__main__":
-    test_weather = True
+    test_weather = False
     test_weather_downgraded = False
-    test_noweather = False
+    test_noweather = True
     test_lindenberg_10mn = False
     test_no_meteo = (
         False  # downgraded without weather even when available in prepro files
@@ -487,7 +487,9 @@ if __name__ == "__main__":
                 "%Y-%m-%d"
             ),
         )
-        process(yesterday, today, tomorrow, conf, output_file, 1)
+        process(
+            yesterday, today, tomorrow, conf, output_file, no_meteo=False, verbosity=1
+        )
 
         processed_ds = xr.open_dataset("./JOYCE_2021-12-04_processed_scipy.nc")
         # print(processed_ds.attrs)
