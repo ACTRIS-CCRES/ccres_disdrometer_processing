@@ -61,13 +61,13 @@ def test_run_ndays(
         args += [str(output_file)]
 
         runner = CliRunner()
-        # result = runner.invoke(
-        #     cli.preprocess,
-        #     args,
-        #     catch_exceptions=False,
-        # )
+        result = runner.invoke(
+            cli.preprocess,
+            args,
+            catch_exceptions=False,
+        )
 
-        # output_code.append((result.exit_code, date, result.output, "preprocess"))
+        output_code.append((result.exit_code, date, result.output, "preprocess"))
 
     # run processing
     # ---------------------------------------------------------------------------------
