@@ -122,7 +122,7 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file, verbo
     ),
     required=True,
 )
-def preprocessed_ql(file, output_ql_overview, output_ql_overview_zh, config_file):
+def preprocess_ql(file, output_ql_overview, output_ql_overview_zh, config_file):
     """Create quicklooks from preprocess netCDF files."""
     # 1 - check config and import configuration file if ok
     config = toml.load(config_file)
@@ -225,16 +225,20 @@ def process(
     ),
 )
 @click.argument(
-    "--mask-preprocessing-file",
+    "process-file",
     type=str,
 )
-@click.argument(
-    "--mask-output-ql-summary",
+@click.option(
+    "--prefix-output-ql-summary",
     type=str,
+    required=True,
+    help="prefix need to be of form 'ql_summary'",
 )
-@click.argument(
-    "--mask-output-ql-detailled",
+@click.option(
+    "--prefix-output-ql-detailled",
     type=str,
+    required=True,
+    help="prefix need to be of form 'ql_detailled",
 )
 @click.option(
     "--config-file",
@@ -248,11 +252,11 @@ def process(
     ),
     required=True,
 )
-def processed_ql(
+def process_ql(
     file,
-    mask_preprocessing_file,
-    mask_output_ql_summary,
-    mask_output_ql_detailled,
+    process_file,
+    prefix_output_ql_summary,
+    prefix_output_ql_detailled,
     config_file,
 ):
     """Create quicklooks from process netCDF files."""
@@ -264,16 +268,14 @@ def processed_ql(
 
     # 2b - get preprocessed data
     if ds_pro.events.size != 0:
-        ds_prepro = utils.read_and_concatenante_preprocessed_ds(
-            ds_pro, mask_preprocessing_file
-        )
+        ds_prepro = utils.read_and_concatenante_preprocessed_ds(ds_pro, process_file)
 
         # 3 - Plot
         plot.plot_processed_ql_summary(
-            ds_pro, mask_output_ql_summary, config, __version__
+            ds_pro, prefix_output_ql_summary, config, __version__
         )
         plot.plot_processed_ql_detailled(
-            ds_pro, ds_prepro, mask_output_ql_detailled, config, __version__
+            ds_pro, ds_prepro, prefix_output_ql_detailled, config, __version__
         )
 
     sys.exit(0)
