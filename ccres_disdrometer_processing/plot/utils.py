@@ -1,4 +1,3 @@
-import datetime as dt
 import importlib.util
 import sys
 from pathlib import Path
@@ -102,10 +101,7 @@ def npdt64_to_datetime(dt64):
     datetime.datetime
         The date converted as a datetime.datetime object.
     """
-    unix_epoch = np.datetime64(0, "s")
-    one_second = np.timedelta64(1, "s")
-    seconds_since_epoch = (dt64 - unix_epoch) / one_second
-    return dt.datetime.utcfromtimestamp(seconds_since_epoch)
+    return pd.Timestamp(dt64).to_pydatetime()
 
 
 def f_th(x):
