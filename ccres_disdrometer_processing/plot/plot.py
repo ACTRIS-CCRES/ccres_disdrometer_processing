@@ -1,4 +1,5 @@
 import datetime as dt
+import logging
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -24,6 +25,8 @@ from ccres_disdrometer_processing.plot.utils import (
 lsize = 12  # label size
 asize = 14  # x-y axis size
 tsize = 16  # title size
+
+lgr = logging.getLogger(__name__)
 
 
 def divider(axe, size="5%", axis="off"):
@@ -711,6 +714,8 @@ def plot_processed_ql_summary(
                 .sel(range=selected_alt, method="nearest")[mask_valid]
                 .values
             )
+            if np.all(np.isnan(delta_Z)):
+                continue
             vlim = np.ceil(np.max(np.abs([delta_Z.min(), delta_Z.max()])))
             bins = np.arange(-vlim, vlim + 0.1, 1)
             axes[0].hist(
@@ -880,7 +885,7 @@ def plot_processed_ql_summary(
             plt.savefig(output_png)  # noqa
             plt.close()
     else:
-        print("\t No event to plot")
+        lgr.info("No event to plot")
 
 
 def plot_processed_ql_detailled(
@@ -945,6 +950,8 @@ def plot_processed_ql_detailled(
                 .sel(range=selected_alt, method="nearest")[mask]
                 .values
             )
+            if np.all(np.isnan(delta_Z)):
+                continue
             vlim = np.ceil(np.max(np.abs([delta_Z.min(), delta_Z.max()])))
             bins = np.arange(-vlim, vlim + 0.1, 1)
             ax1.hist(
@@ -1164,4 +1171,4 @@ def plot_processed_ql_detailled(
             plt.savefig(output_png)
             plt.close()
     else:
-        print("\t No event to plot")
+        lgr.info("No event to plot")

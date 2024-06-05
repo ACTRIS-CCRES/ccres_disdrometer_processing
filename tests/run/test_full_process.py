@@ -94,10 +94,18 @@ def test_run_ndays(
             "preprocess_tmpl"
         ].format(date)
 
-        # output file
+        # process nc file
         process_file = data_out_dir / test_data_processing_ndays["output"][
             "process_tmpl"
         ].format(date)
+
+        # prefix output process QL
+        prefix_output_ql_summary = data_out_dir / test_data_processing_ndays["output"][
+            "process_ql"
+        ]["summary_tmpl"].format(date)
+        prefix_output_ql_detailled = data_out_dir / test_data_processing_ndays[
+            "output"
+        ]["process_ql"]["detailled_tmpl"].format(date)
 
         # run the processing
         # ------------------------------------------------------------------------------
@@ -126,14 +134,6 @@ def test_run_ndays(
 
         # run the processing ql
         # ------------------------------------------------------------------------------
-        # prefix output QL
-        prefix_output_ql_summary = data_out_dir / test_data_processing_ndays["output"][
-            "process_ql"
-        ]["summary_tmpl"].format(date_dt)
-        prefix_output_ql_detailled = data_out_dir / test_data_processing_ndays[
-            "output"
-        ]["process_ql"]["detailled_tmpl"].format(date_dt)
-
         args = []
         if dm1_file is not None:
             args += ["--preprocess-yesterday", str(dm1_file)]
@@ -152,6 +152,7 @@ def test_run_ndays(
             str(prefix_output_ql_detailled),
             str(process_file),
         ]
+        print(args)
         runner = CliRunner()
         result = runner.invoke(
             cli.process_ql,
