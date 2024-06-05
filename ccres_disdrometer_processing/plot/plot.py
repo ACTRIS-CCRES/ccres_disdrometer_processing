@@ -500,7 +500,7 @@ def plot_preprocessed_ql_overview_zh(
     lat = data.attrs["geospatial_lat_max"]
     lon = data.attrs["geospatial_lon_max"]
     alt = data.attrs["geospatial_vertical_max"]
-    selected_alt = conf["plot_parameters"]["DCR_DZ_RANGE"]
+    selected_alt = conf["instrument_parameters"]["DCR_DZ_RANGE"]
 
     fig, axes = plt.subplot_mosaic(
         [["top", "top"], ["left", "right"]], constrained_layout=True, figsize=(16, 10)
@@ -875,9 +875,10 @@ def plot_processed_ql_summary(
             #
             add_logo()
             plt.tight_layout()
-            # plt.savefig(mask_output_ql_summary.format(pd.to_pydatetime(ds_pro.time[0]))) # noqa
-            plt.show()
-            # plt.close()
+
+            output_png = mask_output_ql_summary.format(n)
+            plt.savefig(output_png)  # noqa
+            plt.close()
     else:
         print("\t No event to plot")
 
@@ -1158,10 +1159,9 @@ def plot_processed_ql_detailled(
             plt.subplots_adjust(
                 left=0.15, bottom=0.05, right=0.95, top=0.85, hspace=0.9
             )
-            # plt.savefig(
-            #     mask_output_ql_detailled.format(pd.to_pydatetime(ds_pro.time[0]))
-            # )
-            plt.show()
-            # plt.close()
+
+            output_png = mask_output_ql_detailled.format(n)
+            plt.savefig(mask_output_ql_detailled.format(output_png))
+            plt.close()
     else:
         print("\t No event to plot")
