@@ -302,28 +302,21 @@ def linear_reg_scipy(x, y):
 
 
 def read_and_concatenante_preprocessed_ds(
-    ds_pro: xr.Dataset, mask_preprocessing_file: str
+    ds_pro: xr.Dataset, preprocessing_files: list[Path]
 ):
     """Read and concatenate preprocessed file.
 
-    :param ds_pro: _description_
-    :type ds_pro: xr.Dataset
-    :param mask_preprocessing_file: _description_
-    :type mask_preprocessing_file: str
-    :return: _description_
-    :rtype: _type_
+    Parameters
+    ----------
+    ds_pro : xr.Dataset
+        The process dataset.
+    preprocessing_files : list[Path]
+        The list of preprocessing files to read and concatenate.
     """
-    dates = pd.date_range(
-        pd.to_datetime(
-            (ds_pro.start_event[0] - np.timedelta64(1, "h")).dt.floor("D").values
-        ),
-        pd.to_datetime(
-            (ds_pro.end_event[-1] + np.timedelta64(1, "h")).dt.floor("D").values
-        ),
-        freq="1D",
-    )
     tmp_ds = []
-    for date in dates:
-        tmp_ds.append(read_nc(mask_preprocessing_file.format(date)))
+    for file in preprocessing_files:
+        tmp_ds.append(read_nc(file))
+
     ds_prepro = xr.concat(tmp_ds, dim="time")
+
     return ds_prepro

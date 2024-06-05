@@ -687,7 +687,7 @@ def plot_processed_ql_summary(
     version : str
         Version of the code.
     """
-    selected_alt = conf["plot_parameters"]["DCR_DZ_RANGE"]
+    selected_alt = conf["instrument_parameters"]["DCR_DZ_RANGE"]
 
     if ds_pro.events.size != 0:
         for n, event in enumerate(ds_pro["events"]):  # noqa B007
@@ -717,7 +717,7 @@ def plot_processed_ql_summary(
                 delta_Z,
                 bins=bins,
                 weights=(np.ones(delta_Z.size) / delta_Z.size) * 100,
-                label=f"DCR range gate at {delta_Z.range.values:.0f}m",
+                label=f"DCR range gate at {selected_alt:.0f}m",
             )
             sigma = np.nanstd(delta_Z)
             ymin, ymax = axes[0].get_ylim()
@@ -906,7 +906,7 @@ def plot_processed_ql_detailled(
         Version of the code.
     """
     # TODO: properly
-    selected_alt = conf["plot_parameters"]["DCR_DZ_RANGE"]
+    selected_alt = conf["instrument_parameters"]["DCR_DZ_RANGE"]
 
     if ds_pro.events.size != 0:
         for n, event in enumerate(ds_pro["events"]):  # noqa B007
@@ -951,7 +951,7 @@ def plot_processed_ql_detailled(
                 delta_Z,
                 bins=bins,
                 weights=(np.ones(delta_Z.size) / delta_Z.size) * 100,
-                label=f"range gate at {delta_Z.range.values:.0f}m",
+                label=f"range gate at {selected_alt:.0f}m",
             )
             ax1.yaxis.set_major_locator(MultipleLocator(5))
             ax1.yaxis.set_minor_locator(MultipleLocator(1))
@@ -1161,7 +1161,7 @@ def plot_processed_ql_detailled(
             )
 
             output_png = mask_output_ql_detailled.format(n)
-            plt.savefig(mask_output_ql_detailled.format(output_png))
+            plt.savefig(output_png)
             plt.close()
     else:
         print("\t No event to plot")
