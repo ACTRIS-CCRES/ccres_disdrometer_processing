@@ -1,8 +1,12 @@
-"""Utilies for testing of the code."""
-
+"""Various utility functions for the disdrometer processing package."""
+import logging
+import os
 from pathlib import Path
 
 import requests
+
+
+lgr = logging.getLogger(__name__)
 
 CLOUDNET_API_URL = "https://cloudnet.fmi.fi/api/"
 CLOUDNET_API_FILE_URL = "https://cloudnet.fmi.fi/api/files/"
@@ -91,3 +95,28 @@ def build_preprocess_param(test_cases):
         list_params.append((site, date, radar, disdro, use_ams, ams, config))
 
     return list_params
+
+
+def format_ql_file_prefix(prefix: str):
+    """Format and check if the prefix is valid.
+
+    The prefix shouldn't contain any extension.
+
+    Parameters
+    ----------
+    prefix : str
+        Mask to check.
+
+    Returns
+    -------
+    str
+        the checked and formatted prefix.
+    """
+    name, ext = os.path.splitext(prefix)
+    if ext:
+        lgr.info("removing extension from prefix")
+        prefix = name
+
+    prefix += "_{:02d}.png"
+
+    return prefix

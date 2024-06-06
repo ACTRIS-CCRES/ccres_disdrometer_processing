@@ -4,10 +4,6 @@ from click.testing import CliRunner
 
 from ccres_disdrometer_processing.cli import cli
 
-# @pytest.fixture(params=test_data_preprocessing)
-# def test_case(test_data_preprocessing):
-#     yield from test_data_preprocessing
-
 
 def test_run(test_data_preprocessing, data_conf_dir, data_out_dir) -> None:
     """Test the creation of preprocessing QLs for a specific test case."""

@@ -12,6 +12,7 @@ import ccres_disdrometer_processing.processing.preprocessed_file2processed as pr
 from ccres_disdrometer_processing.__init__ import __version__
 from ccres_disdrometer_processing.logger import LogLevels, init_logger
 from ccres_disdrometer_processing.plot import plot, utils
+from ccres_disdrometer_processing.utils import format_ql_file_prefix
 
 lgr = logging.getLogger(__name__)
 
@@ -134,12 +135,16 @@ def preprocess_ql(file, output_ql_overview, output_ql_overview_zh, config_file):
 
     # 3 - Plot
     if data["weather_data_avail"].astype(bool) and ("ta" in data.data_vars):
-        plot.plot_ql_overview(data, date, output_ql_overview, config, __version__)
-    else:
-        plot.plot_ql_overview_downgraded_mode(
+        plot.plot_preprocessed_ql_overview(
             data, date, output_ql_overview, config, __version__
         )
-    plot.plot_ql_overview_zh(data, date, output_ql_overview_zh, config, __version__)
+    else:
+        plot.plot_preprocessed_ql_overview_downgraded_mode(
+            data, date, output_ql_overview, config, __version__
+        )
+    plot.plot_preprocessed_ql_overview_zh(
+        data, date, output_ql_overview_zh, config, __version__
+    )
 
     sys.exit(0)
 
@@ -220,6 +225,119 @@ def process(
         yesterday, today, tomorrow, config_file, output_file, no_meteo, verbosity
     )
     click.echo("Processing : SUCCESS")
+    sys.exit(0)
+
+
+@cli.command()
+@click.argument(
+    "process-file",
+    type=click.Path(
+        exists=True,
+        dir_okay=False,
+        file_okay=True,
+        readable=True,
+        resolve_path=True,
+        path_type=Path,
+    ),
+)
+@click.option(
+    "--preprocess-yesterday",
+    type=click.Path(
+        exists=True,
+        dir_okay=False,
+        file_okay=True,
+        readable=True,
+        resolve_path=True,
+        path_type=Path,
+    ),
+    default=None,
+)
+@click.option(
+    "--preprocess-today",
+    type=click.Path(
+        exists=True,
+        dir_okay=False,
+        file_okay=True,
+        readable=True,
+        resolve_path=True,
+        path_type=Path,
+    ),
+    required=True,
+)
+@click.option(
+    "--preprocess-tomorrow",
+    type=click.Path(
+        exists=True,
+        dir_okay=False,
+        file_okay=True,
+        readable=True,
+        resolve_path=True,
+        path_type=Path,
+    ),
+    default=None,
+)
+@click.option(
+    "--prefix-output-ql-summary",
+    type=str,
+    required=True,
+    help="prefix need to be of form 'ql_summary'",
+)
+@click.option(
+    "--prefix-output-ql-detailled",
+    type=str,
+    required=True,
+    help="prefix need to be of form 'ql_detailled",
+)
+@click.option(
+    "--config-file",
+    type=click.Path(
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        path_type=Path,
+        resolve_path=True,
+        readable=True,
+    ),
+    required=True,
+)
+def process_ql(
+    process_file,
+    preprocess_yesterday,
+    preprocess_today,
+    preprocess_tomorrow,
+    prefix_output_ql_summary,
+    prefix_output_ql_detailled,
+    config_file,
+):
+    """Create quicklooks from process netCDF files."""
+    # create list of input preprocess files
+    preprocess_files = [preprocess_yesterday, preprocess_today, preprocess_tomorrow]
+    preprocess_files = [f for f in preprocess_files if f is not None]
+
+    # check and format prefix
+    prefix_output_ql_summary = format_ql_file_prefix(prefix_output_ql_summary)
+    prefix_output_ql_detailled = format_ql_file_prefix(prefix_output_ql_detailled)
+
+    # 1 - check config and import configuration file if ok
+    config = toml.load(config_file)
+
+    # 2a - get processed data
+    ds_pro = utils.read_nc(process_file)
+
+    # 2b - get preprocessed data
+    if ds_pro.events.size != 0:
+        ds_prepro = utils.read_and_concatenante_preprocessed_ds(
+            ds_pro, preprocess_files
+        )
+
+        # 3 - Plot
+        plot.plot_processed_ql_summary(
+            ds_pro, prefix_output_ql_summary, config, __version__
+        )
+        plot.plot_processed_ql_detailled(
+            ds_pro, ds_prepro, prefix_output_ql_detailled, config, __version__
+        )
+
     sys.exit(0)
 
 

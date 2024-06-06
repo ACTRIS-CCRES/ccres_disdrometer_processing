@@ -71,6 +71,10 @@ def data_out_dir(data_dir):
                     "zh-overview": "palaiseau_2021-02-02_basta-parsivel_zh-preproc-overview.png",  # noqa E501
                 },
                 "process": "palaiseau_2021-02-02_basta-parsivel-ws_processed.nc",  # noqa E501
+                "process_ql": {
+                    "summary": "palaiseau_2021-02-02_basta-parsivel-ws_process-summary",
+                    "detailled": "palaiseau_2021-02-02_basta-parsivel-ws_process-detailled",  # noqa E501
+                },
             },
         },
         # palaiseau
@@ -92,6 +96,10 @@ def data_out_dir(data_dir):
                     "zh-overview": "palaiseau_2021-02-02_basta-parsivel-ws_zh-preproc-overview.png",  # noqa E501
                 },
                 "process": "palaiseau_2024-01-02_basta-parsivel-ws_processed.nc",  # noqa E501
+                "process_ql": {
+                    "summary": "palaiseau_2024-01-02_basta-parsivel-ws_process-summary",
+                    "detailled": "palaiseau_2024-01-02_basta-parsivel-ws_process-detailled",  # noqa E501
+                },
             },
         },
         {
@@ -112,6 +120,10 @@ def data_out_dir(data_dir):
                     "zh-overview": "palaiseau_2021-02-02_basta-thies-ws_zh-preproc-overview.png",  # noqa E501
                 },
                 "process": "palaiseau_2024-01-02_basta-thies-ws_processed.nc",
+                "process_ql": {
+                    "summary": "palaiseau_2024-01-02_basta-thies-ws_process-summary",
+                    "detailled": "palaiseau_2024-01-02_basta-thies-ws_process-detailled",  # noqa E501
+                },
             },
         },
         # lindenberg
@@ -133,6 +145,10 @@ def data_out_dir(data_dir):
                     "zh-overview": "lindenberg_2023-09-22_mira-thies_zh-preproc-overview.png",  # noqa E501
                 },
                 "process": "lindenberg_2023-09-22_mira-thies_processed.nc",
+                "process_ql": {
+                    "summary": "lindenberg_2023-09-22_mira-thies_process-summary",
+                    "detailled": "lindenberg_2023-09-22_mira-thies_process-detailled",  # noqa E501
+                },
             },
         },
         {
@@ -153,6 +169,10 @@ def data_out_dir(data_dir):
                     "zh-overview": "lindenberg_2023-09-22_mira-parsivel_zh-preproc-overview.png",  # noqa E501
                 },
                 "process": "lindenberg_2023-09-22_mira-parsivel_processed.nc",
+                "process_ql": {
+                    "summary": "lindenberg_2023-09-22_mira-parsivel_process-summary",
+                    "detailled": "lindenberg_2023-09-22_mira-parsivel_process-detailled",  # noqa E501
+                },
             },
         },
         {
@@ -173,6 +193,10 @@ def data_out_dir(data_dir):
                     "zh-overview": "lindenberg_2023-09-22_rpg-thies_zh-preproc-overview.png",  # noqa E501
                 },
                 "process": "lindenberg_2023-09-22_rpg-thies_processed.nc",
+                "process_ql": {
+                    "summary": "lindenberg_2023-09-22_rpg-thies_process-summary",
+                    "detailled": "lindenberg_2023-09-22_rpg-thies_process-detailled",  # noqa E501
+                },
             },
         },
         {
@@ -193,6 +217,10 @@ def data_out_dir(data_dir):
                     "zh-overview": "lindenberg_2023-09-22_rpg-parsivel_zh-preproc-overview.png",  # noqa E501
                 },
                 "process": "lindenberg_2023-09-22_rpg-parsivel_processed.nc",
+                "process_ql": {
+                    "summary": "lindenberg_2023-09-22_rpg-parsivel_process-summary",
+                    "detailled": "lindenberg_2023-09-22_rpg-parsivel_process-detailled",  # noqa E501
+                },
             },
         },
         # juelich
@@ -214,6 +242,10 @@ def data_out_dir(data_dir):
                     "zh-overview": "juelich_2024-02-08_mira-parsivel_zh-preproc-overview.png",  # noqa E501
                 },
                 "process": "juelich_2024-02-08_mira-parsivel_processed.nc",
+                "process_ql": {
+                    "summary": "juelich_2024-02-08_mira-parsivel_process-summary",
+                    "detailled": "juelich_2024-02-08_mira-parsivel_process-detailled",  # noqa E501
+                },
             },
         },
         {
@@ -234,6 +266,10 @@ def data_out_dir(data_dir):
                     "zh-overview": "juelich_2021-12-02_mira-parsivel_zh-preproc-overview.png",  # noqa E501
                 },
                 "process": "juelich_2021-12-02_mira-parsivel_processed.nc",
+                "process_ql": {
+                    "summary": "juelich_2021-12-02_mira-parsivel_process-summary",
+                    "detailled": "juelich_2021-12-02_mira-parsivel_process-detailled",  # noqa E501
+                },
             },
         },
         {
@@ -254,6 +290,10 @@ def data_out_dir(data_dir):
                     "zh-overview": "juelich_2021-12-03_mira-parsivel_zh-preproc-overview.png",  # noqa E501
                 },
                 "process": "juelich_2021-12-03_mira-parsivel_processed.nc",
+                "process_ql": {
+                    "summary": "juelich_2021-12-03_mira-parsivel_process-summary",
+                    "detailled": "juelich_2021-12-03_mira-parsivel_process-detailled",  # noqa E501
+                },
             },
         },
         {
@@ -274,6 +314,10 @@ def data_out_dir(data_dir):
                     "zh-overview": "juelich_2021-12-04_mira-parsivel_zh-preproc-overview.png",  # noqa E501
                 },
                 "process": "juelich_2021-12-04_mira-parsivel_processed.nc",
+                "process_ql": {
+                    "summary": "juelich_2021-12-04_mira-parsivel_process-summary",
+                    "detailled": "juelich_2021-12-04_mira-parsivel_process-detailled",  # noqa E501
+                },
             },
         },
         {
@@ -294,6 +338,10 @@ def data_out_dir(data_dir):
                     "zh-overview": "juelich_2021-12-05_mira-parsivel_zh-preproc-overview.png",  # noqa E501
                 },
                 "process": "juelich_2021-12-05_mira-parsivel_processed.nc",
+                "process_ql": {
+                    "summary": "juelich_2021-12-05_mira-parsivel_process-summary",
+                    "detailled": "juelich_2021-12-05_mira-parsivel_process-detailled",  # noqa E501
+                },
             },
         },
         {
@@ -314,6 +362,10 @@ def data_out_dir(data_dir):
                     "zh-overview": "juelich_2021-12-06_mira-parsivel_zh-preproc-overview.png",  # noqa E501
                 },
                 "process": "juelich_2021-12-06_mira-parsivel_processed.nc",
+                "process_ql": {
+                    "summary": "juelich_2021-12-06_mira-parsivel_process-summary",
+                    "detailled": "juelich_2021-12-06_mira-parsivel_process-detailled",  # noqa E501
+                },
             },
         },
         # hyytiala
@@ -335,6 +387,10 @@ def data_out_dir(data_dir):
                     "zh-overview": "hyytiala_2023-10-15_rpg-parsivel_zh-preproc-overview.png",  # noqa E501
                 },
                 "process": "hyytiala_2023-10-15_rpg-parsivel_processed.nc",
+                "process_ql": {
+                    "summary": "hyytiala_2023-10-15_rpg-parsivel_process-summary",
+                    "detailled": "hyytiala_2023-10-15_rpg-parsivel_process-detailled",  # noqa E501
+                },
             },
         },
         # bucharest
@@ -356,6 +412,10 @@ def data_out_dir(data_dir):
                     "zh-overview": "bucharest_2024-03-25_rpg-parsivel_zh-preproc-overview.png",  # noqa E501
                 },
                 "process": "bucharest_2024-03-25_rpg-parsivel_processed.nc",
+                "process_ql": {
+                    "summary": "bucharest_2024-03-25_rpg-parsivel_process-summary",
+                    "detailled": "bucharest_2024-03-25_rpg-parsivel_process-detailled",  # noqa E501
+                },
             },
         },
         # granada
@@ -377,6 +437,10 @@ def data_out_dir(data_dir):
                     "zh-overview": "granada_2024-03-09_rpg-parsivel_zh-preproc-overview.png",  # noqa E501
                 },
                 "process": "granada_2024-03-09_rpg-parsivel_processed.nc",
+                "process_ql": {
+                    "summary": "granada_2024-03-09_rpg-parsivel_process-summary",
+                    "detailled": "granada_2024-03-09_rpg-parsivel_process-detailled",  # noqa E501
+                },
             },
         },
         # galati
@@ -398,6 +462,10 @@ def data_out_dir(data_dir):
                     "zh-overview": "galati_2024-04-17_rpg-parsivel_zh-preproc-overview.png",  # noqa E501
                 },
                 "process": "galati_2024-04-17_rpg-parsivel_processed.nc",
+                "process_ql": {
+                    "summary": "galati_2024-04-17_rpg-parsivel_process-summary",
+                    "detailled": "galati_2024-04-17_rpg-parsivel_process-detailled",  # noqa E501
+                },
             },
         },
     ]
@@ -424,6 +492,10 @@ def test_data_preprocessing(request):
             "output": {
                 "preprocess_tmpl": "juelich_{}_mira-parsivel_preprocessed.nc",
                 "process_tmpl": "juelich_{}_mira-parsivel_processed_ndays.nc",
+                "process_ql": {
+                    "summary_tmpl": "juelich_{}_mira-parsivel_processed_summary",
+                    "detailled_tmpl": "juelich_{}_mira-parsivel_processed_detailled",  # noqa E501
+                },
             },
         },
     ]
