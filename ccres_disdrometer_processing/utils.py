@@ -5,7 +5,6 @@ from pathlib import Path
 
 import requests
 
-
 lgr = logging.getLogger(__name__)
 
 CLOUDNET_API_URL = "https://cloudnet.fmi.fi/api/"
