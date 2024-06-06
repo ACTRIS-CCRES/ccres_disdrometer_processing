@@ -1,4 +1,3 @@
-import datetime as dt
 import importlib.util
 import sys
 from pathlib import Path
@@ -102,10 +101,7 @@ def npdt64_to_datetime(dt64):
     datetime.datetime
         The date converted as a datetime.datetime object.
     """
-    unix_epoch = np.datetime64(0, "s")
-    one_second = np.timedelta64(1, "s")
-    seconds_since_epoch = (dt64 - unix_epoch) / one_second
-    return dt.datetime.utcfromtimestamp(seconds_since_epoch)
+    return pd.Timestamp(dt64).to_pydatetime()
 
 
 def f_th(x):
@@ -274,3 +270,53 @@ def get_min_max_limits(zh_dd, zh_gate):
         return lim_min, lim_max
     else:
         return 0, 10
+
+
+def linear_reg_scipy(x, y):
+    """Do linear regression.
+
+    Parameters
+    ----------
+    x: np.array()
+        var 1 (if time -> int or float)
+    y: np.array()
+        var 2
+
+    Returns
+    -------
+    slope: float
+        Slope of the regression line.
+    intercept: float
+        Intercept of the regression line.
+    r_value: float
+        Correlation coefficient.
+    p_value: float
+        The p-value for a hypothesis test whose null hypothesis is that the slope
+        is zero, using Wald Test with t-distribution of the test statistic.
+    std_err: float
+        Standard error of the estimated slope (gradient), under the assumption of
+        residual normality.
+    """
+    slope, intercept, r_value, p_value, std_err = stats.linregress(x, y)
+    return slope, intercept, r_value, p_value, std_err
+
+
+def read_and_concatenante_preprocessed_ds(
+    ds_pro: xr.Dataset, preprocessing_files: list[Path]
+):
+    """Read and concatenate preprocessed file.
+
+    Parameters
+    ----------
+    ds_pro : xr.Dataset
+        The process dataset.
+    preprocessing_files : list[Path]
+        The list of preprocessing files to read and concatenate.
+    """
+    tmp_ds = []
+    for file in preprocessing_files:
+        tmp_ds.append(read_nc(file))
+
+    ds_prepro = xr.concat(tmp_ds, dim="time")
+
+    return ds_prepro

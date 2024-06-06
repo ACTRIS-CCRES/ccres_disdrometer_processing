@@ -132,6 +132,6 @@ compute_dz_1event.py
 explore_norunda_files.py
 disdro_lindenberg.py
 main.py
-
-# notebooks dir
-notebooks
+*.png
+ccres_disdrometer_processing/processing/*.nc
+ccres_disdrometer_processing/processing/check_test_files.py
