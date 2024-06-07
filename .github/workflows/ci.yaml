@@ -6,12 +6,14 @@ on:
       - "docs/**"
       - "*.md"
       - "*.rst"
+      - ".readthedocs.yaml"
 
   pull_request:
     paths-ignore:
       - "docs/**"
       - "*.md"
       - "*.rst"
+      - ".readthedocs.yaml"
 
 jobs:
   pre-commit:

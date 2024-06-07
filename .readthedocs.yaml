@@ -14,7 +14,6 @@ build:
     pre_create_environment:
       - conda update --yes --quiet --name=base --channel=defaults conda
     post_create_environment:
-      - conda install --yes --quiet --name=base --channel=conda-forge gfortran_linux-64
       - pip install numpy wheel
       - pip install .[docs]
 
@@ -26,3 +25,6 @@ sphinx:
 formats:
   - pdf
   - epub
+
+conda:
+  environment: environment.yml
