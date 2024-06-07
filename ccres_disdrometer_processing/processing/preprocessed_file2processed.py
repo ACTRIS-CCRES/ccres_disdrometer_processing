@@ -49,11 +49,8 @@ def merge_preprocessed_data(yesterday, today, tomorrow):
     return ds, files_provided
 
 
-def rain_event_selection(ds, conf):
-    if (
-        bool(ds["weather_data_avail"].values[0]) is False
-        or ds.attrs["location"] == "Lindenberg"
-    ):
+def rain_event_selection(ds, conf, no_meteo):
+    if bool(ds["weather_data_avail"].values[0]) is False or no_meteo is True:
         lgr.info(
             "Rain event selection (no rain gauge data, disdrometer precipitation is used)"  # noqa
         )
@@ -129,11 +126,8 @@ def extract_dcr_data(ds, conf):
     return Ze_ds
 
 
-def compute_quality_checks(ds, conf, start, end):
-    if (
-        bool(ds["weather_data_avail"].values[0]) is False
-        or ds.attrs["location"] == "Lindenberg"
-    ):
+def compute_quality_checks(ds, conf, start, end, no_meteo):
+    if bool(ds["weather_data_avail"].values[0]) is False or no_meteo is True:
         qc_ds = processing_noweather.compute_quality_checks_noweather(
             ds, conf, start, end
         )
@@ -154,11 +148,8 @@ def compute_quality_checks(ds, conf, start, end):
     return qc_ds
 
 
-def compute_todays_events_stats(ds, Ze_ds, conf, qc_ds, start, end):
-    if (
-        bool(ds["weather_data_avail"].values[0]) is False
-        or ds.attrs["location"] == "Lindenberg"
-    ):
+def compute_todays_events_stats(ds, Ze_ds, conf, qc_ds, start, end, no_meteo):
+    if bool(ds["weather_data_avail"].values[0]) is False or no_meteo is True:
         stats_ds = processing_noweather.compute_todays_events_stats_noweather(
             ds, Ze_ds, conf, qc_ds, start, end
         )
@@ -287,7 +278,7 @@ def add_attributes(processed_ds, preprocessed_ds):
     return
 
 
-def process(yesterday, today, tomorrow, conf, output_file, verbosity):
+def process(yesterday, today, tomorrow, conf, output_file, no_meteo, verbosity):
     """Use to build command line interface for processing step."""
     log_level = LogLevels.get_by_verbosity_count(verbosity)
     init_logger(log_level)
@@ -296,16 +287,13 @@ def process(yesterday, today, tomorrow, conf, output_file, verbosity):
     conf = toml.load(conf)
     ds, files_provided = merge_preprocessed_data(yesterday, today, tomorrow)
 
-    if (
-        bool(ds["weather_data_avail"].values[0]) is False
-        or ds.attrs["location"] == "Lindenberg"
-    ):
+    if bool(ds["weather_data_avail"].values[0]) is False or no_meteo is True:
         click.echo("Downgraded mode (no weather data is used)")
 
-    start, end = rain_event_selection(ds, conf)
+    start, end = rain_event_selection(ds, conf, no_meteo)
     Ze_ds = extract_dcr_data(ds, conf)
-    qc_ds = compute_quality_checks(ds, conf, start, end)
-    stats_ds = compute_todays_events_stats(ds, Ze_ds, conf, qc_ds, start, end)
+    qc_ds = compute_quality_checks(ds, conf, start, end, no_meteo)
+    stats_ds = compute_todays_events_stats(ds, Ze_ds, conf, qc_ds, start, end, no_meteo)
     processed_ds = xr.merge([Ze_ds, qc_ds, stats_ds], combine_attrs="no_conflicts")
     # Select only timesteps from the day to process
     today_ds = xr.open_dataset(today)
@@ -353,10 +341,13 @@ def process(yesterday, today, tomorrow, conf, output_file, verbosity):
 
 
 if __name__ == "__main__":
-    test_weather = False
+    test_weather = True
     test_weather_downgraded = False
     test_noweather = False
-    test_lindenberg_10mn = True
+    test_lindenberg_10mn = False
+    test_no_meteo = (
+        False  # downgraded without weather even when available in prepro files
+    )
 
     if test_lindenberg_10mn:
         yesterday = None
@@ -398,7 +389,9 @@ if __name__ == "__main__":
                 "%Y-%m-%d"
             ),
         )
-        process(yesterday, today, tomorrow, conf, output_file, 1)
+        process(
+            yesterday, today, tomorrow, conf, output_file, no_meteo=False, verbosity=1
+        )
         processed_ds = xr.open_dataset(output_file)
         QCwd = processed_ds.QC_wd.values
         print(len(QCwd[np.where(QCwd == 1)]))
