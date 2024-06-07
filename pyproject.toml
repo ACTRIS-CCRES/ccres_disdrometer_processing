@@ -56,13 +56,6 @@ dev = [
     "coverage>=5.3",
     "requests",
 
-
-    # Documentation
-    "sphinx>=4.5.0",
-    "myst",
-    "myst-parser",
-    "sphinx_book_theme>=0.3.0",
-
     # Tox
     "tox",
 
@@ -76,8 +69,25 @@ dev = [
 
     # Typing
     "mypy",
+]
 
-
+docs = [
+    "ablog",
+    "numpydoc",
+    "myst-nb",
+    "sphinx",
+    "sphinx-autobuild",
+    "sphinx-book-theme",
+    "sphinx-design",
+    "sphinx-examples",
+    "sphinx-copybutton",
+    "sphinx-serve",
+    "sphinx-tabs",
+    "sphinx-togglebutton",
+    "sphinx-thebe",
+    "sphinxcontrib-bibtex",
+    "sphinxcontrib-youtube",
+    "sphinxext-opengraph",
 ]
 
 [project.scripts]
