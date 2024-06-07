@@ -504,3 +504,35 @@ def test_data_processing_ndays(request):
     """Data to test processing on several days."""
     param = request.param
     yield param
+
+
+# test for cli option --no-meteo at processing level
+@pytest.fixture(
+    params=[
+        # palaiseau
+        {
+            "site": "palaiseau",
+            "date": "2024-01-02",
+            "radar": "basta",
+            "radar-pid": "https://hdl.handle.net/21.12132/3.643b7b5b43814e6f",
+            "disdro": "parsivel",
+            "disdro-pid": "https://hdl.handle.net/21.12132/3.7e13f3f243854ae8",
+            "meteo-available": True,
+            "meteo": "weather-station",
+            "meteo-pid": "https://hdl.handle.net/21.12132/3.739041931dac4de5",
+            "config_file": "config_palaiseau_basta-parsivel-ws.toml",
+            "output": {
+                "preprocess": "palaiseau_2024-01-02_basta-parsivel-ws_preprocessed.nc",  # noqa E501
+                "preprocessing_ql": {
+                    "weather-overview": "palaiseau_2021-02-02_basta-parsivel-ws_preproc-weather-overview.png",  # noqa E501
+                    "zh-overview": "palaiseau_2021-02-02_basta-parsivel-ws_zh-preproc-overview.png",  # noqa E501
+                },
+                "process": "palaiseau_2024-01-02_basta-parsivel-ws_processed_no_meteo_cli.nc",  # noqa E501
+            },
+        },
+    ]
+)
+def test_data_processing_cli_option_no_meteo(request):
+    """Data to test processing on several days."""
+    param = request.param
+    yield param

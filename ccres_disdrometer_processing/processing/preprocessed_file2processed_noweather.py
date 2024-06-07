@@ -54,56 +54,55 @@ def compute_quality_checks_noweather(ds, conf, start, end):
 
     # flag the timesteps belonging to an event
     qc_ds["flag_event"] = xr.DataArray(
-        data=np.full(len(ds.time), False, dtype=bool),
+        data=np.full(len(ds.time), 0, dtype="i2"),
         dims=["time"],
         attrs={
             "long_name": "flag to describe if a timestep belongs to a rain event",
-            "unit": "1",
         },
     )
     # do a column for rain accumulation since last beginning of an event
     qc_ds["ams_cp_since_event_begin"] = xr.DataArray(
-        np.nan * np.zeros(len(ds.time)),
+        np.nan * np.zeros(len(ds.time)).astype(np.single),
         dims=["time"],
         attrs={
             "long_name": "pluviometer rain accumulation since last begin of an event",
-            "unit": "mm",
+            "units": "mm",
             "comment": "not computable when no AMS data is provided",
         },
     )
     qc_ds["disdro_cp_since_event_begin"] = xr.DataArray(
-        np.zeros(len(ds.time)),
+        np.zeros(len(ds.time)).astype(np.single),
         dims="time",
         attrs={
             "long_name": "disdrometer rain accumulation since last begin of an event",
-            "unit": "mm",
+            "units": "mm",
         },
     )
     for s, e in zip(start, end):
-        qc_ds["flag_event"].loc[slice(s, e)] = True
+        qc_ds["flag_event"].loc[slice(s, e)] = 1
         qc_ds["disdro_cp_since_event_begin"].loc[slice(s, e)] = (
             1 / 60 * np.nancumsum(ds["disdro_pr"].sel(time=slice(s, e)).values)
         )
 
     # Flag for condition (rainfall_amount > N mm)
     qc_ds["QF_rainfall_amount"] = xr.DataArray(
-        qc_ds["disdro_cp_since_event_begin"]
-        >= conf["thresholds"]["MIN_RAINFALL_AMOUNT"],
+        (
+            qc_ds["disdro_cp_since_event_begin"]
+            >= conf["thresholds"]["MIN_RAINFALL_AMOUNT"]
+        ).astype("i2"),
         dims="time",
         attrs={
             "long_name": "Quality flag for minimum rainfall amount",
-            "unit": "1",
             "comment": f"Flag based on disdrometer data ; threshold = {conf['thresholds']['MIN_RAINFALL_AMOUNT']:.0f} mm",  # noqa E501
         },
     )
 
     # QC on DISDROMETER precipitation rate
     qc_ds["QC_pr"] = xr.DataArray(
-        data=ds["disdro_pr"] < conf["thresholds"]["MAX_RR"],
+        data=(ds["disdro_pr"] < conf["thresholds"]["MAX_RR"]).astype("i2"),
         dims=["time"],
         attrs={
             "long_name": "Quality check for rainfall rate",
-            "unit": "1",
             "comment": f"threshold = {conf['thresholds']['MAX_RR']:.0f} mm/h",
         },
     )
@@ -120,11 +119,10 @@ def compute_quality_checks_noweather(ds, conf, start, end):
     ratio_vdisdro_vth = vobs_disdro / vth_disdro
 
     qc_ds["QC_vdsd_t"] = xr.DataArray(
-        data=(np.abs(ratio_vdisdro_vth - 1) <= 0.3),
+        data=(np.abs(ratio_vdisdro_vth - 1) <= 0.3).astype("i2"),
         dims="time",
         attrs={
             "long_name": "Quality check for cohence between fall speed and droplet diameter",  # noqa E501
-            "unit": "1",
             "comment": f"threshold = {conf['thresholds']['DD_FALLSPEED_RATIO']:.1f} i.e. {100*conf['thresholds']['DD_FALLSPEED_RATIO']:.0f}% of relative error between average fall speed computed from speed distribution and average fall speed modeled from diameter distribution",  # noqa E501,
         },
     )
@@ -135,8 +133,8 @@ def compute_quality_checks_noweather(ds, conf, start, end):
             data=QC_FILL_VALUE * np.ones(len(ds.time)).astype("i2"),
             dims="time",
             attrs={
-                "unit": "1",
                 "comment": "not computable when no AMS data is provided",
+                "flag_values": np.array([0, 1]).astype("i2"),
             },
         )
     qc_ds["QC_ta"].attrs["long_name"] = "Quality check for air temperature"
@@ -145,6 +143,14 @@ def compute_quality_checks_noweather(ds, conf, start, end):
     qc_ds["QF_rg_dd"].attrs[
         "long_name"
     ] = "Quality flag for discrepancy between rain gauge and disdrometer precipitation rate"  # noqa
+    qc_ds["QC_ta"].attrs["flag_meanings"] = "temperature_under_threshold temperature_ok"
+    qc_ds["QC_wd"].attrs[
+        "flag_meanings"
+    ] = "wind_direction_out_of_good_range wind_direction_within_good_range"
+    qc_ds["QC_ws"].attrs["flag_meanings"] = "wind_speed_over_threshold wind_speed_ok"
+    qc_ds["QF_rg_dd"].attrs[
+        "flag_meanings"
+    ] = "discrepancy_rain_gauge_disdrometer_above_threshold discrepancy_rain_gauge_disdrometer_ok"  # noqa
 
     # Overall QC : disdro_pr, v(d)
     qc_ds["QC_overall"] = xr.DataArray(
@@ -152,7 +158,6 @@ def compute_quality_checks_noweather(ds, conf, start, end):
         dims="time",
         attrs={
             "long_name": "Overall quality check",
-            "unit": "1",
             "comment": "Checks combined : vdsd_t, pr",
         },
     )
@@ -165,12 +170,11 @@ def compute_quality_checks_noweather(ds, conf, start, end):
         "QC_vdsd_t",
         "QC_overall",
     ]:
-        qc_ds[key].data.astype("i2")
         qc_ds[key].attrs["flag_values"] = np.array([0, 1]).astype("i2")
 
     qc_ds["flag_event"].attrs[
         "flag_meanings"
-    ] = "timestep_part_of_an_event timestep_not_involved_in_any_avent"
+    ] = "timestep_not_involved_in_any_event timestep_part_of_an_event"
     qc_ds["QF_rainfall_amount"].attrs[
         "flag_meanings"
     ] = "less_rain_than_threshold_since_event_begin more_rain_than_threshold_since_event_begin"  # noqa E501
@@ -201,12 +205,12 @@ def compute_todays_events_stats_noweather(ds, Ze_ds, conf, qc_ds, start, end):
     )
 
     dZ_mean, dZ_med, dZ_q1, dZ_q3, dZ_min, dZ_max = (
-        np.zeros(n),
-        np.zeros(n),
-        np.zeros(n),
-        np.zeros(n),
-        np.zeros(n),
-        np.zeros(n),
+        np.zeros(n, dtype=np.float32),
+        np.zeros(n, dtype=np.float32),
+        np.zeros(n, dtype=np.float32),
+        np.zeros(n, dtype=np.float32),
+        np.zeros(n, dtype=np.float32),
+        np.zeros(n, dtype=np.float32),
     )
     event_length, rain_accumulation, qf_rain, nb_dz_computable_pts, nb_good_points = (
         np.zeros(n),
@@ -226,10 +230,10 @@ def compute_todays_events_stats_noweather(ds, Ze_ds, conf, qc_ds, start, end):
     )
 
     slope, intercept, r2, rms_error = (
-        np.zeros(n),
-        np.zeros(n),
-        np.zeros(n),
-        np.zeros(n),
+        np.zeros(n, dtype=np.float32),
+        np.zeros(n, dtype=np.float32),
+        np.zeros(n, dtype=np.float32),
+        np.zeros(n, dtype=np.float32),
     )
 
     event = 0
@@ -298,22 +302,22 @@ def compute_todays_events_stats_noweather(ds, Ze_ds, conf, qc_ds, start, end):
 
             event += 1
     stats_ds["start_event"] = xr.DataArray(
-        data=start_event, dims=["events"], attrs={"long_name": "event start epoch"}
+        data=start_event, dims=["events"], attrs={"long_name": "event start date"}
     )
     stats_ds["end_event"] = xr.DataArray(
-        data=end_event, dims=["events"], attrs={"long_name": "event end epoch"}
+        data=end_event, dims=["events"], attrs={"long_name": "event end date"}
     )
     stats_ds["event_length"] = xr.DataArray(
         data=event_length.astype("i4"),
         dims=["events"],
-        attrs={"long_name": "event duration", "unit": "mn"},
+        attrs={"long_name": "event duration", "units": "mn"},
     )
     stats_ds["rain_accumulation"] = xr.DataArray(
-        data=rain_accumulation,
+        data=rain_accumulation.astype(np.float32),
         dims=["events"],
         attrs={
             "long_name": "disdrometer rain accumulation over the whole event",
-            "unit": "mm",
+            "units": "mm",
         },
     )
     stats_ds["QF_rain_accumulation"] = xr.DataArray(
@@ -321,7 +325,6 @@ def compute_todays_events_stats_noweather(ds, Ze_ds, conf, qc_ds, start, end):
         dims=["events"],
         attrs={
             "long_name": "Flag on event rain accumulation",
-            "unit": "1",
             "flag_values": np.array([0, 1]).astype("i2"),
             "flag_meanings": "accumulation_above_threshold accumulation_over_threshold",
         },
@@ -342,32 +345,29 @@ def compute_todays_events_stats_noweather(ds, Ze_ds, conf, qc_ds, start, end):
         dims=["events"],
         attrs={
             "long_name": "number of timesteps for which Delta Z can be computed",
-            "unit": "1",
         },
     )
 
     stats_ds["QC_vdsd_t_ratio"] = xr.DataArray(
-        data=qc_vdsd_t_ratio,
+        data=qc_vdsd_t_ratio.astype(np.float32),
         dims=["events"],
         attrs={
             "long_name": "ratio of timesteps where check on relationship between droplet fall speed and diameter is good",  # noqa E501
-            "unit": "1",
             "comment": "among the timesteps for which Delta Z can be computed",
         },
     )
     stats_ds["QC_pr_ratio"] = xr.DataArray(
-        data=qc_pr_ratio,
+        data=qc_pr_ratio.astype(np.float32),
         dims=["events"],
         attrs={
             "long_name": "ratio of timesteps where precipitation rate QC is good",  # noqa E501
-            "unit": "1",
             "comment": "among the timesteps for which Delta Z can be computed",
         },
     )
 
     for key in ["QC_ta_ratio", "QC_ws_ratio", "QC_wd_ratio"]:
         stats_ds[key] = xr.DataArray(
-            data=np.nan * np.zeros(len(stats_ds.events)),
+            data=np.nan * np.zeros(len(stats_ds.events)).astype(np.float32),
             dims=["events"],
             attrs={
                 "comment": "not computable when no AMS data is provided",
@@ -384,11 +384,10 @@ def compute_todays_events_stats_noweather(ds, Ze_ds, conf, qc_ds, start, end):
     ] = "ratio of timesteps where check for wind speed is good"
 
     stats_ds["QC_overall_ratio"] = xr.DataArray(
-        data=qc_overall_ratio,
+        data=qc_overall_ratio.astype(np.float32),
         dims=["events"],
         attrs={
             "long_name": "ratio of timesteps where all checks are good",  # noqa E501
-            "unit": "1",
             "comment": "Checks combined : vdsd_t, pr",
         },
     )
@@ -397,7 +396,6 @@ def compute_todays_events_stats_noweather(ds, Ze_ds, conf, qc_ds, start, end):
         dims=["events"],
         attrs={
             "long_name": "number of timesteps where all checks are good",
-            "unit": "1",
         },
     )
 
@@ -406,7 +404,7 @@ def compute_todays_events_stats_noweather(ds, Ze_ds, conf, qc_ds, start, end):
         dims=["events"],
         attrs={
             "long_name": "average value of Delta Z for good timesteps",
-            "unit": "dBZ",
+            "units": "dBZ",
         },
     )
     stats_ds["dZ_med"] = xr.DataArray(
@@ -414,7 +412,7 @@ def compute_todays_events_stats_noweather(ds, Ze_ds, conf, qc_ds, start, end):
         dims=["events"],
         attrs={
             "long_name": "median value of Delta Z for good timesteps",
-            "unit": "dBZ",
+            "units": "dBZ",
         },
     )
     stats_ds["dZ_q1"] = xr.DataArray(
@@ -422,7 +420,7 @@ def compute_todays_events_stats_noweather(ds, Ze_ds, conf, qc_ds, start, end):
         dims=["events"],
         attrs={
             "long_name": "first quartile of Delta Z distribution for good timesteps",
-            "unit": "dBZ",
+            "units": "dBZ",
         },
     )
     stats_ds["dZ_q3"] = xr.DataArray(
@@ -430,7 +428,7 @@ def compute_todays_events_stats_noweather(ds, Ze_ds, conf, qc_ds, start, end):
         dims=["events"],
         attrs={
             "long_name": "third quartile of Delta Z distribution for good timesteps",
-            "unit": "dBZ",
+            "units": "dBZ",
         },
     )
     stats_ds["dZ_min"] = xr.DataArray(
@@ -438,7 +436,7 @@ def compute_todays_events_stats_noweather(ds, Ze_ds, conf, qc_ds, start, end):
         dims=["events"],
         attrs={
             "long_name": "minimum value of Delta Z for good timesteps",
-            "unit": "dBZ",
+            "units": "dBZ",
         },
     )
     stats_ds["dZ_max"] = xr.DataArray(
@@ -446,7 +444,7 @@ def compute_todays_events_stats_noweather(ds, Ze_ds, conf, qc_ds, start, end):
         dims=["events"],
         attrs={
             "long_name": "maximum value of Delta Z for good timesteps",
-            "unit": "dBZ",
+            "units": "dBZ",
         },
     )
 
@@ -455,7 +453,6 @@ def compute_todays_events_stats_noweather(ds, Ze_ds, conf, qc_ds, start, end):
         dims=["events"],
         attrs={
             "long_name": "slope of the linear regression Zdd/Zdcr for each event",
-            "unit": "1",
         },
     )
     stats_ds["reg_intercept"] = xr.DataArray(
@@ -463,7 +460,6 @@ def compute_todays_events_stats_noweather(ds, Ze_ds, conf, qc_ds, start, end):
         dims=["events"],
         attrs={
             "long_name": "intercept of the linear regression Zdd/Zdcr for each event",
-            "unit": "1",
             "comment": "expected to be related to the bias i.e. to mean Delta Z",
         },
     )
@@ -473,7 +469,6 @@ def compute_todays_events_stats_noweather(ds, Ze_ds, conf, qc_ds, start, end):
         dims=["events"],
         attrs={
             "long_name": "R_squared of the linear regression Zdd/Zdcr for each event",
-            "unit": "1",
         },
     )
 
@@ -482,7 +477,6 @@ def compute_todays_events_stats_noweather(ds, Ze_ds, conf, qc_ds, start, end):
         dims=["events"],
         attrs={
             "long_name": "RMSE of the linear regression Zdd/Zdcr for each event",
-            "unit": "1",
         },
     )
 

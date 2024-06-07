@@ -49,11 +49,8 @@ def merge_preprocessed_data(yesterday, today, tomorrow):
     return ds, files_provided
 
 
-def rain_event_selection(ds, conf):
-    if (
-        bool(ds["weather_data_avail"].values[0]) is False
-        or ds.attrs["location"] == "Lindenberg"
-    ):
+def rain_event_selection(ds, conf, no_meteo):
+    if bool(ds["weather_data_avail"].values[0]) is False or no_meteo is True:
         lgr.info(
             "Rain event selection (no rain gauge data, disdrometer precipitation is used)"  # noqa
         )
@@ -71,7 +68,7 @@ def extract_dcr_data(ds, conf):
     Ze_ds = xr.Dataset(
         coords=dict(
             time=(["time"], ds.time.data),
-            range=(["range"], np.array(ranges_to_keep)),
+            range=(["range"], np.array(ranges_to_keep, dtype=np.single)),
         )
     )
 
@@ -97,7 +94,7 @@ def extract_dcr_data(ds, conf):
     Ze_ds["Zdd"] = xr.DataArray(
         data=ds["Zdlog_vfov_modv_tm"]
         .sel(radar_frequencies=ds.radar_frequency, method="nearest")
-        .data,
+        .data.astype(np.single),
         dims=["time"],
         attrs={
             "long_name": "Disdrometer forward-modeled reflectivity",
@@ -108,7 +105,7 @@ def extract_dcr_data(ds, conf):
     Ze_ds["fallspeed_dd"] = xr.DataArray(
         data=np.nansum(
             np.nansum(ds["psd"].values, axis=2) * ds["measV"].values, axis=1
-        ),
+        ).astype(np.single),
         dims=["time"],
         attrs={
             "long_name": "Average droplet fall speed seen by the disdrometer",
@@ -117,7 +114,7 @@ def extract_dcr_data(ds, conf):
     )
     # Delta Ze
     Ze_ds["Delta_Z"] = xr.DataArray(
-        data=Ze_ds["Zdcr"].data - Ze_ds["Zdd"].data.reshape((-1, 1)),
+        data=Ze_ds["Zdcr"].data - Ze_ds["Zdd"].data.reshape((-1, 1)).astype(np.single),
         dims=["time", "range"],
         attrs={
             "long_name": "Difference between DCR and disdrometer-modeled reflectivity",
@@ -129,11 +126,8 @@ def extract_dcr_data(ds, conf):
     return Ze_ds
 
 
-def compute_quality_checks(ds, conf, start, end):
-    if (
-        bool(ds["weather_data_avail"].values[0]) is False
-        or ds.attrs["location"] == "Lindenberg"
-    ):
+def compute_quality_checks(ds, conf, start, end, no_meteo):
+    if bool(ds["weather_data_avail"].values[0]) is False or no_meteo is True:
         qc_ds = processing_noweather.compute_quality_checks_noweather(
             ds, conf, start, end
         )
@@ -154,11 +148,8 @@ def compute_quality_checks(ds, conf, start, end):
     return qc_ds
 
 
-def compute_todays_events_stats(ds, Ze_ds, conf, qc_ds, start, end):
-    if (
-        bool(ds["weather_data_avail"].values[0]) is False
-        or ds.attrs["location"] == "Lindenberg"
-    ):
+def compute_todays_events_stats(ds, Ze_ds, conf, qc_ds, start, end, no_meteo):
+    if bool(ds["weather_data_avail"].values[0]) is False or no_meteo is True:
         stats_ds = processing_noweather.compute_todays_events_stats_noweather(
             ds, Ze_ds, conf, qc_ds, start, end
         )
@@ -287,7 +278,7 @@ def add_attributes(processed_ds, preprocessed_ds):
     return
 
 
-def process(yesterday, today, tomorrow, conf, output_file, verbosity):
+def process(yesterday, today, tomorrow, conf, output_file, no_meteo, verbosity):
     """Use to build command line interface for processing step."""
     log_level = LogLevels.get_by_verbosity_count(verbosity)
     init_logger(log_level)
@@ -296,16 +287,13 @@ def process(yesterday, today, tomorrow, conf, output_file, verbosity):
     conf = toml.load(conf)
     ds, files_provided = merge_preprocessed_data(yesterday, today, tomorrow)
 
-    if (
-        bool(ds["weather_data_avail"].values[0]) is False
-        or ds.attrs["location"] == "Lindenberg"
-    ):
+    if bool(ds["weather_data_avail"].values[0]) is False or no_meteo is True:
         click.echo("Downgraded mode (no weather data is used)")
 
-    start, end = rain_event_selection(ds, conf)
+    start, end = rain_event_selection(ds, conf, no_meteo)
     Ze_ds = extract_dcr_data(ds, conf)
-    qc_ds = compute_quality_checks(ds, conf, start, end)
-    stats_ds = compute_todays_events_stats(ds, Ze_ds, conf, qc_ds, start, end)
+    qc_ds = compute_quality_checks(ds, conf, start, end, no_meteo)
+    stats_ds = compute_todays_events_stats(ds, Ze_ds, conf, qc_ds, start, end, no_meteo)
     processed_ds = xr.merge([Ze_ds, qc_ds, stats_ds], combine_attrs="no_conflicts")
     # Select only timesteps from the day to process
     today_ds = xr.open_dataset(today)
@@ -334,8 +322,8 @@ def process(yesterday, today, tomorrow, conf, output_file, verbosity):
             "time": {"units": TIME_UNITS, "calendar": TIME_CALENDAR},
             "start_event": {"units": TIME_UNITS, "calendar": TIME_CALENDAR},
             "end_event": {"units": TIME_UNITS, "calendar": TIME_CALENDAR},
-            "ams_cp_since_event_begin": {"_FillValue": "NaN"},
-            "disdro_cp_since_event_begin": {"_FillValue": "NaN"},
+            "ams_cp_since_event_begin": {"_FillValue": np.nan},
+            "disdro_cp_since_event_begin": {"_FillValue": np.nan},
             "QC_ta": {"_FillValue": QC_FILL_VALUE},
             "QC_pr": {"_FillValue": QC_FILL_VALUE},
             "QC_vdsd_t": {"_FillValue": QC_FILL_VALUE},
@@ -343,9 +331,9 @@ def process(yesterday, today, tomorrow, conf, output_file, verbosity):
             "QC_ws": {"_FillValue": QC_FILL_VALUE},
             "QC_wd": {"_FillValue": QC_FILL_VALUE},
             "QF_rg_dd": {"_FillValue": QC_FILL_VALUE},
-            "QC_ta_ratio": {"_FillValue": "NaN"},
-            "QC_ws_ratio": {"_FillValue": "NaN"},
-            "QC_wd_ratio": {"_FillValue": "NaN"},
+            "QC_ta_ratio": {"_FillValue": np.nan},
+            "QC_ws_ratio": {"_FillValue": np.nan},
+            "QC_wd_ratio": {"_FillValue": np.nan},
             "QF_rg_dd_event": {"_FillValue": QC_FILL_VALUE},
         },
     )
@@ -355,8 +343,11 @@ def process(yesterday, today, tomorrow, conf, output_file, verbosity):
 if __name__ == "__main__":
     test_weather = False
     test_weather_downgraded = False
-    test_noweather = False
-    test_lindenberg_10mn = True
+    test_noweather = True
+    test_lindenberg_10mn = False
+    test_no_meteo = (
+        False  # downgraded without weather even when available in prepro files
+    )
 
     if test_lindenberg_10mn:
         yesterday = None
@@ -398,7 +389,9 @@ if __name__ == "__main__":
                 "%Y-%m-%d"
             ),
         )
-        process(yesterday, today, tomorrow, conf, output_file, 1)
+        process(
+            yesterday, today, tomorrow, conf, output_file, no_meteo=False, verbosity=1
+        )
         processed_ds = xr.open_dataset(output_file)
         QCwd = processed_ds.QC_wd.values
         print(len(QCwd[np.where(QCwd == 1)]))
@@ -494,7 +487,9 @@ if __name__ == "__main__":
                 "%Y-%m-%d"
             ),
         )
-        process(yesterday, today, tomorrow, conf, output_file, 1)
+        process(
+            yesterday, today, tomorrow, conf, output_file, no_meteo=False, verbosity=1
+        )
 
         processed_ds = xr.open_dataset("./JOYCE_2021-12-04_processed_scipy.nc")
         # print(processed_ds.attrs)
