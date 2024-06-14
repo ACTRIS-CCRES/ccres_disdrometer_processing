@@ -10,9 +10,7 @@ lgr = logging.getLogger(__name__)
 
 CLOUDNET_API_URL = "https://cloudnet.fmi.fi/api/"
 CLOUDNET_API_FILE_URL = "https://cloudnet.fmi.fi/api/files/"
-CLOUDNET_API_FILES_OPTS = (
-    "?site={site:}&date={date:}&instrument={instrument:}&pid={instrument_pid:}"
-)
+CLOUDNET_API_FILES_OPTS = "?site={site:}&date={date:}&instrument={instrument:}&instrumentPid={instrument_pid:}"  # noqa E501
 
 
 def is_file_available(filename: str, local_dir: Path) -> bool:
@@ -67,7 +65,12 @@ def get_file_from_cloudnet(
         local_dir = Path(local_dir)
 
     request_urls = CLOUDNET_API_FILE_URL + CLOUDNET_API_FILES_OPTS.format(
-        **{"site": site, "date": date, "instrument": instrument, "pid": instrument_pid}
+        **{
+            "site": site,
+            "date": date,
+            "instrument": instrument,
+            "instrumentPid": instrument_pid,
+        }
     )
     metadata = requests.get(request_urls).json()
     filename = metadata[0]["filename"]
