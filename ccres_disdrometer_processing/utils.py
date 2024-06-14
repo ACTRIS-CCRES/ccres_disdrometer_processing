@@ -69,7 +69,7 @@ def get_file_from_cloudnet(
             "site": site,
             "date": date,
             "instrument": instrument,
-            "instrumentPid": instrument_pid,
+            "instrument_pid": instrument_pid,
         }
     )
     metadata = requests.get(request_urls).json()
