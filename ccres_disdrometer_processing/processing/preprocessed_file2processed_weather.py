@@ -38,6 +38,8 @@ def rain_event_selection_weather(ds, conf):  # with no constraint on cum for the
 
     t = sel_ds.time
     start, end = [], []
+    if len(t) <= 1:
+        return start, end
     start_candidate = t[0]
     for i in range(len(t) - 1):
         if i + 1 == len(t) - 1:

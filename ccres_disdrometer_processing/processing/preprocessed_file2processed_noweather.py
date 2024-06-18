@@ -31,6 +31,8 @@ def rain_event_selection_noweather(
     )
     t = sel_ds.time
     start, end = [], []
+    if len(t) <= 1:
+        return start, end
     start_candidate = t[0]
     for i in range(len(t) - 1):
         if i + 1 == len(t) - 1:
