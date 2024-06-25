@@ -92,8 +92,8 @@ def data_out_dir(data_dir):
             "output": {
                 "preprocess": "palaiseau_2024-01-02_basta-parsivel-ws_preprocessed.nc",  # noqa E501
                 "preprocessing_ql": {
-                    "weather-overview": "palaiseau_2021-02-02_basta-parsivel-ws_preproc-weather-overview.png",  # noqa E501
-                    "zh-overview": "palaiseau_2021-02-02_basta-parsivel-ws_zh-preproc-overview.png",  # noqa E501
+                    "weather-overview": "palaiseau_2024-01-02_basta-parsivel-ws_preproc-weather-overview.png",  # noqa E501
+                    "zh-overview": "palaiseau_2024-01-02_basta-parsivel-ws_zh-preproc-overview.png",  # noqa E501
                 },
                 "process": "palaiseau_2024-01-02_basta-parsivel-ws_processed.nc",  # noqa E501
                 "process_ql": {
@@ -116,8 +116,8 @@ def data_out_dir(data_dir):
             "output": {
                 "preprocess": "palaiseau_2024-01-02_basta-thies-ws_preprocessed.nc",
                 "preprocessing_ql": {
-                    "weather-overview": "palaiseau_2021-02-02_basta-thies-ws_preproc-weather-overview.png",  # noqa E501
-                    "zh-overview": "palaiseau_2021-02-02_basta-thies-ws_zh-preproc-overview.png",  # noqa E501
+                    "weather-overview": "palaiseau_2024-01-02_basta-thies-ws_preproc-weather-overview.png",  # noqa E501
+                    "zh-overview": "palaiseau_2024-01-02_basta-thies-ws_zh-preproc-overview.png",  # noqa E501
                 },
                 "process": "palaiseau_2024-01-02_basta-thies-ws_processed.nc",
                 "process_ql": {
