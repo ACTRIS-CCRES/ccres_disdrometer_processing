@@ -1,5 +1,4 @@
-import glob
-
+import extract_data_for_dynamic_plots as extract
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
@@ -7,22 +6,12 @@ import pandas as pd
 import toml
 import xarray as xr
 
-from ccres_disdrometer_processing.processing import (
-    extract_data_for_dynamic_plots as extract,
-)
-
 MIN_TIMESTEPS = 50  # minimum number of good timesteps to consider the event statistics are robust enough for being plotted in the monitoring timeseries  # noqa
 
 
 def monitoring_timeseries(
-    folder,
-    conf,
-    showmeans=True,
-    showfliers=True,
-    showcaps=True,
+    files, conf, showmeans=True, showfliers=False, showcaps=False, showwhiskers=False
 ):
-    files = sorted(glob.glob(folder))
-    print("number of files : ", len(files))
     f0 = xr.open_dataset(files[0])
     event_stats = []
     for key in list(f0.keys()):
@@ -30,8 +19,9 @@ def monitoring_timeseries(
             event_stats.append(key)
     # print(event_stats)
     ds = xr.concat([xr.open_dataset(file)[event_stats] for file in files], dim="events")
+    print(ds.start_event.values[0])
 
-    fig, ax = plt.subplots(figsize=((20, 6)))
+    fig, ax = plt.subplots(figsize=((20, 8)))
     ax.axhline(y=0, color="blue")
 
     # Moving average of the median bias
@@ -41,7 +31,6 @@ def monitoring_timeseries(
         np.where(np.isfinite(ds.dZ_med) * 1 == 1)[0],
     )
     f = np.intersect1d(f, np.where(ds.good_points_number >= MIN_TIMESTEPS))
-    f = np.arange(len(ds.events))  # TODO : remove this line after tests are OK
 
     dZ_good, t_good = (
         ds.dZ_med[f],
@@ -60,13 +49,16 @@ def monitoring_timeseries(
         markerfacecolor="darkorange",
         markeredgecolor="darkorange",
     )
-    boxprops = dict(color="green")
+    boxprops = dict(color="gray")
     flierprops = dict(
         markerfacecolor="none",
         marker="o",
         markeredgecolor="green",
     )
-    whiskerprops = dict(lw=1.0, color="green")  # hide whiskers ? (lw=0)
+
+    whiskerprops = (
+        dict(lw=1.0, color="green") if showwhiskers else dict(lw=0)
+    )  # hide whiskers ? (lw=0)
 
     # Boxplot stats for each eligible event
     for k in range(len(f)):  # should it be in range(len(dZ_good)) ?
@@ -124,8 +116,10 @@ def monitoring_timeseries(
     plt.xlabel("Date", fontsize=15, fontweight=300)
     plt.ylabel("$Z_{DCR} - Z_{disdrometer}$ (dBZ)", fontsize=15, fontweight=300)
     ax.set_ylim(bottom=-30, top=30)
-    # locator = mpl.dates.MonthLocator(interval=1)
-    locator = mpl.dates.DayLocator(interval=1)
+    mod_ylim = (ds.dZ_q1[f].values.min() > -20) and (ds.dZ_q3[f].values.max() < 20)
+    if mod_ylim:
+        ax.set_ylim(bottom=-20, top=20)
+    locator = mpl.dates.MonthLocator(interval=1)
     formatter = mpl.dates.ConciseDateFormatter(locator)
     ax.xaxis.set_major_locator(locator)
     ax.xaxis.set_major_formatter(formatter)
@@ -133,6 +127,7 @@ def monitoring_timeseries(
     # dates_axe = mpl.dates.num2date(np.array(ax.get_xticks()))
     # dates_axe = [d.date() for d in dates_axe]
     plt.xticks(rotation=45, fontsize=13, fontweight="semibold")
+    ax.locator_params(axis="y", tight=True)
     ax.set_yticklabels(ax.get_yticks(), fontsize=18, fontweight="semibold")
 
     plt.title(
@@ -161,10 +156,10 @@ def monitoring_timeseries(
             / 2
         ).astype("datetime64[ns]")
     )
-
+    print("HEIGHT Y TEXT :", 26 - 10 * mod_ylim)
     plt.text(
         x=centered_time,
-        y=26,
+        y=26 - 10 * mod_ylim,
         s="disdrometer used as a reference : " + ds.disdrometer_source,
         fontsize=14,
         ha="center",
@@ -172,7 +167,7 @@ def monitoring_timeseries(
     if f0.weather_data_avail.values[0] > 0:
         plt.text(
             x=centered_time,
-            y=23,
+            y=23 - 10 * mod_ylim,
             s="Weather station data used for QC computation",
             fontsize=14,
             ha="center",
@@ -180,7 +175,7 @@ def monitoring_timeseries(
     else:
         plt.text(
             x=centered_time,
-            y=23,
+            y=23 - 10 * mod_ylim,
             s="no Weather station data available for QC",
             fontsize=14,
             ha="center",
@@ -188,7 +183,7 @@ def monitoring_timeseries(
     print(f0.range.shape)
     plt.text(
         x=centered_time,
-        y=20,
+        y=20 - 10 * mod_ylim,
         s=r"$\Delta Z$ computation @ {:.0f}m AGL".format(
             f0.range.sel(
                 {"range": conf["instrument_parameters"]["DCR_DZ_RANGE"]},
@@ -204,15 +199,15 @@ def monitoring_timeseries(
 
 
 def timestep_pdf(
-    folder,
+    files,
     conf,
 ):
-    processed_ds0 = xr.open_dataset(sorted(glob.glob(folder))[0])
+    processed_ds0 = xr.open_dataset(files[0])
     fig, ax = plt.subplots()
     ax.set_xlim(left=-30, right=30)
 
     # gather and plot "good" timesteps
-    timestep_df = extract.extract_1mn_events_data(folder, conf)
+    timestep_df = extract.extract_1mn_events_data(files, conf)
     ax.hist(
         timestep_df["Delta_Z"],
         color="green",
@@ -256,13 +251,14 @@ def timestep_pdf(
     ax.set_yticklabels(np.round(100 * np.array(ax.get_yticks()), decimals=0))
     ax.legend()
     ax.set_title(
-        "PDF of $\Delta Z$ timestep by timestep \n"
+        f"PDF of $\Delta Z$ timestep by timestep @ {processed_ds0.location} \n"
         + "Studied period : {} - {} \n".format(
             timestep_df.index[0].strftime("%Y/%m"),
             timestep_df.index[-1].strftime("%Y/%m"),
         )
-        + f"Disdrometer : {processed_ds0.disdrometer_source}, DCR : {processed_ds0.radar_source}",  # noqa
-        fontsize=11,
+        + f"Disdrometer : {processed_ds0.disdrometer_source}, DCR : {processed_ds0.radar_source} \n"  # noqa
+        + f"{len(timestep_df)} timesteps kept",
+        fontsize=9,
         fontweight="semibold",
     )
     plt.close()
