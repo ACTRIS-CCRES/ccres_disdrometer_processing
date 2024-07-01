@@ -367,7 +367,7 @@ if __name__ == "__main__":
         ds, files_provided = merge_preprocessed_data(yesterday, today, tomorrow)
         output_file = "./{}_{}_processed_downgraded.nc".format(
             ds.attrs["location"].lower(),
-            pd.to_datetime(ds.time.isel(time=len(ds.time) // 2).values).strftime(
+            pd.to_datetime(ds.time.isel(time=ds.time.size // 2).values).strftime(
                 "%Y-%m-%d"
             ),
         )
@@ -385,7 +385,7 @@ if __name__ == "__main__":
         ds, files_provided = merge_preprocessed_data(yesterday, today, tomorrow)
         output_file = "./{}_{}_processed.nc".format(
             ds.attrs["station_name"],
-            pd.to_datetime(ds.time.isel(time=len(ds.time) // 2).values).strftime(
+            pd.to_datetime(ds.time.isel(time=ds.time.size // 2).values).strftime(
                 "%Y-%m-%d"
             ),
         )
@@ -483,7 +483,7 @@ if __name__ == "__main__":
         ds, files_provided = merge_preprocessed_data(yesterday, today, tomorrow)
         output_file = "./{}_{}_processed_scipy.nc".format(
             ds.attrs["station_name"],
-            pd.to_datetime(ds.time.isel(time=len(ds.time) // 2).values).strftime(
+            pd.to_datetime(ds.time.isel(time=ds.time.size // 2).values).strftime(
                 "%Y-%m-%d"
             ),
         )

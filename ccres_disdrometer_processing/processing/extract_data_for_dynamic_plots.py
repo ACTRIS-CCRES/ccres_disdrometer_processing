@@ -2,7 +2,8 @@ import glob
 
 import numpy as np
 import pandas as pd
-import toml
+
+# import toml
 import xarray as xr
 
 TIME_VARS = ["Delta_Z", "flag_event", "QC_overall"]
@@ -62,11 +63,12 @@ def extract_1mn_events_data(folder, conf):
 
 
 if __name__ == "__main__":
-    folder = "/home/ygrit/disdro_processing/ccres_disdrometer_processing/tests/data/outputs/juelich_2021-12*_processed.nc"  # noqa
-    conf = toml.load(
-        "/home/ygrit/disdro_processing/ccres_disdrometer_processing/tests/data/conf/config_juelich_mira-parsivel.toml"
-    )
+    # folder = "/home/ygrit/disdro_processing/ccres_disdrometer_processing/tests/data/outputs/juelich_2021-12*_processed.nc"  # noqa
+    # conf = toml.load(
+    #     "/home/ygrit/disdro_processing/ccres_disdrometer_processing/tests/data/conf/config_juelich_mira-parsivel.toml"  # noqa
+    # )
     # stats_df = extract_stat_events(folder)
     # print(stats_df)
-    timestep_df = extract_1mn_events_data(folder, conf)
-    print(timestep_df)
+    # timestep_df = extract_1mn_events_data(folder, conf)
+    # print(timestep_df)
+    pass
