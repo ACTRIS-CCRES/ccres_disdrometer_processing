@@ -38,9 +38,11 @@ def rain_event_selection_weather(ds, conf):  # with no constraint on cum for the
 
     t = sel_ds.time
     start, end = [], []
+    if t.size <= 1:
+        return start, end
     start_candidate = t[0]
-    for i in range(len(t) - 1):
-        if i + 1 == len(t) - 1:
+    for i in range(t.size - 1):
+        if i + 1 == t.size - 1:
             if t[i + 1] - t[i] > np.timedelta64(max_interval, "m"):
                 if t[i] - start_candidate >= np.timedelta64(min_duration, "m"):
                     start.append(start_candidate.values)
@@ -61,7 +63,7 @@ def compute_quality_checks_weather(ds, conf, start, end):
 
     # flag the timesteps belonging to an event
     qc_ds["flag_event"] = xr.DataArray(
-        data=np.full(len(ds.time), False, dtype=bool),
+        data=np.full(ds.time.size, False, dtype=bool),
         dims=["time"],
         attrs={
             "long_name": "flag to describe if a timestep belongs to a rain event",
@@ -70,7 +72,7 @@ def compute_quality_checks_weather(ds, conf, start, end):
     )
     # do a column for rain accumulation since last beginning of an event
     qc_ds["ams_cp_since_event_begin"] = xr.DataArray(
-        np.nan * np.zeros(len(ds.time)),
+        np.nan * np.zeros(ds.time.size),
         dims=["time"],
         attrs={
             "long_name": "pluviometer rain accumulation since last begin of an event",
@@ -79,7 +81,7 @@ def compute_quality_checks_weather(ds, conf, start, end):
         },
     )
     qc_ds["disdro_cp_since_event_begin"] = xr.DataArray(
-        np.zeros(len(ds.time)),
+        np.zeros(ds.time.size),
         dims="time",
         attrs={
             "long_name": "disdrometer rain accumulation since last begin of an event",
@@ -113,7 +115,7 @@ def compute_quality_checks_weather(ds, conf, start, end):
 
     # QC on AMS precipitation rate
     qc_ds["QC_pr"] = xr.DataArray(
-        data=np.full(len(ds.time), True, dtype=bool),
+        data=np.full(ds.time.size, True, dtype=bool),
         dims=["time"],
         attrs={
             "long_name": "Quality check for rainfall rate",
@@ -191,7 +193,7 @@ def compute_quality_checks_weather(ds, conf, start, end):
     # Check agreement between rain gauge and disdrometer rain measurements
     # extract ds(start to end), compute relative deviation and compare to conf tolerance
     qc_ds["QF_rg_dd"] = xr.DataArray(
-        data=np.full(len(ds.time), False, dtype=bool),
+        data=np.full(ds.time.size, False, dtype=bool),
         dims="time",
         attrs={
             "long_name": "Quality flag for discrepancy between rain gauge and disdrometer precipitation rate"  # noqa
@@ -277,7 +279,7 @@ def compute_todays_events_stats_weather(ds, Ze_ds, conf, qc_ds, start, end):
     for s in start:
         if (
             pd.to_datetime(s).day
-            == pd.to_datetime(ds.time.isel(time=len(qc_ds.time) // 2).values).day
+            == pd.to_datetime(ds.time.isel(time=qc_ds.time.size // 2).values).day
         ):
             n += 1
     # n is the number of events to store in the dataset
@@ -341,7 +343,7 @@ def compute_todays_events_stats_weather(ds, Ze_ds, conf, qc_ds, start, end):
     for s, e in zip(start, end):
         if (
             pd.to_datetime(s).day
-            == pd.to_datetime(ds.time.isel(time=len(qc_ds.time) // 2).values).day
+            == pd.to_datetime(ds.time.isel(time=qc_ds.time.size // 2).values).day
         ):  # we only treat events which start on day D
             start_event[event] = s
             end_event[event] = e
@@ -356,15 +358,15 @@ def compute_todays_events_stats_weather(ds, Ze_ds, conf, qc_ds, start, end):
             nb_dz_computable_pts[event] = len(dz_r_nonan)
             # QC passed ratios
             qc_ds_event = qc_ds.sel(time=slice(s, e)).loc[{"time": np.isfinite(dz_r)}]
-            qc_ta_ratio[event] = np.sum(qc_ds_event["QC_ta"]) / len(qc_ds_event.time)
-            qc_ws_ratio[event] = np.sum(qc_ds_event["QC_ws"]) / len(qc_ds_event.time)
-            qc_wd_ratio[event] = np.sum(qc_ds_event["QC_wd"]) / len(qc_ds_event.time)
-            qc_pr_ratio[event] = np.sum(qc_ds_event["QC_pr"]) / len(qc_ds_event.time)
-            qc_vdsd_t_ratio[event] = np.sum(qc_ds_event["QC_vdsd_t"]) / len(
-                qc_ds_event.time
+            qc_ta_ratio[event] = np.sum(qc_ds_event["QC_ta"]) / qc_ds_event.time.size
+            qc_ws_ratio[event] = np.sum(qc_ds_event["QC_ws"]) / qc_ds_event.time.size
+            qc_wd_ratio[event] = np.sum(qc_ds_event["QC_wd"]) / qc_ds_event.time.size
+            qc_pr_ratio[event] = np.sum(qc_ds_event["QC_pr"]) / qc_ds_event.time.size
+            qc_vdsd_t_ratio[event] = (
+                np.sum(qc_ds_event["QC_vdsd_t"]) / qc_ds_event.time.size
             )
             qc_overall_ratio[event] = np.sum(
-                qc_ds_event["QC_overall"] / len(qc_ds_event.time)
+                qc_ds_event["QC_overall"] / qc_ds_event.time.size
             )
             nb_good_points[event] = np.sum(qc_ds_event["QC_overall"])
 
@@ -652,7 +654,7 @@ def compute_quality_checks_weather_low_sampling(
 
     # flag the timesteps belonging to an event
     qc_ds["flag_event"] = xr.DataArray(
-        data=np.full(len(ds.time), False, dtype=bool),
+        data=np.full(ds.time.size, False, dtype=bool),
         dims=["time"],
         attrs={
             "long_name": "flag to describe if a timestep belongs to a rain event",
@@ -661,7 +663,7 @@ def compute_quality_checks_weather_low_sampling(
     )
     # do a column for rain accumulation since last beginning of an event
     qc_ds["ams_cp_since_event_begin"] = xr.DataArray(
-        np.nan * np.zeros(len(ds.time)),
+        np.nan * np.zeros(ds.time.size),
         dims=["time"],
         attrs={
             "long_name": "pluviometer rain accumulation since last begin of an event",
@@ -670,7 +672,7 @@ def compute_quality_checks_weather_low_sampling(
         },
     )
     qc_ds["disdro_cp_since_event_begin"] = xr.DataArray(
-        np.zeros(len(ds.time)),
+        np.zeros(ds.time.size),
         dims="time",
         attrs={
             "long_name": "disdrometer rain accumulation since last begin of an event",
@@ -708,7 +710,7 @@ def compute_quality_checks_weather_low_sampling(
 
     # QC on AMS precipitation rate
     qc_ds["QC_pr"] = xr.DataArray(
-        data=np.full(len(ds.time), True, dtype=bool),
+        data=np.full(ds.time.size, True, dtype=bool),
         dims=["time"],
         attrs={
             "long_name": "Quality check for rainfall rate",
@@ -786,7 +788,7 @@ def compute_quality_checks_weather_low_sampling(
     # Check agreement between rain gauge and disdrometer rain measurements
     # extract ds(start to end), compute relative deviation and compare to conf tolerance
     qc_ds["QF_rg_dd"] = xr.DataArray(
-        data=np.full(len(ds.time), False, dtype=bool),
+        data=np.full(ds.time.size, False, dtype=bool),
         dims="time",
         attrs={
             "long_name": "Quality flag for discrepancy between rain gauge and disdrometer precipitation rate"  # noqa
