@@ -102,7 +102,7 @@ def compute_quality_checks_noweather(ds, conf, start, end):
         data=(ds["disdro_pr"] < conf["thresholds"]["MAX_RR"]).astype("i2"),
         dims=["time"],
         attrs={
-            "long_name": "Quality check for rainfall rate",
+            "long_name": "Quality check for rainfall rate (based on disdro pr data)",
             "comment": f"threshold = {conf['thresholds']['MAX_RR']:.0f} mm/h",
         },
     )
@@ -331,7 +331,7 @@ def compute_todays_events_stats_noweather(ds, Ze_ds, conf, qc_ds, start, end):
     )
 
     stats_ds["QF_rg_dd_event"] = xr.DataArray(
-        data=QC_FILL_VALUE * np.zeros(len(stats_ds.events)).astype("i2"),
+        data=QC_FILL_VALUE * np.ones(len(stats_ds.events)).astype("i2"),
         dims=["events"],
         attrs={
             "long_name": "Flag on deviation between rain gauge and disdrometer precipitation rate at the end of an event",  # noqa

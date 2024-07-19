@@ -113,7 +113,7 @@ def compute_quality_checks_weather(ds, conf, start, end):
 
     # QC on AMS precipitation rate
     qc_ds["QC_pr"] = xr.DataArray(
-        data=np.full(len(ds.time), True, dtype=bool),
+        data=np.full(len(ds.time), False, dtype=bool),
         dims=["time"],
         attrs={
             "long_name": "Quality check for rainfall rate",
@@ -678,18 +678,11 @@ def compute_quality_checks_weather_low_sampling(
         },
     )
     for s, e in zip(start, end):
-        # mask = (qc_ds.time >= s) & (qc_ds.time <= e)
-        # qc_ds["ams_cp_since_event_begin"] = qc_ds["ams_cp_since_event_begin"].where(
-        #     ~mask, 1
-        # )
         qc_ds["flag_event"].loc[slice(s, e)] = True
 
-        # qc_ds["ams_cp_since_event_begin"].loc[slice(s, e)] = (
-        #     1 / 60 * np.nancumsum(copy["ams_pr"].sel(time=slice(s, e)).values)
-        # )
         qc_ds["ams_cp_since_event_begin"].loc[slice(s, e)] = (
             copy["ams_cp"].sel(time=slice(s, e)).values
-            - copy["ams_cp"].sel(time=s).values[0]
+            - copy["ams_cp"].sel(time=s).values
         )
         qc_ds["disdro_cp_since_event_begin"].loc[slice(s, e)] = (
             1 / 60 * np.nancumsum(ds["disdro_pr"].sel(time=slice(s, e)).values)
@@ -708,15 +701,25 @@ def compute_quality_checks_weather_low_sampling(
 
     # QC on AMS precipitation rate
     qc_ds["QC_pr"] = xr.DataArray(
-        data=np.full(len(ds.time), True, dtype=bool),
+        data=np.full(len(ds.time), False, dtype=bool),
         dims=["time"],
         attrs={
-            "long_name": "Quality check for rainfall rate",
+            "long_name": f"Quality check for rainfall rate, {conf['thresholds']['PR_SAMPLING']:.0f} minutes averaging",  # noqa E501
             "unit": "1",
             "comment": f"threshold = {conf['thresholds']['MAX_RR']:.0f} mm/h",
         },
     )
+    # qc_ds["pr_avg"] = xr.DataArray(
+    #     data=QC_FILL_VALUE * np.ones(len(ds.time)),
+    #     dims=["time"],
+    #     attrs={
+    #         "long_name": f"averaged precipitation rate, {conf['thresholds']['PR_SAMPLING']:.0f} minutes averaging",  # noqa E501
+    #         "unit": "1",
+    #         "comment": f"threshold = {conf['thresholds']['MAX_RR']:.0f} mm/h",
+    #     },
+    # )
 
+    data_sampling = int(1440 / len(ds.time))
     for s, e in zip(start, end):
         time_chunks = np.arange(
             np.datetime64(s),
@@ -724,20 +727,55 @@ def compute_quality_checks_weather_low_sampling(
             np.timedelta64(conf["thresholds"]["PR_SAMPLING"], "m"),
         )
         for start_time_chunk, stop_time_chunk in zip(time_chunks[:-1], time_chunks[1:]):
-            RR_chunk = (
+            RR_chunk = 0
+            ams_pr_chunk = (
                 copy["ams_pr"]
                 .sel(
                     {
                         "time": slice(
-                            start_time_chunk, stop_time_chunk - np.timedelta64(1, "m")
+                            start_time_chunk,
+                            stop_time_chunk
+                            - np.timedelta64(1, "m")
+                            + np.timedelta64(data_sampling, "m"),
                         )
                     }
                 )
-                .mean()
+                .values
             )
+            time_chunk = copy.time.sel(
+                {
+                    "time": slice(
+                        start_time_chunk,
+                        stop_time_chunk
+                        - np.timedelta64(1, "m")
+                        + np.timedelta64(data_sampling, "m"),
+                    )
+                }
+            ).values
+            RR_chunk += ams_pr_chunk[0] * (
+                (time_chunk[0] - start_time_chunk) / np.timedelta64(1, "m")
+            )
+            RR_chunk += ams_pr_chunk[-1] * (
+                (
+                    stop_time_chunk
+                    - (time_chunk[-1] - np.timedelta64(data_sampling, "m"))
+                )
+                / np.timedelta64(1, "m")
+            )
+            for pr in ams_pr_chunk[1:-1]:
+                RR_chunk += data_sampling * pr
+
+            norm = (stop_time_chunk - start_time_chunk) / np.timedelta64(
+                1, "m"
+            )  # (last chunk is not necessary long as PR_SAMPLING param given in conf)
+            RR_chunk = RR_chunk / norm
+
             qc_ds["QC_pr"].loc[
                 slice(start_time_chunk, stop_time_chunk - np.timedelta64(1, "m"))
             ] = RR_chunk <= conf["thresholds"]["MAX_RR"]
+            # qc_ds["pr_avg"].loc[
+            #     slice(start_time_chunk, stop_time_chunk - np.timedelta64(1, "m"))
+            # ] = RR_chunk
 
     # QC relationship v(dsd)
     vth_disdro = (

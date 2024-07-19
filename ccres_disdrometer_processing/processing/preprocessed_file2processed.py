@@ -140,7 +140,7 @@ def compute_quality_checks(ds, conf, start, end, no_meteo):
             lgr.info("AMS data available at 1mn frequency")
             qc_ds = processing.compute_quality_checks_weather(ds, conf, start, end)
         else:
-            qc_ds = processing_noweather.compute_quality_checks_noweather(
+            qc_ds = processing.compute_quality_checks_weather_low_sampling(
                 ds, conf, start, end
             )
             lgr.info("AMS data available at a frequency > 1mn : not used")
