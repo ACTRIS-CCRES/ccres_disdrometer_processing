@@ -703,7 +703,7 @@ def compute_quality_checks_weather_low_sampling(
 
     # QC on AMS precipitation rate
     qc_ds["QC_pr"] = xr.DataArray(
-        data=np.full(ds.time.size), False, dtype=bool),
+        data=np.full(ds.time.size, False, dtype=bool),
         dims=["time"],
         attrs={
             "long_name": f"Quality check for rainfall rate, {conf['thresholds']['PR_SAMPLING']:.0f} minutes averaging",  # noqa E501
