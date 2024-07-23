@@ -203,16 +203,28 @@ def monitoring_timeseries(
     return fig, ax
 
 
-def timestep_pdf(
-    folder,
+def timestep_pdf_with_filter(
+    files,
     conf,
-):
-    processed_ds0 = xr.open_dataset(sorted(glob.glob(folder))[0])
+):  # events from which we get the good timesteps must
+    # fulfil the requirement for minimum good points number and rain accumulation
+    processed_ds0 = xr.open_dataset(files[0])
+    r = conf["instrument_parameters"]["DCR_DZ_RANGE"]  # range to keep for Delta_Z
+
     fig, ax = plt.subplots()
     ax.set_xlim(left=-30, right=30)
 
     # gather and plot "good" timesteps
-    timestep_df = extract.extract_1mn_events_data(folder, conf)
+    df_list = []
+    for today, tomorrow in zip(files[0:-1], files[1:]):
+        output = extract.data_for_static_pdf(
+            today,
+            tomorrow,
+            r,
+            min_timesteps=MIN_TIMESTEPS,
+        )
+        df_list.append(output.dataframe)
+    timestep_df = pd.concat(df_list)
     ax.hist(
         timestep_df["Delta_Z"],
         color="green",
@@ -256,13 +268,14 @@ def timestep_pdf(
     ax.set_yticklabels(np.round(100 * np.array(ax.get_yticks()), decimals=0))
     ax.legend()
     ax.set_title(
-        "PDF of $\Delta Z$ timestep by timestep \n"
+        f"PDF of $\Delta Z$ timestep by timestep @ {output.location} \n"
         + "Studied period : {} - {} \n".format(
             timestep_df.index[0].strftime("%Y/%m"),
             timestep_df.index[-1].strftime("%Y/%m"),
         )
-        + f"Disdrometer : {processed_ds0.disdrometer_source}, DCR : {processed_ds0.radar_source}",  # noqa
-        fontsize=11,
+        + f"Disdrometer : {processed_ds0.disdrometer_source}, DCR : {processed_ds0.radar_source} \n"  # noqa
+        + f"{len(timestep_df)} timesteps kept",
+        fontsize=9,
         fontweight="semibold",
     )
     plt.close()
@@ -277,5 +290,5 @@ if __name__ == "__main__":
     )
     fig, ax = monitoring_timeseries(folder, conf)
     fig.savefig("./plot_test_template_timeseries.png", dpi=400)
-    fig, ax = timestep_pdf(folder, conf)
+    fig, ax = timestep_pdf_with_filter(folder, conf)
     fig.savefig("./plot_test_template_pdf.png", dpi=400)
