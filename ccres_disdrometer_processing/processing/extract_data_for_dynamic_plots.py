@@ -68,15 +68,3 @@ def data_for_static_pdf(today, tomorrow, rng, min_timesteps):
     if "meteo_pid" in ds.attrs:
         output.meteo_pid = ds.attrs["meteo_pid"]
     return output
-
-
-if __name__ == "__main__":
-    # folder = "/home/ygrit/disdro_processing/ccres_disdrometer_processing/tests/data/outputs/juelich_2021-12*_processed.nc"  # noqa
-    # conf = toml.load(
-    #     "/home/ygrit/disdro_processing/ccres_disdrometer_processing/tests/data/conf/config_juelich_mira-parsivel.toml"  # noqa
-    # )
-    # stats_df = extract_stat_events(folder)
-    # print(stats_df)
-    # timestep_df = extract_1mn_events_data(folder, conf)
-    # print(timestep_df)
-    pass
