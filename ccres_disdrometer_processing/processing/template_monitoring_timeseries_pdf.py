@@ -39,6 +39,7 @@ def monitoring_timeseries(
     f = np.intersect1d(
         np.where(ds.QF_rain_accumulation > 0)[0],
         np.where(np.isfinite(ds.dZ_med) * 1 == 1)[0],
+        np.where(ds.QF_rg_dd_event != 0)[0],
     )
     f = np.intersect1d(f, np.where(ds.good_points_number >= MIN_TIMESTEPS))
     f = np.arange(len(ds.events))  # TODO : remove this line after tests are OK
