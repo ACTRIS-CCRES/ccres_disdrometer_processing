@@ -301,7 +301,10 @@ def process(yesterday, today, tomorrow, conf, output_file, no_meteo, verbosity):
         {"time": slice(today_ds.time.values[0], today_ds.time.values[-1])}
     )
     # get variable for weather data availability from prepro file
-    processed_ds["weather_data_avail"] = ds["weather_data_avail"]
+    if no_meteo:
+        processed_ds["weather_data_avail"] = ds["weather_data_avail"]
+    else:
+        processed_ds["weather_data_avail"] = 0 * ds["weather_data_avail"]
     # set attributes
     add_attributes(processed_ds, ds)
     str_files_provided = ""
