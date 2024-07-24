@@ -1,10 +1,17 @@
 import glob
+from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
 
 # import toml
 import xarray as xr
+
+
+@dataclass
+class DATA_DYN:
+    dataframe: pd.DataFrame
+
 
 TIME_VARS = ["Delta_Z", "flag_event", "QC_overall"]
 EVENTS_STARTEND = ["start_event", "end_event"]
@@ -26,49 +33,38 @@ def extract_stat_events(folder):
     return df
 
 
-def extract_timesteps_1day(file, rng, count):
-    daily_ds = xr.open_dataset(file)[TIME_VARS + EVENTS_STARTEND].sel(
-        {"range": rng}, method="nearest"
-    )
-    daily_filter = np.where(
-        (daily_ds["flag_event"] > 0)
-        & (daily_ds["QC_overall"] > 0)
-        & (np.isfinite(daily_ds["Delta_Z"]))
-    )[0]
-    daily_df = daily_ds.isel({"time": daily_filter})[TIME_VARS].to_dataframe()
-    daily_df["num_event"] = np.nan
-    if len(daily_ds["events"]) > 0:
-        for event in range(len(daily_ds["events"])):
-            count += 1
-            daily_df.loc[
-                daily_ds["start_event"].values[event] : daily_ds["end_event"].values[
-                    event
-                ],
-                ["num_event"],
-            ] = int(count)
-    return daily_df, count
+def data_for_static_pdf(today, tomorrow, rng, min_timesteps):
+    ds_to_concatenate = [
+        xr.open_dataset(file)[
+            TIME_VARS + EVENTS_STARTEND + ["QF_rg_dd_event"] + ["QF_rain_accumulation"]
+        ].sel({"range": rng}, method="nearest")
+        for file in [today, tomorrow]
+    ]
+    today_ds = ds_to_concatenate[0]
+    ds = xr.concat(ds_to_concatenate, dim="time")
+    data_event = []  # list of dataframes containing 1mn DeltaZ data for "eligible" events  # noqa E501
+    cpt = 0
+    weather_avail = ds.weather_data_avail.values[0]
 
+    for s, e in zip(today_ds["start_event"].values, today_ds["end_event"].values):
+        if today_ds["QF_rain_accumulation"].values[cpt] == 1 and (
+            weather_avail == 0 or today_ds["QF_rg_dd_event"].values[cpt] == 1
+        ):
+            sub_ds = ds.sel(time=slice(s, e))
+            sub_ds_nonan = sub_ds.sel(time=np.isfinite(sub_ds["Delta_Z"]))
+            dz_r_good = sub_ds_nonan["Delta_Z"].isel(
+                time=np.where(sub_ds_nonan["QC_overall"] == 1)[0]
+            )
+            if len(dz_r_good.values) >= min_timesteps:
+                dz_r_good = dz_r_good.to_dataframe()
+                dz_r_good["num_event"] = len(data_event) + 1
+                data_event.append(dz_r_good)
+        cpt += 1
 
-def extract_1mn_events_data(folder, conf):
-    files = sorted(glob.glob(folder))
-    r = conf["instrument_parameters"]["DCR_DZ_RANGE"]  # range to keep for Delta_Z
-    cpt = 0  # count for event number when looping over several daily processed files
-    df_list = []
-    for file in files:
-        daily_df, cpt = extract_timesteps_1day(file=file, rng=r, count=cpt)
-        df_list.append(daily_df)
-    df = pd.concat(df_list)
-    df = df.drop(columns=["range", "flag_event", "QC_overall"])
-    return df
-
-
-if __name__ == "__main__":
-    # folder = "/home/ygrit/disdro_processing/ccres_disdrometer_processing/tests/data/outputs/juelich_2021-12*_processed.nc"  # noqa
-    # conf = toml.load(
-    #     "/home/ygrit/disdro_processing/ccres_disdrometer_processing/tests/data/conf/config_juelich_mira-parsivel.toml"  # noqa
-    # )
-    # stats_df = extract_stat_events(folder)
-    # print(stats_df)
-    # timestep_df = extract_1mn_events_data(folder, conf)
-    # print(timestep_df)
-    pass
+    output = DATA_DYN(pd.concat(data_event + [pd.DataFrame()]))
+    output.location = ds.attrs["location"]
+    output.disdrometer_pid = ds.attrs["disdrometer_pid"]
+    output.radar_pid = ds.attrs["radar_pid"]
+    if "meteo_pid" in ds.attrs:
+        output.meteo_pid = ds.attrs["meteo_pid"]
+    return output
