@@ -135,7 +135,7 @@ def compute_quality_checks(ds, conf, start, end, no_meteo):
     else:
         data_avail = ds.time.isel({"time": np.where(np.isfinite(ds["ta"]))[0]}).values
         ams_time_sampling = (data_avail[1] - data_avail[0]) / np.timedelta64(1, "m")
-        print(f"AMS time sampling : {ams_time_sampling:.0f}")
+        lgr.info(f"AMS time sampling : {ams_time_sampling:.0f} minute(s)")
         if ams_time_sampling < 1.5:
             lgr.info("AMS data available at 1mn frequency")
             qc_ds = processing.compute_quality_checks_weather(ds, conf, start, end)
@@ -143,7 +143,7 @@ def compute_quality_checks(ds, conf, start, end, no_meteo):
             qc_ds = processing.compute_quality_checks_weather_low_sampling(
                 ds, conf, start, end
             )
-            lgr.info("AMS data available at a frequency > 1mn : not used")
+            lgr.info("AMS data available at a frequency > 1mn")
         lgr.info("Compute QC dataset (case with weather)")
     return qc_ds
 
@@ -294,12 +294,15 @@ def process(yesterday, today, tomorrow, conf, output_file, no_meteo, verbosity):
     Ze_ds = extract_dcr_data(ds, conf)
     qc_ds = compute_quality_checks(ds, conf, start, end, no_meteo)
     stats_ds = compute_todays_events_stats(ds, Ze_ds, conf, qc_ds, start, end, no_meteo)
+    lgr.info("Merging Ze data, QC dataset and event stats dataset")
     processed_ds = xr.merge([Ze_ds, qc_ds, stats_ds], combine_attrs="no_conflicts")
     # Select only timesteps from the day to process
     today_ds = xr.open_dataset(today)
+    lgr.info("Extracting the data from the day to process")
     processed_ds = processed_ds.sel(
         {"time": slice(today_ds.time.values[0], today_ds.time.values[-1])}
     )
+    lgr.info("Filling attributes")
     # get variable for weather data availability from prepro file
     if no_meteo:
         processed_ds["weather_data_avail"] = ds["weather_data_avail"]
@@ -319,6 +322,7 @@ def process(yesterday, today, tomorrow, conf, output_file, no_meteo, verbosity):
 
     processed_ds.rename_dims({"events": "event"})  # rename dimension
     # save to netCDF
+    lgr.info("Saving to netCDF")
     processed_ds.to_netcdf(
         output_file,
         encoding={
@@ -340,17 +344,19 @@ def process(yesterday, today, tomorrow, conf, output_file, no_meteo, verbosity):
             "QF_rg_dd_event": {"_FillValue": QC_FILL_VALUE},
         },
     )
+    lgr.info("Processing : success")
     return
 
 
 if __name__ == "__main__":
     test_weather = False
     test_weather_downgraded = False
-    test_noweather = True
+    test_noweather = False
     test_lindenberg_10mn = False
     test_no_meteo = (
         False  # downgraded without weather even when available in prepro files
     )
+    test_lindenberg_low_sampling = True
 
     if test_lindenberg_10mn:
         yesterday = None
@@ -507,3 +513,14 @@ if __name__ == "__main__":
         #     processed_ds.nb_dz_computable_pts.values,
         #     processed_ds.good_points_number.values,
         # )
+
+    if test_lindenberg_low_sampling:
+        print("Test Lindenberg low sampling")
+        yesterday = None
+        today = "../../tests/data/outputs/lindenberg_2023-09-22_rpg-parsivel_preprocessed.nc"  # noqa E501
+        tomorrow = None  # noqa E501
+        conf = "../../tests/data/conf/config_lindenberg_rpg-parsivel.toml"
+        output_file = "./Lindenberg_low_sampling_test.nc"
+        process(
+            yesterday, today, tomorrow, conf, output_file, no_meteo=False, verbosity=1
+        )

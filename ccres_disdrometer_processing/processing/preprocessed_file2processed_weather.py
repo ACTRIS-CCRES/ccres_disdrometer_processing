@@ -29,7 +29,7 @@ def rain_event_selection_weather(ds, conf):  # with no constraint on cum for the
             )[0]
         }
     )  # noqa
-    print(sel_ds.ams_pr.to_dataframe())
+    # print(sel_ds.ams_pr.to_dataframe())
 
     min_duration, max_interval = (
         conf["thresholds"]["MIN_DURATION"],
@@ -615,7 +615,6 @@ def compute_quality_checks_weather_low_sampling(
     # Get AMS data time sampling
     data_avail = ds.time.isel({"time": np.where(np.isfinite(ds["ta"]))[0]}).values
     ams_time_sampling = (data_avail[1] - data_avail[0]) / np.timedelta64(1, "m")
-    print("AMS time sampling : ", ams_time_sampling)
 
     # Work on a copy of the preprocessed dataset to build cp/QC
     copy = ds.copy(deep=True)
@@ -647,7 +646,7 @@ def compute_quality_checks_weather_low_sampling(
             .time.searchsorted(t)
         )
         copy["ams_cp"].loc[t] = (
-            ds["ams_pr"]
+            ds["ams_cp"]
             .isel({"time": np.where(np.isfinite(copy["ams_cp"]))[0]})
             .isel(time=next_valid_index_cp)
         )
@@ -721,56 +720,65 @@ def compute_quality_checks_weather_low_sampling(
     #     },
     # )
 
-    data_sampling = int(1440 / len(ds.time))
     for s, e in zip(start, end):
         time_chunks = np.arange(
             np.datetime64(s),
             np.datetime64(e),
             np.timedelta64(conf["thresholds"]["PR_SAMPLING"], "m"),
         )
+
         for start_time_chunk, stop_time_chunk in zip(time_chunks[:-1], time_chunks[1:]):
-            RR_chunk = 0
-            ams_pr_chunk = (
+            # RR_chunk = 0
+            # ams_pr_chunk = (
+            #     copy["ams_pr"]
+            #     .sel(
+            #         {
+            #             "time": slice(
+            #                 start_time_chunk,
+            #                 stop_time_chunk
+            #                 - np.timedelta64(1, "m")
+            #                 + np.timedelta64(data_sampling, "m"),
+            #             )
+            #         }
+            #     )
+            #     .values
+            # )
+            # time_chunk = copy.time.sel(
+            #     {
+            #         "time": slice(
+            #             start_time_chunk,
+            #             stop_time_chunk
+            #             - np.timedelta64(1, "m")
+            #             + np.timedelta64(data_sampling, "m"),
+            #         )
+            #     }
+            # ).values
+            # RR_chunk += ams_pr_chunk[0] * (
+            #     (time_chunk[0] - start_time_chunk) / np.timedelta64(1, "m")
+            # )
+            # RR_chunk += ams_pr_chunk[-1] * (
+            #     (
+            #         stop_time_chunk
+            #         - (time_chunk[-1] - np.timedelta64(data_sampling, "m"))
+            #     )
+            #     / np.timedelta64(1, "m")
+            # )
+            # for pr in ams_pr_chunk[1:-1]:
+            #     RR_chunk += data_sampling * pr
+
+            pr_data_extract = (
                 copy["ams_pr"]
                 .sel(
                     {
                         "time": slice(
-                            start_time_chunk,
-                            stop_time_chunk
-                            - np.timedelta64(1, "m")
-                            + np.timedelta64(data_sampling, "m"),
+                            start_time_chunk + np.timedelta64(1, "m"),
+                            stop_time_chunk,
                         )
                     }
                 )
                 .values
             )
-            time_chunk = copy.time.sel(
-                {
-                    "time": slice(
-                        start_time_chunk,
-                        stop_time_chunk
-                        - np.timedelta64(1, "m")
-                        + np.timedelta64(data_sampling, "m"),
-                    )
-                }
-            ).values
-            RR_chunk += ams_pr_chunk[0] * (
-                (time_chunk[0] - start_time_chunk) / np.timedelta64(1, "m")
-            )
-            RR_chunk += ams_pr_chunk[-1] * (
-                (
-                    stop_time_chunk
-                    - (time_chunk[-1] - np.timedelta64(data_sampling, "m"))
-                )
-                / np.timedelta64(1, "m")
-            )
-            for pr in ams_pr_chunk[1:-1]:
-                RR_chunk += data_sampling * pr
-
-            norm = (stop_time_chunk - start_time_chunk) / np.timedelta64(
-                1, "m"
-            )  # (last chunk is not necessary long as PR_SAMPLING param given in conf)
-            RR_chunk = RR_chunk / norm
+            RR_chunk = np.mean(pr_data_extract)
 
             qc_ds["QC_pr"].loc[
                 slice(start_time_chunk, stop_time_chunk - np.timedelta64(1, "m"))
