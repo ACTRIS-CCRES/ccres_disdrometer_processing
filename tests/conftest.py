@@ -130,7 +130,7 @@ def data_out_dir(data_dir):
         {
             "site": "lindenberg",
             "date": "2023-09-22",
-            "radar": "mira",
+            "radar": "mira-35",
             "radar-pid": "https://hdl.handle.net/21.12132/3.d6cc3d73f9dd4d4b",
             "disdro": "thies-lnm",
             "disdro-pid": "https://hdl.handle.net/21.12132/3.ddeab96e6197478a",
@@ -154,7 +154,7 @@ def data_out_dir(data_dir):
         {
             "site": "lindenberg",
             "date": "2023-09-22",
-            "radar": "mira",
+            "radar": "mira-35",
             "radar-pid": "https://hdl.handle.net/21.12132/3.d6cc3d73f9dd4d4b",
             "disdro": "parsivel",
             "disdro-pid": "https://hdl.handle.net/21.12132/3.1b0966f63b2d41f2",
@@ -227,7 +227,7 @@ def data_out_dir(data_dir):
         {
             "site": "juelich",
             "date": "2024-02-08",
-            "radar": "mira",
+            "radar": "mira-35",
             "radar-pid": "https://hdl.handle.net/21.12132/3.0366fa69504f4bd6",
             "disdro": "parsivel",
             "disdro-pid": "https://hdl.handle.net/21.12132/3.2a1ca46ed70c4929",
@@ -251,7 +251,7 @@ def data_out_dir(data_dir):
         {
             "site": "juelich",
             "date": "2021-12-02",
-            "radar": "mira",
+            "radar": "mira-35",
             "radar-pid": "https://hdl.handle.net/21.12132/3.0366fa69504f4bd6",
             "disdro": "parsivel",
             "disdro-pid": "https://hdl.handle.net/21.12132/3.2a1ca46ed70c4929",
@@ -275,7 +275,7 @@ def data_out_dir(data_dir):
         {
             "site": "juelich",
             "date": "2021-12-03",
-            "radar": "mira",
+            "radar": "mira-35",
             "radar-pid": "https://hdl.handle.net/21.12132/3.0366fa69504f4bd6",
             "disdro": "parsivel",
             "disdro-pid": "https://hdl.handle.net/21.12132/3.2a1ca46ed70c4929",
@@ -299,7 +299,7 @@ def data_out_dir(data_dir):
         {
             "site": "juelich",
             "date": "2021-12-04",
-            "radar": "mira",
+            "radar": "mira-35",
             "radar-pid": "https://hdl.handle.net/21.12132/3.0366fa69504f4bd6",
             "disdro": "parsivel",
             "disdro-pid": "https://hdl.handle.net/21.12132/3.2a1ca46ed70c4929",
@@ -323,7 +323,7 @@ def data_out_dir(data_dir):
         {
             "site": "juelich",
             "date": "2021-12-05",
-            "radar": "mira",
+            "radar": "mira-35",
             "radar-pid": "https://hdl.handle.net/21.12132/3.0366fa69504f4bd6",
             "disdro": "parsivel",
             "disdro-pid": "https://hdl.handle.net/21.12132/3.2a1ca46ed70c4929",
@@ -347,7 +347,7 @@ def data_out_dir(data_dir):
         {
             "site": "juelich",
             "date": "2021-12-06",
-            "radar": "mira",
+            "radar": "mira-35",
             "radar-pid": "https://hdl.handle.net/21.12132/3.0366fa69504f4bd6",
             "disdro": "parsivel",
             "disdro-pid": "https://hdl.handle.net/21.12132/3.2a1ca46ed70c4929",
@@ -480,7 +480,7 @@ def test_data_preprocessing(request):
         # juelich
         {
             "site": "juelich",
-            "radar": "mira",
+            "radar": "mira-35",
             "radar-pid": "https://hdl.handle.net/21.12132/3.0366fa69504f4bd6",
             "disdro": "parsivel",
             "disdro-pid": "https://hdl.handle.net/21.12132/3.2a1ca46ed70c4929",
