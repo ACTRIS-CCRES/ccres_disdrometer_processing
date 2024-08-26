@@ -87,6 +87,32 @@ def status(verbosity):
 )
 @click.option("-v", "verbosity", count=True)
 def preprocess(disdro_file, ws_file, radar_file, config_file, output_file, verbosity):
+    """Create a netCDF daily preprocessed dataset for dcrcc monitoring.
+
+    Input the daily files available on Cloudnet for the three instruments involved in the dcrcc method : disdrometer, DCR and weather station.
+    Given a configuration file specific to each station and instruments : resample, rename vars and merge all the data sources into a single dataset.
+    Use the disdrometer data to forward-model reflectivity data using the pytmatrix library, which will be compared to DCR observation in the next processing step.
+    Fill metadata and store the result a new netCDF.
+
+    Parameters
+    ----------
+    disdro_file : click.Path
+        Path to the daily disdrometer file
+    ws_file : click.Path
+        Path to the daily weather station file, if available
+    radar_file : click.Path
+        Path to the daily DCR file
+    config_file : click.Path
+        Path to the configuration file corresponding to the data
+    output_file :
+        Path where the output data will be stored
+    verbosity : int
+        Verbosity level
+
+    Returns
+    -------
+    None
+    """  # noqa
     return preprocess_cli.preprocess(
         disdro_file, ws_file, radar_file, config_file, output_file, verbosity
     )
