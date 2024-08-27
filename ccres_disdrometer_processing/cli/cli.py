@@ -247,6 +247,28 @@ def process(
     no_meteo,
     verbosity,
 ):
+    """Create a daily processed netCDF file from daily preprocessed files.
+
+    Parameters
+    ----------
+    yesterday : click.Path, optional
+        Path to preprocessed file for day N-1
+    today : click.Path
+        Path to preprocessed file for day N
+    tomorrow : click.Path, optional
+        Path to preprocessed file for day N+1
+    config_file : click.Path
+        Path to the configuration file corresponding to the data
+    output_file : click.Path
+        Path where the output data will be stored
+    no_meteo : bool, optional
+        if True, applies a downgraded version of the processing which does not take into account weather data, even when it is provided.
+    verbosity : int
+        verbose level
+    Returns
+    -------
+    None
+    """  # noqa
     processing.process(
         yesterday, today, tomorrow, config_file, output_file, no_meteo, verbosity
     )

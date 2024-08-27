@@ -14,6 +14,7 @@ General diagram of the DCR calibration constant monitoring code
 ## Different command line interfaces available in the package
 
 preprocessing
+preprocessing_ql
 processing
 write a cli for event data extraction ? (for static plots)
 a cli for static plot from an events data collection ?
