@@ -190,6 +190,16 @@ def compute_quality_checks_weather(ds, conf, start, end):
         attrs={"long_name": "Quality check for wind direction"},
     )  # data is between 0 and 360°
 
+    # QC for relative humidity : avoid cases with evaporation/fog
+    qc_ds["QC_hur"] = xr.DataArray(
+        (ds["hur"].values > conf["thresholds"]["MIN_HUR"])
+        & (ds["hur"].values < conf["thresholds"]["MAX_HUR"]),
+        dims="time",
+        attrs={
+            "long_name": "Quality check for relative humidity, bounds specified in conf"
+        },
+    )
+
     # Check agreement between rain gauge and disdrometer rain measurements
     # extract ds(start to end), compute relative deviation and compare to conf tolerance
     qc_ds["QF_rg_dd"] = xr.DataArray(
@@ -211,7 +221,7 @@ def compute_quality_checks_weather(ds, conf, start, end):
         )
 
     # attributes for weather-related QCs
-    for key in ["QC_ta", "QC_wd", "QC_ws", "QF_rg_dd"]:
+    for key in ["QC_ta", "QC_wd", "QC_ws", "QC_hur", "QF_rg_dd"]:
         qc_ds[key].attrs["unit"] = "1"
         qc_ds[key].attrs["comment"] = "not computable when no AMS data is provided"
 
@@ -226,7 +236,7 @@ def compute_quality_checks_weather(ds, conf, start, end):
             attrs={
                 "long_name": "Overall quality check",
                 "unit": "1",
-                "comment": "Checks combined : ta, ws, wd, vdsd_t, pr",
+                "comment": "Checks combined : ta, ws, wd, hur, vdsd_t, pr",
             },
         )
 
@@ -237,6 +247,7 @@ def compute_quality_checks_weather(ds, conf, start, end):
         "QC_ta",
         "QC_ws",
         "QC_wd",
+        "QC_hur",
         "QF_rg_dd",
         "QC_pr",
         "QC_vdsd_t",
@@ -260,6 +271,9 @@ def compute_quality_checks_weather(ds, conf, start, end):
     qc_ds["QC_wd"].attrs[
         "flag_meanings"
     ] = "wind_direction_outside_good_angle_range wind_direction_ok"
+    qc_ds["QC_hur"].attrs[
+        "flag_meanings"
+    ] = "hur_above_lower_bound hur_over_upper_bound"
     qc_ds["QF_rg_dd"].attrs[
         "flag_meanings"
     ] = "relative_difference_higher_than_threshold relative_difference_ok"
