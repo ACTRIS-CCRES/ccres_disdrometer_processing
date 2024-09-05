@@ -130,7 +130,7 @@ def compute_quality_checks_noweather(ds, conf, start, end):
     )
 
     # Create non-computable QC variables in the dataset
-    for key in ["QC_ta", "QC_wd", "QC_ws", "QF_rg_dd"]:
+    for key in ["QC_ta", "QC_wd", "QC_ws", "QC_hur", "QF_rg_dd"]:
         qc_ds[key] = xr.DataArray(
             data=QC_FILL_VALUE * np.ones(ds.time.size).astype("i2"),
             dims="time",
@@ -142,6 +142,7 @@ def compute_quality_checks_noweather(ds, conf, start, end):
     qc_ds["QC_ta"].attrs["long_name"] = "Quality check for air temperature"
     qc_ds["QC_wd"].attrs["long_name"] = "Quality check for wind direction"
     qc_ds["QC_ws"].attrs["long_name"] = "Quality check for wind speed"
+    qc_ds["QC_hur"].attrs["long_name"] = "Quality check for relative humidity"
     qc_ds["QF_rg_dd"].attrs[
         "long_name"
     ] = "Quality flag for discrepancy between rain gauge and disdrometer precipitation rate"  # noqa
@@ -150,6 +151,9 @@ def compute_quality_checks_noweather(ds, conf, start, end):
         "flag_meanings"
     ] = "wind_direction_out_of_good_range wind_direction_within_good_range"
     qc_ds["QC_ws"].attrs["flag_meanings"] = "wind_speed_over_threshold wind_speed_ok"
+    qc_ds["QC_hur"].attrs[
+        "flag_meanings"
+    ] = "hur_above_lower_bound hur_over_upper_bound"
     qc_ds["QF_rg_dd"].attrs[
         "flag_meanings"
     ] = "discrepancy_rain_gauge_disdrometer_above_threshold discrepancy_rain_gauge_disdrometer_ok"  # noqa
