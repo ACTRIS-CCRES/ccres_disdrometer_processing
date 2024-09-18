@@ -11,11 +11,23 @@ General diagram of the DCR calibration constant monitoring code
 
 ## Different command line interfaces available in the package
 
-preprocessing
-preprocessing_ql
-processing
-write a cli for event data extraction ? (for static plots)
-a cli for static plot from an events data collection ?
+.. list-table:: Commands
+   :widths: 20 40
+   :header-rows: 1
+
+   * - Command
+     - Description
+   * - `preprocess`
+     - Preprocess daily data from CLU daily instruments files : outputs a preprocessing file.
+   * - `preprocess_ql`
+     - Generates daily quicklooks from daily preprocessing file + other arguments (including conf file)
+   * - `process`
+     - Outputs a daily processing file from a daily preprocesing file and the neighbouring days' preprocessing files
+   * - `process_ql`
+     - Generates quicklooks focusing on detected rain events from daily processing file and the neighbouring day's preprocessing files + other arguments
+
+- write a cli for event data extraction ? (for static plots)
+- a cli for static plot from an events data collection ?
 
 ## Content of the config file that drives the data processing
 
@@ -85,3 +97,39 @@ cdm_data_type = ""
 metadata_link = ""
 
 ```
+
+
+## Preprocessing command
+
+.. code-block::
+
+    ccres-disdrometer-processing preprocess --disdro-file DISDRO_FILE [--ws-file WS_FILE] --radar-file RADAR_FILE --config-file CONFIG_FILE OUTPUT_FILE [-v VERBOSITY]
+
+.. list-table:: Arguments
+   :widths: 10 20 20 50
+   :header-rows: 1
+
+   * - Short
+     - Long
+     - Default
+     - Description
+   * -
+     - `--disdro-file`
+     -
+     - CLU netCDF disdrometer file for the day to process
+   * -
+     - `--ws-file`
+     -
+     - CLU netCDF weather station file for the day to process
+   * -
+     - `--radar-file`
+     -
+     - Single date to be processed. Alternatively, `--start` and `--stop` can be defined
+   * -
+     - `--config-file`
+     -
+     - TOML configuration file suited for the input data (site, instruments, ...)
+   * - `-v`
+     -
+     - 0
+     - Verbosity
