@@ -231,6 +231,7 @@ def compute_quality_checks_weather(ds, conf, start, end):
             & qc_ds["QC_ws"]
             & qc_ds["QC_wd"]
             & qc_ds["QC_pr"]
+            & qc_ds["QC_hur"]
             & qc_ds["QC_vdsd_t"],
             dims="time",
             attrs={
@@ -332,8 +333,10 @@ def compute_todays_events_stats_weather(ds, Ze_ds, conf, qc_ds, start, end):
         qc_wd_ratio,
         qc_vdsd_t_ratio,
         qc_pr_ratio,
+        qc_hur_ratio,
         qc_overall_ratio,
     ) = (
+        np.zeros(n),
         np.zeros(n),
         np.zeros(n),
         np.zeros(n),
@@ -376,6 +379,7 @@ def compute_todays_events_stats_weather(ds, Ze_ds, conf, qc_ds, start, end):
             qc_ws_ratio[event] = np.sum(qc_ds_event["QC_ws"]) / qc_ds_event.time.size
             qc_wd_ratio[event] = np.sum(qc_ds_event["QC_wd"]) / qc_ds_event.time.size
             qc_pr_ratio[event] = np.sum(qc_ds_event["QC_pr"]) / qc_ds_event.time.size
+            qc_hur_ratio[event] = np.sum(qc_ds_event["QC_hur"]) / qc_ds_event.time.size
             qc_vdsd_t_ratio[event] = (
                 np.sum(qc_ds_event["QC_vdsd_t"]) / qc_ds_event.time.size
             )
@@ -516,13 +520,23 @@ def compute_todays_events_stats_weather(ds, Ze_ds, conf, qc_ds, start, end):
         },
     )
 
+    stats_ds["QC_hur_ratio"] = xr.DataArray(
+        data=qc_hur_ratio,
+        dims=["events"],
+        attrs={
+            "long_name": "ratio of timesteps where relative humidity QC is good",
+            "unit": "1",
+            "comment": "among the timesteps for which Delta Z can be computed",
+        },
+    )
+
     stats_ds["QC_overall_ratio"] = xr.DataArray(
         data=qc_overall_ratio,
         dims=["events"],
         attrs={
             "long_name": "ratio of timesteps where all checks are good",  # noqa E501
             "unit": "1",
-            "comment": "Checks combined : ta, ws, wd, vdsd_t, pr",
+            "comment": "Checks combined : ta, ws, wd, hur, vdsd_t, pr",
         },
     )
 
@@ -633,7 +647,7 @@ def compute_quality_checks_weather_low_sampling(
     # Work on a copy of the preprocessed dataset to build cp/QC
     copy = ds.copy(deep=True)
     for t in copy.time.values[0 : -int(ams_time_sampling + 1)]:
-        for key in ["ta", "ws", "wd"]:
+        for key in ["ta", "ws", "wd", "hur"]:
             copy[key].loc[t] = (
                 ds[key]
                 .isel({"time": np.where(np.isfinite(copy[key]))[0]})
@@ -742,44 +756,6 @@ def compute_quality_checks_weather_low_sampling(
         )
 
         for start_time_chunk, stop_time_chunk in zip(time_chunks[:-1], time_chunks[1:]):
-            # RR_chunk = 0
-            # ams_pr_chunk = (
-            #     copy["ams_pr"]
-            #     .sel(
-            #         {
-            #             "time": slice(
-            #                 start_time_chunk,
-            #                 stop_time_chunk
-            #                 - np.timedelta64(1, "m")
-            #                 + np.timedelta64(data_sampling, "m"),
-            #             )
-            #         }
-            #     )
-            #     .values
-            # )
-            # time_chunk = copy.time.sel(
-            #     {
-            #         "time": slice(
-            #             start_time_chunk,
-            #             stop_time_chunk
-            #             - np.timedelta64(1, "m")
-            #             + np.timedelta64(data_sampling, "m"),
-            #         )
-            #     }
-            # ).values
-            # RR_chunk += ams_pr_chunk[0] * (
-            #     (time_chunk[0] - start_time_chunk) / np.timedelta64(1, "m")
-            # )
-            # RR_chunk += ams_pr_chunk[-1] * (
-            #     (
-            #         stop_time_chunk
-            #         - (time_chunk[-1] - np.timedelta64(data_sampling, "m"))
-            #     )
-            #     / np.timedelta64(1, "m")
-            # )
-            # for pr in ams_pr_chunk[1:-1]:
-            #     RR_chunk += data_sampling * pr
-
             pr_data_extract = (
                 copy["ams_pr"]
                 .sel(
@@ -844,6 +820,15 @@ def compute_quality_checks_weather_low_sampling(
         dims="time",
         attrs={"long_name": "Quality check for wind direction"},
     )  # data is between 0 and 360°
+    # QC for relative humidity : avoid cases with evaporation/fog
+    qc_ds["QC_hur"] = xr.DataArray(
+        (copy["hur"].values > conf["thresholds"]["MIN_HUR"])
+        & (copy["hur"].values < conf["thresholds"]["MAX_HUR"]),
+        dims="time",
+        attrs={
+            "long_name": "Quality check for relative humidity, bounds specified in conf"
+        },
+    )
 
     # Check agreement between rain gauge and disdrometer rain measurements
     # extract ds(start to end), compute relative deviation and compare to conf tolerance
@@ -866,7 +851,7 @@ def compute_quality_checks_weather_low_sampling(
         )
 
     # attributes for weather-related QCs
-    for key in ["QC_ta", "QC_wd", "QC_ws", "QF_rg_dd"]:
+    for key in ["QC_ta", "QC_wd", "QC_ws", "QC_hur", "QF_rg_dd"]:
         qc_ds[key].attrs["unit"] = "1"
         qc_ds[key].attrs["comment"] = "not computable when no AMS data is provided"
 
@@ -876,12 +861,13 @@ def compute_quality_checks_weather_low_sampling(
             & qc_ds["QC_ws"]
             & qc_ds["QC_wd"]
             & qc_ds["QC_pr"]
+            & qc_ds["QC_hur"]
             & qc_ds["QC_vdsd_t"],
             dims="time",
             attrs={
                 "long_name": "Overall quality check",
                 "unit": "1",
-                "comment": "Checks combined : ta, ws, wd, vdsd_t, pr",
+                "comment": "Checks combined : ta, ws, wd, hur, vdsd_t, pr",
             },
         )
 
@@ -892,6 +878,7 @@ def compute_quality_checks_weather_low_sampling(
         "QC_ta",
         "QC_ws",
         "QC_wd",
+        "QC_hur",
         "QF_rg_dd",
         "QC_pr",
         "QC_vdsd_t",
@@ -915,6 +902,9 @@ def compute_quality_checks_weather_low_sampling(
     qc_ds["QC_wd"].attrs[
         "flag_meanings"
     ] = "wind_direction_outside_good_angle_range wind_direction_ok"
+    qc_ds["QC_hur"].attrs[
+        "flag_meanings"
+    ] = "hur_above_lower_bound hur_over_upper_bound"
     qc_ds["QF_rg_dd"].attrs[
         "flag_meanings"
     ] = "relative_difference_higher_than_threshold relative_difference_ok"
