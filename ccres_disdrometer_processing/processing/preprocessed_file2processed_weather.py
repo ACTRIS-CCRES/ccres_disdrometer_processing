@@ -709,10 +709,16 @@ def compute_quality_checks_weather_low_sampling(
     for s, e in zip(start, end):
         qc_ds["flag_event"].loc[slice(s, e)] = True
 
+        # qc_ds["ams_cp_since_event_begin"].loc[slice(s, e)] = (
+        #     1 / 60 * np.nancumsum(copy["ams_pr"].sel(time=slice(s, e)).values)
+        # )
         qc_ds["ams_cp_since_event_begin"].loc[slice(s, e)] = (
             copy["ams_cp"].sel(time=slice(s, e)).values
-            - copy["ams_cp"].sel(time=s).values
+            - copy["ams_cp"]
+            .sel(time=s - np.timedelta64(int(ams_time_sampling), "m"))
+            .values
         )
+
         qc_ds["disdro_cp_since_event_begin"].loc[slice(s, e)] = (
             1 / 60 * np.nancumsum(ds["disdro_pr"].sel(time=slice(s, e)).values)
         )
