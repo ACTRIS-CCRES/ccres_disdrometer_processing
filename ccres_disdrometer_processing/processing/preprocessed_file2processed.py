@@ -202,7 +202,7 @@ def add_attributes(processed_ds, preprocessed_ds):
     ] = f"created on {date_created} by {script_name}, v{__version__}"
     processed_ds.attrs["date_created"] = date_created
     weather_str = ""
-    if processed_ds.weather_data_used.values[0]:
+    if processed_ds.weather_data_used:
         weather_str = " and AMS"
     processed_ds.attrs[
         "source"
