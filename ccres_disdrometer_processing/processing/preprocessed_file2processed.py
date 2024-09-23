@@ -304,10 +304,17 @@ def process(yesterday, today, tomorrow, conf, output_file, no_meteo, verbosity):
     )
     lgr.info("Filling attributes")
     # get variable for weather data availability from prepro file
-    if no_meteo:
-        processed_ds["weather_data_avail"] = ds["weather_data_avail"]
+    if not no_meteo:
+        processed_ds["weather_data_used"] = (
+            ds["weather_data_avail"].values[0].astype("i2")
+        )
     else:
-        processed_ds["weather_data_avail"] = 0 * ds["weather_data_avail"]
+        processed_ds["weather_data_used"] = np.array([0])[0].astype("i2")
+    processed_ds["weather_data_used"].attrs = {
+        "long_name": "use of weather data for processing",
+        "flag_values": np.array([0, 1]).astype("i2"),
+        "flag_meanings": "yes no ",
+    }
     # set attributes
     add_attributes(processed_ds, ds)
     str_files_provided = ""

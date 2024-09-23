@@ -22,3 +22,5 @@ def test_hur_low_spl():
     print("QC hur ratio(s) : ", ds.QC_hur_ratio.values)
     print("QC overall ratio(s) : ", ds.QC_overall_ratio.values)
     print(ds.QC_overall.attrs["comment"])
+    print("Weather data ?")
+    print(ds.weather_data_used.values, ds.weather_data_used.attrs)
