@@ -305,13 +305,14 @@ def compute_todays_events_stats_weather(ds, Ze_ds, conf, qc_ds, start, end):
     )
 
     dZ_mean, dZ_med, dZ_q1, dZ_q3, dZ_min, dZ_max = (
-        np.zeros(n),
-        np.zeros(n),
-        np.zeros(n),
-        np.zeros(n),
-        np.zeros(n),
-        np.zeros(n),
+        np.full((n,), np.nan),
+        np.full((n,), np.nan),
+        np.full((n,), np.nan),
+        np.full((n,), np.nan),
+        np.full((n,), np.nan),
+        np.full((n,), np.nan),
     )
+
     (
         event_length,
         rain_accumulation,
@@ -350,10 +351,10 @@ def compute_todays_events_stats_weather(ds, Ze_ds, conf, qc_ds, start, end):
     )
 
     slope, intercept, r2, rms_error = (
-        np.zeros(n),
-        np.zeros(n),
-        np.zeros(n),
-        np.zeros(n),
+        np.full((n,), np.nan),
+        np.full((n,), np.nan),
+        np.full((n,), np.nan),
+        np.full((n,), np.nan),
     )
 
     event = 0
@@ -386,42 +387,49 @@ def compute_todays_events_stats_weather(ds, Ze_ds, conf, qc_ds, start, end):
             qc_overall_ratio[event] = np.sum(
                 qc_ds_event["QC_overall"] / qc_ds_event.time.size
             )
-            nb_good_points[event] = np.sum(qc_ds_event["QC_overall"])
+
+            good_points_event = np.sum(qc_ds_event["QC_overall"])
+            nb_good_points[event] = good_points_event
 
             dz_r_good = dz_r_nonan.isel(
                 time=np.where(qc_ds_event["QC_overall"] == 1)[0]
             )
 
-            # Delta Z statistics over computable points
-            dZ_mean[event] = np.mean(dz_r_good)
-            dZ_med[event] = np.median(dz_r_good)
-            dZ_q1[event] = np.quantile(dz_r_good, 0.25)
-            dZ_q3[event] = np.quantile(dz_r_good, 0.75)
-            dZ_min[event] = np.min(dz_r_good)
-            dZ_max[event] = np.max(dz_r_good)
+            if good_points_event > 0:
+                # Delta Z statistics over computable points
+                dZ_mean[event] = np.mean(dz_r_good)
+                dZ_med[event] = np.median(dz_r_good)
+                dZ_q1[event] = np.quantile(dz_r_good, 0.25)
+                dZ_q3[event] = np.quantile(dz_r_good, 0.75)
+                dZ_min[event] = np.min(dz_r_good)
+                dZ_max[event] = np.max(dz_r_good)
 
-            # Stats for regression Zdcr/Zdd
-            z_dcr_nonan = (
-                Ze_ds["Zdcr"]
-                .sel(time=slice(s, e))
-                .sel(range=r, method="nearest")[np.isfinite(dz_r)]
-            )
-            z_dd_nonan = Ze_ds["Zdd"].sel(time=slice(s, e))[np.isfinite(dz_r)]
-            z_dcr_nonan = z_dcr_nonan.isel(
-                time=np.where(qc_ds_event["QC_overall"] == 1)[0]
-            ).values.reshape((-1, 1))  # keep only QC passed timesteps for regression
-            z_dd_nonan = z_dd_nonan.isel(
-                time=np.where(qc_ds_event["QC_overall"] == 1)[0]
-            ).values.reshape((-1, 1))  # keep only QC passed timesteps for regression
+                # Stats for regression Zdcr/Zdd
+                z_dcr_nonan = (
+                    Ze_ds["Zdcr"]
+                    .sel(time=slice(s, e))
+                    .sel(range=r, method="nearest")[np.isfinite(dz_r)]
+                )
+                z_dd_nonan = Ze_ds["Zdd"].sel(time=slice(s, e))[np.isfinite(dz_r)]
+                z_dcr_nonan = z_dcr_nonan.isel(
+                    time=np.where(qc_ds_event["QC_overall"] == 1)[0]
+                ).values.reshape(
+                    (-1, 1)
+                )  # keep only QC passed timesteps for regression
+                z_dd_nonan = z_dd_nonan.isel(
+                    time=np.where(qc_ds_event["QC_overall"] == 1)[0]
+                ).values.reshape(
+                    (-1, 1)
+                )  # keep only QC passed timesteps for regression
 
-            slope_event, intercept_event, r_event, p, se = linregress(
-                z_dd_nonan.flatten(), z_dcr_nonan.flatten()
-            )
-            z_dcr_hat = intercept_event + slope_event * z_dd_nonan
-            slope[event] = slope_event
-            intercept[event] = intercept_event
-            r2[event] = r_event**2
-            rms_error[event] = rmse(z_dcr_nonan, z_dcr_hat)
+                slope_event, intercept_event, r_event, p, se = linregress(
+                    z_dd_nonan.flatten(), z_dcr_nonan.flatten()
+                )
+                z_dcr_hat = intercept_event + slope_event * z_dd_nonan
+                slope[event] = slope_event
+                intercept[event] = intercept_event
+                r2[event] = r_event**2
+                rms_error[event] = rmse(z_dcr_nonan, z_dcr_hat)
 
             event += 1
 
