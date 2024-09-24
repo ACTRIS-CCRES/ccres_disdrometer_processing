@@ -723,7 +723,7 @@ def compute_quality_checks_weather_low_sampling(
         qc_ds["ams_cp_since_event_begin"].loc[slice(s, e)] = (
             copy["ams_cp"].sel(time=slice(s, e)).values
             - copy["ams_cp"]
-            .sel(time=s - np.timedelta64(int(ams_time_sampling), "m"))
+            .sel(time=s - np.timedelta64(int(ams_time_sampling), "m"), method="nearest")
             .values
         )
 
