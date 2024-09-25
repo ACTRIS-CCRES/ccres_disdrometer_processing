@@ -195,13 +195,16 @@ def compute_quality_checks_noweather(ds, conf, start, end):
     return qc_ds
 
 
-def compute_todays_events_stats_noweather(ds, Ze_ds, conf, qc_ds, start, end):
+def compute_todays_events_stats_noweather(
+    ds, Ze_ds, conf, qc_ds, start, end, day_today
+):
     n = 0
     for s in start:
-        if (
-            pd.to_datetime(s).day
-            == pd.to_datetime(ds.time.isel(time=qc_ds.time.size // 2).values).day
-        ):
+        # if (
+        #     pd.to_datetime(s).day
+        #     == pd.to_datetime(ds.time.isel(time=qc_ds.time.size // 2).values).day
+        # ):
+        if pd.to_datetime(s).day == day_today:
             n += 1
     # n is the number of events to store in the dataset
     # i.e. the number of events which begin at day D
