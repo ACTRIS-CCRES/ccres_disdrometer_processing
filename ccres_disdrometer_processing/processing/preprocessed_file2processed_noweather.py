@@ -20,14 +20,13 @@ def rmse(y, y_hat):  # rmse func to remove dependency from sklearn rmse
     return np.sqrt(((y - y_hat) ** 2).mean())
 
 
-def rain_event_selection_noweather(
-    ds, conf
-):  # with no constraint on cum for the moment
+def rain_event_selection_noweather(ds, conf):
     sel_ds = ds.isel({"time": np.where(ds.disdro_pr.values > 0)[0]})
 
-    min_duration, max_interval = (
+    min_duration, max_interval, min_rainfall_amount = (
         conf["thresholds"]["MIN_DURATION"],
         conf["thresholds"]["MAX_INTERVAL"],
+        conf["thresholds"]["MIN_RAINFALL_AMOUNT"],
     )
     t = sel_ds.time
     start, end = [], []
@@ -48,6 +47,13 @@ def rain_event_selection_noweather(
                 start.append(start_candidate.values)
                 end.append(t[i].values)
             start_candidate = t[i + 1]
+    for s, e in zip(start, end):
+        rain_accumulation_event = (
+            1 / 60 * np.nansum(sel_ds.disdro_pr.sel(time=slice(s, e)))
+        )
+        if rain_accumulation_event < min_rainfall_amount:
+            start.remove(s)
+            end.remove(e)
     return start, end
 
 
@@ -195,13 +201,16 @@ def compute_quality_checks_noweather(ds, conf, start, end):
     return qc_ds
 
 
-def compute_todays_events_stats_noweather(ds, Ze_ds, conf, qc_ds, start, end):
+def compute_todays_events_stats_noweather(
+    ds, Ze_ds, conf, qc_ds, start, end, day_today
+):
     n = 0
     for s in start:
-        if (
-            pd.to_datetime(s).day
-            == pd.to_datetime(ds.time.isel(time=qc_ds.time.size // 2).values).day
-        ):
+        # if (
+        #     pd.to_datetime(s).day
+        #     == pd.to_datetime(ds.time.isel(time=qc_ds.time.size // 2).values).day
+        # ):
+        if pd.to_datetime(s).day == day_today:
             n += 1
     # n is the number of events to store in the dataset
     # i.e. the number of events which begin at day D

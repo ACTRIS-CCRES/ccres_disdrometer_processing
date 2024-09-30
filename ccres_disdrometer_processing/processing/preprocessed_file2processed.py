@@ -148,15 +148,17 @@ def compute_quality_checks(ds, conf, start, end, no_meteo):
     return qc_ds
 
 
-def compute_todays_events_stats(ds, Ze_ds, conf, qc_ds, start, end, no_meteo):
+def compute_todays_events_stats(
+    ds, Ze_ds, conf, qc_ds, start, end, no_meteo, day_today
+):
     if bool(ds["weather_data_avail"].values[0]) is False or no_meteo is True:
         stats_ds = processing_noweather.compute_todays_events_stats_noweather(
-            ds, Ze_ds, conf, qc_ds, start, end
+            ds, Ze_ds, conf, qc_ds, start, end, day_today
         )
         lgr.info("Compute event stats dataset (case without weather)")
     else:
         stats_ds = processing.compute_todays_events_stats_weather(
-            ds, Ze_ds, conf, qc_ds, start, end
+            ds, Ze_ds, conf, qc_ds, start, end, day_today
         )
         lgr.info("Compute event stats dataset (case with weather)")
     return stats_ds
@@ -202,7 +204,7 @@ def add_attributes(processed_ds, preprocessed_ds):
     ] = f"created on {date_created} by {script_name}, v{__version__}"
     processed_ds.attrs["date_created"] = date_created
     weather_str = ""
-    if processed_ds.weather_data_avail.values[0]:
+    if processed_ds.weather_data_used:
         weather_str = " and AMS"
     processed_ds.attrs[
         "source"
@@ -287,13 +289,17 @@ def process(yesterday, today, tomorrow, conf, output_file, no_meteo, verbosity):
     conf = toml.load(conf)
     ds, files_provided = merge_preprocessed_data(yesterday, today, tomorrow)
 
+    day_today = pd.to_datetime(xr.open_dataset(today)["time"].time.values[0]).day
+
     if bool(ds["weather_data_avail"].values[0]) is False or no_meteo is True:
         click.echo("Downgraded mode (no weather data is used)")
 
     start, end = rain_event_selection(ds, conf, no_meteo)
     Ze_ds = extract_dcr_data(ds, conf)
     qc_ds = compute_quality_checks(ds, conf, start, end, no_meteo)
-    stats_ds = compute_todays_events_stats(ds, Ze_ds, conf, qc_ds, start, end, no_meteo)
+    stats_ds = compute_todays_events_stats(
+        ds, Ze_ds, conf, qc_ds, start, end, no_meteo, day_today
+    )
     lgr.info("Merging Ze data, QC dataset and event stats dataset")
     processed_ds = xr.merge([Ze_ds, qc_ds, stats_ds], combine_attrs="no_conflicts")
     # Select only timesteps from the day to process
@@ -304,10 +310,17 @@ def process(yesterday, today, tomorrow, conf, output_file, no_meteo, verbosity):
     )
     lgr.info("Filling attributes")
     # get variable for weather data availability from prepro file
-    if no_meteo:
-        processed_ds["weather_data_avail"] = ds["weather_data_avail"]
+    if not no_meteo:
+        processed_ds["weather_data_used"] = (
+            ds["weather_data_avail"].values[0].astype("i2")
+        )
     else:
-        processed_ds["weather_data_avail"] = 0 * ds["weather_data_avail"]
+        processed_ds["weather_data_used"] = np.array([0])[0].astype("i2")
+    processed_ds["weather_data_used"].attrs = {
+        "long_name": "use of weather data for processing",
+        "flag_values": np.array([0, 1]).astype("i2"),
+        "flag_meanings": "yes no ",
+    }
     # set attributes
     add_attributes(processed_ds, ds)
     str_files_provided = ""
