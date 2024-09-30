@@ -374,8 +374,7 @@ def compute_todays_events_stats_weather(ds, Ze_ds, conf, qc_ds, start, end, day_
     event = 0
     for s, e in zip(start, end):
         if (
-            pd.to_datetime(s).day
-            == pd.to_datetime(ds.time.isel(time=qc_ds.time.size // 2).values).day
+            pd.to_datetime(s).day == day_today
         ):  # we only treat events which start on day D
             start_event[event] = s
             end_event[event] = e
