@@ -20,20 +20,27 @@ def rmse(y, y_hat):  # rmse func to remove dependency from sklearn rmse
     return np.sqrt(((y - y_hat) ** 2).mean())
 
 
-def rain_event_selection_weather(ds, conf):  # with no constraint on cum for the moment
-    sel_ds = ds.isel(
-        {
-            "time": np.where(
-                ds.ams_pr.values / 60
-                > 0  # conf["instrument_parameters"]["RAIN_GAUGE_SAMPLING"]
-            )[0]
-        }
-    )  # noqa
-    # print(sel_ds.ams_pr.to_dataframe())
+def rain_event_selection_weather(ds, conf):
+    """Algorithm which computes rain events selection from rain gauge data.
 
-    min_duration, max_interval = (
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Preprocessed data (concatenation of 3 consecutive days in the std case)
+    conf : _type_
+        Configuration file (describes the criteria for the selection i.e. min rain accumulation, min duration and max time lapse between two consecutive rain samplings)
+
+    Returns
+    -------
+    List
+        two lists, containing the events start and end times. Empty lists if no events are detected.
+    """  # noqa: E501
+    sel_ds = ds.isel({"time": np.where(ds.ams_pr.values / 60 > 0)[0]})
+
+    min_duration, max_interval, min_rainfall_amount = (
         conf["thresholds"]["MIN_DURATION"],
         conf["thresholds"]["MAX_INTERVAL"],
+        conf["thresholds"]["MIN_RAINFALL_AMOUNT"],
     )
 
     t = sel_ds.time
@@ -55,6 +62,16 @@ def rain_event_selection_weather(ds, conf):  # with no constraint on cum for the
                 start.append(start_candidate.values)
                 end.append(t[i].values)
             start_candidate = t[i + 1]
+    # constraint on rain accumulation
+    data_avail = ds.time.isel({"time": np.where(np.isfinite(ds["ta"]))[0]}).values
+    ams_time_sampling = (data_avail[1] - data_avail[0]) / np.timedelta64(1, "m")
+    for s, e in zip(start, end):
+        rain_accumulation_event = (
+            ams_time_sampling / 60 * np.nansum(sel_ds.ams_pr.sel(time=slice(s, e)))
+        )
+        if rain_accumulation_event < min_rainfall_amount:
+            start.remove(s)
+            end.remove(e)
     return start, end
 
 
@@ -292,10 +309,6 @@ def compute_quality_checks_weather(ds, conf, start, end):
 def compute_todays_events_stats_weather(ds, Ze_ds, conf, qc_ds, start, end, day_today):
     n = 0
     for s in start:
-        # if (
-        #     pd.to_datetime(s).day
-        #     == pd.to_datetime(ds.time.isel(time=qc_ds.time.size // 2).values).day
-        # ):
         if pd.to_datetime(s).day == day_today:
             n += 1
     # n is the number of events to store in the dataset
@@ -662,11 +675,7 @@ def compute_quality_checks_weather_low_sampling(
                 .isel({"time": np.where(np.isfinite(copy[key]))[0]})
                 .sel(time=t, method="nearest")
             )
-        # copy["ams_pr"].loc[t] = (
-        #     ds["ams_pr"]
-        #     .isel({"time": np.where(np.isfinite(copy["ams_pr"]))[0]})
-        #     .sel(time=t, method="backfill")
-        # )
+
         next_valid_index_pr = (
             ds["ams_pr"]
             .isel({"time": np.where(np.isfinite(copy["ams_pr"]))[0]})
@@ -676,16 +685,6 @@ def compute_quality_checks_weather_low_sampling(
             ds["ams_pr"]
             .isel({"time": np.where(np.isfinite(copy["ams_pr"]))[0]})
             .isel(time=next_valid_index_pr)
-        )
-        next_valid_index_cp = (
-            ds["ams_cp"]
-            .isel({"time": np.where(np.isfinite(copy["ams_cp"]))[0]})
-            .time.searchsorted(t)
-        )
-        copy["ams_cp"].loc[t] = (
-            ds["ams_cp"]
-            .isel({"time": np.where(np.isfinite(copy["ams_cp"]))[0]})
-            .isel(time=next_valid_index_cp)
         )
 
     # flag the timesteps belonging to an event
@@ -718,16 +717,20 @@ def compute_quality_checks_weather_low_sampling(
     for s, e in zip(start, end):
         qc_ds["flag_event"].loc[slice(s, e)] = True
 
-        # qc_ds["ams_cp_since_event_begin"].loc[slice(s, e)] = (
-        #     1 / 60 * np.nancumsum(copy["ams_pr"].sel(time=slice(s, e)).values)
-        # )
-        qc_ds["ams_cp_since_event_begin"].loc[slice(s, e)] = (
-            copy["ams_cp"].sel(time=slice(s, e)).values
-            - copy["ams_cp"]
-            .sel(time=s - np.timedelta64(int(ams_time_sampling), "m"), method="nearest")
-            .values
+        cp_since_begin = (
+            ams_time_sampling / 60 * np.nancumsum(ds.ams_pr.sel(time=slice(s, e)))
         )
+        qc_ds["ams_cp_since_event_begin"].loc[slice(s, e)] = cp_since_begin
 
+        # qc_ds["disdro_cp_since_event_begin"].loc[slice(s, e)] = (
+        #     1
+        #     / 60
+        #     * np.nancumsum(
+        #         ds["disdro_pr"]
+        #         .sel(time=slice(s - np.timedelta64(int(ams_time_sampling - 1), "m"), e))  # noqa
+        #         .values
+        #     )[int(ams_time_sampling - 1) :]
+        # )
         qc_ds["disdro_cp_since_event_begin"].loc[slice(s, e)] = (
             1 / 60 * np.nancumsum(ds["disdro_pr"].sel(time=slice(s, e)).values)
         )
@@ -797,7 +800,7 @@ def compute_quality_checks_weather_low_sampling(
         np.nansum(ds["psd"].values, axis=2) @ ds["modV"].isel(time=0).values
     ) / np.nansum(
         ds["psd"].values, axis=(1, 2)
-    )  # average fall speed weighed by (num_drops_per_time_and_diameter)
+    )  # average fall speed weighted by (num_drops_per_time_and_diameter)
     vobs_disdro = (
         np.nansum(ds["psd"].values, axis=1) @ ds["speed_classes"].values
     ) / np.nansum(ds["psd"].values, axis=(1, 2))

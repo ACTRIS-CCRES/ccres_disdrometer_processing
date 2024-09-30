@@ -153,7 +153,7 @@ def compute_todays_events_stats(
 ):
     if bool(ds["weather_data_avail"].values[0]) is False or no_meteo is True:
         stats_ds = processing_noweather.compute_todays_events_stats_noweather(
-            ds, Ze_ds, conf, qc_ds, start, end
+            ds, Ze_ds, conf, qc_ds, start, end, day_today
         )
         lgr.info("Compute event stats dataset (case without weather)")
     else:
