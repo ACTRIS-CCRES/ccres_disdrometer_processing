@@ -47,7 +47,7 @@ def rain_event_selection_noweather(ds, conf):
                 start.append(start_candidate.values)
                 end.append(t[i].values)
             start_candidate = t[i + 1]
-    for s, e in zip(start, end):
+    for s, e in zip(start.copy(), end.copy()):
         rain_accumulation_event = (
             1 / 60 * np.nansum(sel_ds.disdro_pr.sel(time=slice(s, e)))
         )

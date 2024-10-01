@@ -65,7 +65,7 @@ def rain_event_selection_weather(ds, conf):
     # constraint on rain accumulation
     data_avail = ds.time.isel({"time": np.where(np.isfinite(ds["ta"]))[0]}).values
     ams_time_sampling = (data_avail[1] - data_avail[0]) / np.timedelta64(1, "m")
-    for s, e in zip(start, end):
+    for s, e in zip(start.copy(), end.copy()):
         rain_accumulation_event = (
             ams_time_sampling / 60 * np.nansum(sel_ds.ams_pr.sel(time=slice(s, e)))
         )
