@@ -42,7 +42,7 @@ def rain_event_selection_noweather(ds, conf):
             elif t[i + 1] - start_candidate >= np.timedelta64(min_duration, "m"):
                 start.append(start_candidate.values)
                 end.append(t[i + 1].values)
-        if t[i + 1] - t[i] > np.timedelta64(max_interval, "m"):
+        elif t[i + 1] - t[i] > np.timedelta64(max_interval, "m"):
             if t[i] - start_candidate >= np.timedelta64(min_duration, "m"):
                 start.append(start_candidate.values)
                 end.append(t[i].values)
