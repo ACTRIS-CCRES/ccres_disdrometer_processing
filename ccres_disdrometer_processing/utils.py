@@ -27,6 +27,7 @@ def is_file_available(filename: str, local_dir: Path) -> bool:
     -------
     bool
         True if the file is already available, False otherwise.
+
     """
     local_file = local_dir / filename
 
@@ -59,6 +60,7 @@ def get_file_from_cloudnet(
     -------
     local_file : Path
         The path to the downloaded file.
+
     """
     # check input
     if not isinstance(local_dir, str):
@@ -118,6 +120,7 @@ def format_ql_file_prefix(prefix: str):
     -------
     str
         the checked and formatted prefix.
+
     """
     name, ext = os.path.splitext(prefix)
     if ext:

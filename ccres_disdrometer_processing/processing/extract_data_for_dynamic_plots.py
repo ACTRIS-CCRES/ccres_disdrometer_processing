@@ -59,7 +59,7 @@ def data_for_static_pdf(today, tomorrow, rng, min_timesteps):
                 dz_r_good = dz_r_good.to_dataframe()
                 dz_r_good["num_event"] = len(data_event) + 1
                 data_event.append(dz_r_good)
-        cpt += 1
+        cpt += 1  # noqa: SIM113
 
     output = DATA_DYN(pd.concat(data_event + [pd.DataFrame()]))
     output.location = ds.attrs["location"]
