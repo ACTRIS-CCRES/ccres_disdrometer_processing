@@ -52,9 +52,7 @@ def histos(data, p1=t1, p2=t2):
         ax.axvline(
             x=median_dz,
             color=colors[i],
-            label=r"Median $\Delta Z$ = {:.2f} dBZ, $\sigma$ = {:.2f} dBZ".format(
-                median_dz, np.nanstd(df.iloc[:, 1] - df.iloc[:, 0])
-            ),
+            label=rf"Median $\Delta Z$ = {median_dz:.2f} dBZ, $\sigma$ = {np.nanstd(df.iloc[:, 1] - df.iloc[:, 0]):.2f} dBZ",  # noqa: E501
         )
         ax.grid()
         ax.set_xlabel(r"$Z_{radar} - Z_{disdrometer}$ [dBZ]")

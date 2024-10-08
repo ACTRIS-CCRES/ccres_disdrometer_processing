@@ -2,6 +2,7 @@
 
 Input : Daily preprocessed files at days D and D-1
 Output : Daily processed file for day D
+
 """
 
 import logging
@@ -34,6 +35,7 @@ def rain_event_selection_weather(ds, conf):
     -------
     List
         two lists, containing the events start and end times. Empty lists if no events are detected.
+
     """  # noqa: E501
     sel_ds = ds.isel({"time": np.where(ds.ams_pr.values / 60 > 0)[0]})
 
@@ -276,33 +278,33 @@ def compute_quality_checks_weather(ds, conf, start, end):
         qc_ds[key].data.astype("i2")
         qc_ds[key].attrs["flag_values"] = np.array([0, 1]).astype("i2")
 
-    qc_ds["flag_event"].attrs[
-        "flag_meanings"
-    ] = "timestep_part_of_an_event timestep_not_involved_in_any_avent"
-    qc_ds["QF_rainfall_amount"].attrs[
-        "flag_meanings"
-    ] = "less_rain_than_threshold_since_event_begin more_rain_than_threshold_since_event_begin"  # noqa E501
-    qc_ds["QC_ta"].attrs[
-        "flag_meanings"
-    ] = "temperature_lower_than_threshold temperature_ok"
-    qc_ds["QC_ws"].attrs[
-        "flag_meanings"
-    ] = "wind_speed_higher_than_threshold wind_speed_ok"
-    qc_ds["QC_wd"].attrs[
-        "flag_meanings"
-    ] = "wind_direction_outside_good_angle_range wind_direction_ok"
-    qc_ds["QC_hur"].attrs[
-        "flag_meanings"
-    ] = "hur_above_lower_bound hur_over_upper_bound"
-    qc_ds["QF_rg_dd"].attrs[
-        "flag_meanings"
-    ] = "relative_difference_higher_than_threshold relative_difference_ok"
-    qc_ds["QC_pr"].attrs[
-        "flag_meanings"
-    ] = "precipitation_rate_above threshold precipitation_rate_ok"
-    qc_ds["QC_vdsd_t"].attrs[
-        "flag_meanings"
-    ] = "discrepancy_between_observed_and_modeled_disdrometer_droplet_fallspeed_above_threshold discrepancy_under_threshold"  # noqa e501
+    qc_ds["flag_event"].attrs["flag_meanings"] = (
+        "timestep_part_of_an_event timestep_not_involved_in_any_avent"
+    )
+    qc_ds["QF_rainfall_amount"].attrs["flag_meanings"] = (
+        "less_rain_than_threshold_since_event_begin more_rain_than_threshold_since_event_begin"  # noqa E501
+    )
+    qc_ds["QC_ta"].attrs["flag_meanings"] = (
+        "temperature_lower_than_threshold temperature_ok"
+    )
+    qc_ds["QC_ws"].attrs["flag_meanings"] = (
+        "wind_speed_higher_than_threshold wind_speed_ok"
+    )
+    qc_ds["QC_wd"].attrs["flag_meanings"] = (
+        "wind_direction_outside_good_angle_range wind_direction_ok"
+    )
+    qc_ds["QC_hur"].attrs["flag_meanings"] = (
+        "hur_above_lower_bound hur_over_upper_bound"
+    )
+    qc_ds["QF_rg_dd"].attrs["flag_meanings"] = (
+        "relative_difference_higher_than_threshold relative_difference_ok"
+    )
+    qc_ds["QC_pr"].attrs["flag_meanings"] = (
+        "precipitation_rate_above threshold precipitation_rate_ok"
+    )
+    qc_ds["QC_vdsd_t"].attrs["flag_meanings"] = (
+        "discrepancy_between_observed_and_modeled_disdrometer_droplet_fallspeed_above_threshold discrepancy_under_threshold"  # noqa e501
+    )
     qc_ds["QC_overall"].attrs["flag_meanings"] = "at_least_one_QC_not_OK all_QC_OK"
 
     return qc_ds
@@ -909,33 +911,33 @@ def compute_quality_checks_weather_low_sampling(
         qc_ds[key].data.astype("i2")
         qc_ds[key].attrs["flag_values"] = np.array([0, 1]).astype("i2")
 
-    qc_ds["flag_event"].attrs[
-        "flag_meanings"
-    ] = "timestep_part_of_an_event timestep_not_involved_in_any_avent"
-    qc_ds["QF_rainfall_amount"].attrs[
-        "flag_meanings"
-    ] = "less_rain_than_threshold_since_event_begin more_rain_than_threshold_since_event_begin"  # noqa E501
-    qc_ds["QC_ta"].attrs[
-        "flag_meanings"
-    ] = "temperature_lower_than_threshold temperature_ok"
-    qc_ds["QC_ws"].attrs[
-        "flag_meanings"
-    ] = "wind_speed_higher_than_threshold wind_speed_ok"
-    qc_ds["QC_wd"].attrs[
-        "flag_meanings"
-    ] = "wind_direction_outside_good_angle_range wind_direction_ok"
-    qc_ds["QC_hur"].attrs[
-        "flag_meanings"
-    ] = "hur_above_lower_bound hur_over_upper_bound"
-    qc_ds["QF_rg_dd"].attrs[
-        "flag_meanings"
-    ] = "relative_difference_higher_than_threshold relative_difference_ok"
-    qc_ds["QC_pr"].attrs[
-        "flag_meanings"
-    ] = "precipitation_rate_above threshold precipitation_rate_ok"
-    qc_ds["QC_vdsd_t"].attrs[
-        "flag_meanings"
-    ] = "discrepancy_between_observed_and_modeled_disdrometer_droplet_fallspeed_above_threshold discrepancy_under_threshold"  # noqa e501
+    qc_ds["flag_event"].attrs["flag_meanings"] = (
+        "timestep_part_of_an_event timestep_not_involved_in_any_avent"
+    )
+    qc_ds["QF_rainfall_amount"].attrs["flag_meanings"] = (
+        "less_rain_than_threshold_since_event_begin more_rain_than_threshold_since_event_begin"  # noqa E501
+    )
+    qc_ds["QC_ta"].attrs["flag_meanings"] = (
+        "temperature_lower_than_threshold temperature_ok"
+    )
+    qc_ds["QC_ws"].attrs["flag_meanings"] = (
+        "wind_speed_higher_than_threshold wind_speed_ok"
+    )
+    qc_ds["QC_wd"].attrs["flag_meanings"] = (
+        "wind_direction_outside_good_angle_range wind_direction_ok"
+    )
+    qc_ds["QC_hur"].attrs["flag_meanings"] = (
+        "hur_above_lower_bound hur_over_upper_bound"
+    )
+    qc_ds["QF_rg_dd"].attrs["flag_meanings"] = (
+        "relative_difference_higher_than_threshold relative_difference_ok"
+    )
+    qc_ds["QC_pr"].attrs["flag_meanings"] = (
+        "precipitation_rate_above threshold precipitation_rate_ok"
+    )
+    qc_ds["QC_vdsd_t"].attrs["flag_meanings"] = (
+        "discrepancy_between_observed_and_modeled_disdrometer_droplet_fallspeed_above_threshold discrepancy_under_threshold"  # noqa e501
+    )
     qc_ds["QC_overall"].attrs["flag_meanings"] = "at_least_one_QC_not_OK all_QC_OK"
 
     return qc_ds

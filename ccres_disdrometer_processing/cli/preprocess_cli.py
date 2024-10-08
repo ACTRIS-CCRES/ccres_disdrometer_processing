@@ -94,15 +94,15 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file, verbo
         lgr.info("Merge : OK")
 
     final_data["weather_data_avail"] = np.array(weather_avail).astype("i2")
-    final_data["weather_data_avail"].attrs[
-        "long_name"
-    ] = "Availability of weather data at the station"
+    final_data["weather_data_avail"].attrs["long_name"] = (
+        "Availability of weather data at the station"
+    )
     final_data["weather_data_avail"].attrs["flag_values"] = np.array([0, 1]).astype(
         "i2"
     )
-    final_data["weather_data_avail"].attrs[
-        "flag_meanings"
-    ] = "no_weather_file_available weather_file_provided"
+    final_data["weather_data_avail"].attrs["flag_meanings"] = (
+        "no_weather_file_available weather_file_provided"
+    )
 
     lgr.info("Add netCDF missing global attributes")
 
@@ -112,31 +112,31 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file, verbo
     final_data.attrs["fallspeedFormula"] = strMethod
 
     # Add global attributes specified in the file format
-    final_data.attrs[
-        "title"
-    ] = f"CCRES pre-processing file for Doppler cloud radar stability monitoring with disdrometer at {final_data.attrs['location']} site"  # noqa E501
-    final_data.attrs[
-        "summary"
-    ] = f"Disdrometer ({final_data.attrs['disdrometer_source']}) data are processed to derive the equivalent reflectivity factor at {len(computed_frequencies)} frequencies ({', '.join(str(round(freq*1e-9,0)) for freq in computed_frequencies[:])} GHz). Doppler cloud radar ({final_data.attrs['radar_source']}) data (reflectivity and Doppler velocity) are extracted up to some hundreds of meters, and weather station data (temperature, humidity, wind and precipitation rate) are added to the dataset if provided. The resulting pre-processing netCDF file has a 1-minute sampling for all the collocated sensors."  # noqa E501
-    final_data.attrs[
-        "keywords"
-    ] = "GCMD:EARTH SCIENCE, GCMD:ATMOSPHERE, GCMD:CLOUDS, GCMD:CLOUD DROPLET DISTRIBUTION, GCMD:CLOUD RADIATIVE TRANSFER, GCMD:CLOUD REFLECTANCE, GCMD:SCATTERING, GCMD:PRECIPITATION, GCMD:ATMOSPHERIC PRECIPITATION INDICES, GCMD:DROPLET SIZE, GCMD:HYDROMETEORS, GCMD:LIQUID PRECIPITATION, GCMD:RAIN, GCMD:LIQUID WATER EQUIVALENT, GCMD:PRECIPITATION AMOUNT, GCMD:PRECIPITATION RATE, GCMD:SURFACE PRECIPITATION"  # noqa
-    final_data.attrs[
-        "keywords_vocabulary"
-    ] = "GCMD:GCMD Keywords, CF:NetCDF COARDS Climate and Forecast Standard Names"
+    final_data.attrs["title"] = (
+        f"CCRES pre-processing file for Doppler cloud radar stability monitoring with disdrometer at {final_data.attrs['location']} site"  # noqa E501
+    )
+    final_data.attrs["summary"] = (
+        f"Disdrometer ({final_data.attrs['disdrometer_source']}) data are processed to derive the equivalent reflectivity factor at {len(computed_frequencies)} frequencies ({', '.join(str(round(freq*1e-9,0)) for freq in computed_frequencies[:])} GHz). Doppler cloud radar ({final_data.attrs['radar_source']}) data (reflectivity and Doppler velocity) are extracted up to some hundreds of meters, and weather station data (temperature, humidity, wind and precipitation rate) are added to the dataset if provided. The resulting pre-processing netCDF file has a 1-minute sampling for all the collocated sensors."  # noqa E501
+    )
+    final_data.attrs["keywords"] = (
+        "GCMD:EARTH SCIENCE, GCMD:ATMOSPHERE, GCMD:CLOUDS, GCMD:CLOUD DROPLET DISTRIBUTION, GCMD:CLOUD RADIATIVE TRANSFER, GCMD:CLOUD REFLECTANCE, GCMD:SCATTERING, GCMD:PRECIPITATION, GCMD:ATMOSPHERIC PRECIPITATION INDICES, GCMD:DROPLET SIZE, GCMD:HYDROMETEORS, GCMD:LIQUID PRECIPITATION, GCMD:RAIN, GCMD:LIQUID WATER EQUIVALENT, GCMD:PRECIPITATION AMOUNT, GCMD:PRECIPITATION RATE, GCMD:SURFACE PRECIPITATION"  # noqa
+    )
+    final_data.attrs["keywords_vocabulary"] = (
+        "GCMD:GCMD Keywords, CF:NetCDF COARDS Climate and Forecast Standard Names"
+    )
     final_data.attrs["Conventions"] = "CF-1.8, ACDD-1.3, GEOMS"
     final_data.attrs["id"] = config["nc_meta"]["id"]
     final_data.attrs["naming_authority"] = config["nc_meta"]["naming_authority"]
     date_created = datetime.datetime.utcnow().strftime(ISO_DATE_FORMAT)
-    final_data.attrs["history"] = "created on {} by {}, v{}".format(
-        date_created, script_name, __version__
+    final_data.attrs["history"] = (
+        f"created on {date_created} by {script_name}, v{__version__}"
     )
     weather_str = ""
     if weather_avail:
         weather_str = " and AMS"
-    final_data.attrs[
-        "source"
-    ] = f"surface observation from {final_data.radar_source} DCR, {final_data.disdrometer_source} disdrometer{weather_str}, processed by CloudNet"  # noqa
+    final_data.attrs["source"] = (
+        f"surface observation from {final_data.radar_source} DCR, {final_data.disdrometer_source} disdrometer{weather_str}, processed by CloudNet"  # noqa
+    )
     final_data.attrs["processing_level"] = "2a"
     final_data.attrs["comment"] = config["nc_meta"]["comment"]
     final_data.attrs["acknowledgement"] = ""
@@ -288,9 +288,9 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file, verbo
                 precision(final_data.radar_altitude.values),
             )
         )
-    final_data.attrs[
-        "geospatial_bounds"
-    ] = f"POLYGON (({geospatial_lat_min}, {geospatial_lon_min}), ({geospatial_lat_min}, {geospatial_lon_max}), ({geospatial_lat_max}, {geospatial_lon_max}), ({geospatial_lat_max}, {geospatial_lon_min}))"  # noqa
+    final_data.attrs["geospatial_bounds"] = (
+        f"POLYGON (({geospatial_lat_min}, {geospatial_lon_min}), ({geospatial_lat_min}, {geospatial_lon_max}), ({geospatial_lat_max}, {geospatial_lon_max}), ({geospatial_lat_max}, {geospatial_lon_min}))"  # noqa
+    )
     final_data.attrs["geospatial_bounds_crs"] = "EPSG:4326"  # WGS84
     final_data.attrs["geospatial_bounds_vertical_crs"] = "EPSG:5829"
     final_data.attrs["geospatial_lat_min"] = geospatial_lat_min
@@ -321,20 +321,20 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file, verbo
     ).isoformat()  # PT60S here
     final_data.attrs["program"] = "ACTRIS, CloudNet, CCRES"
     final_data.attrs["date_modified"] = date_created
-    final_data.attrs[
-        "date_issued"
-    ] = date_created  # made available immediately to the users after ceration
-    final_data.attrs[
-        "date_metadata_modified"
-    ] = ""  # will be set when everything will be of ; modify it if some fields evolve
+    final_data.attrs["date_issued"] = (
+        date_created  # made available immediately to the users after ceration
+    )
+    final_data.attrs["date_metadata_modified"] = (
+        ""  # will be set when everything will be of ; modify it if some fields evolve
+    )
     final_data.attrs["product_version"] = __version__
-    final_data.attrs[
-        "platform"
-    ] = "GCMD:In Situ Land-based Platforms, GCMD:OBSERVATORIES"
+    final_data.attrs["platform"] = (
+        "GCMD:In Situ Land-based Platforms, GCMD:OBSERVATORIES"
+    )
     final_data.attrs["platform_vocabulary"] = "GCMD:GCMD Keywords"
-    final_data.attrs[
-        "instrument"
-    ] = "GCMD:Earth Remote Sensing Instruments, GCMD:Active Remote Sensing, GCMD:Profilers/Sounders, GCMD:Radar Sounders, GCMD:DOPPLER RADAR, GCMD:FMCWR, GCMD:VERTICAL POINTING RADAR, GCMD:In Situ/Laboratory Instruments, GCMD:Gauges, GCMD:RAIN GAUGES, GCMD:Recorders/Loggers, GCMD:DISDROMETERS, GCMD:Temperature/Humidity Sensors, GCMD:TEMPERATURE SENSORS, GCMD:HUMIDITY SENSORS, GCMD:Current/Wind Meters, GCMD:WIND MONITOR, GCMD:Pressure/Height Meters, GCMD:BAROMETERS"  # noqa
+    final_data.attrs["instrument"] = (
+        "GCMD:Earth Remote Sensing Instruments, GCMD:Active Remote Sensing, GCMD:Profilers/Sounders, GCMD:Radar Sounders, GCMD:DOPPLER RADAR, GCMD:FMCWR, GCMD:VERTICAL POINTING RADAR, GCMD:In Situ/Laboratory Instruments, GCMD:Gauges, GCMD:RAIN GAUGES, GCMD:Recorders/Loggers, GCMD:DISDROMETERS, GCMD:Temperature/Humidity Sensors, GCMD:TEMPERATURE SENSORS, GCMD:HUMIDITY SENSORS, GCMD:Current/Wind Meters, GCMD:WIND MONITOR, GCMD:Pressure/Height Meters, GCMD:BAROMETERS"  # noqa
+    )
     final_data.attrs["instrument_vocabulary"] = "GCMD:GCMD Keywords"
     final_data.attrs["cdm_data_type"] = config["nc_meta"]["cdm_data_type"]  # empty
     final_data.attrs["metadata_link"] = config["nc_meta"]["metadata_link"]  # empty

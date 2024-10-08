@@ -1,6 +1,5 @@
 """Tests processing."""
 
-
 from click.testing import CliRunner
 
 from ccres_disdrometer_processing.cli import cli

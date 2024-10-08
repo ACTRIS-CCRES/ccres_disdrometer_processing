@@ -248,9 +248,7 @@ def quicklooks(
         ax2.legend()
         ax2.set_ylabel(r"$ \Delta Z [dBZ]$")
         ax2.set_title(
-            "Differences of reflectivity : DCR @ {}m vs Disdrometer".format(
-                Z_dcr_200m_resampled.range.values
-            )
+            f"Differences of reflectivity : DCR @ {Z_dcr_200m_resampled.range.values}m vs Disdrometer"  # noqa: E501
         )
         ax2.set_xlim(
             left=Z_dcr_resampled.time.values.min(),
@@ -276,9 +274,7 @@ def quicklooks(
         # & ( np.isfinite(Z_disdro) ) )[0].shape )
         ax3.hist(
             Z_dcr_200m_resampled[:] - Z_disdro[:],
-            label="$Z_{{DCR}}$ - $Z_{{Disdrometer}}$, $Med = ${:.2f} $dBZ$".format(
-                np.nanmedian(Z_dcr_200m_resampled[:] - Z_disdro[:])
-            ),
+            label=f"$Z_{{DCR}}$ - $Z_{{Disdrometer}}$, $Med = ${np.nanmedian(Z_dcr_200m_resampled[:] - Z_disdro[:]):.2f} $dBZ$",  # noqa: E501
             alpha=0.4,
             color="green",
             density=True,
@@ -316,10 +312,7 @@ def quicklooks(
             x_t,
             y_hat,
             color="C1",
-            label="$Z_{{DCR}}$ = {:.3f} $Z_{{DD}}$ + {:.3f}".format(
-                model.coef_[0][0],
-                model.intercept_[0],
-            ),
+            label=f"$Z_{{DCR}}$ = {model.coef_[0][0]:.3f} $Z_{{DD}}$ + {model.intercept_[0]:.3f}",  # noqa: E501
         )
         ax4.text(
             1,
@@ -403,9 +396,7 @@ def quicklooks(
             ax1.plot(
                 weather.time,
                 -Doppler_resampled[:, i],
-                label="DCR @ {}m, corr = {:.2f}".format(
-                    Doppler_resampled.range[i].values, pearsonr[0]
-                ),
+                label=f"DCR @ {Doppler_resampled.range[i].values}m, corr = {pearsonr[0]:.2f}",  # noqa: E501
                 linewidth=0.5,
             )
         ax1.plot(
@@ -458,9 +449,7 @@ def quicklooks(
         ax3.hist(
             -Doppler_resampled[:, 2] - disdro_fallspeed,
             density=True,
-            label="DCR - Disdrometer, $Med = ${:.2f} $m/s$".format(
-                np.nanmedian(-Doppler_resampled[:, 2] - disdro_fallspeed)
-            ),
+            label=f"DCR - Disdrometer, $Med = ${np.nanmedian(-Doppler_resampled[:, 2] - disdro_fallspeed):.2f} $m/s$",  # noqa: E501
             alpha=0.4,
             color="green",
             bins=int(
@@ -493,9 +482,7 @@ def quicklooks(
         y_hat = model.predict(x_t)
 
         ax4.scatter(x_t, y_t, color="green")
-        lab = "$V_{{DCR}}$ = {a:.3f} $V_{{DD}}$ + {b:.3f}".format(
-            a=model.coef_[0][0], b=model.intercept_[0]
-        )
+        lab = f"$V_{{DCR}}$ = {model.coef_[0][0]:.3f} $V_{{DD}}$ + {model.intercept_[0]:.3f}"  # noqa: E501
         ax4.plot(
             x_t,
             y_hat,

@@ -19,6 +19,7 @@ def read_weather_cloudnet(filename):
     -------
     xr.Dataset
         A dataset containg weather data with a 1-minute regular sampling
+
     """
     data_nc = xr.open_dataset(filename)
 

@@ -28,6 +28,7 @@ def load_module(name, path):
     -------
     module
         The loaded module.
+
     """
     spec = importlib.util.spec_from_file_location(name, path)
     module = importlib.util.module_from_spec(spec)
@@ -53,6 +54,7 @@ def read_nc(file_: str):
     -------
     xarray.Dataset
         The xarray object containing the data.
+
     """
     if not isinstance(file_, Path):
         file_ = Path(file_)
@@ -69,6 +71,7 @@ def add_logo():
         directory name
     station: str
         station name
+
     """
     plt.axes([0.76, 0.9, 0.2, 0.1])  # left, bottom, width, height
     plt.axis("off")
@@ -100,6 +103,7 @@ def npdt64_to_datetime(dt64):
     -------
     datetime.datetime
         The date converted as a datetime.datetime object.
+
     """
     return pd.Timestamp(dt64).to_pydatetime()
 
@@ -117,6 +121,7 @@ def f_th(x):
     -------
     numpy.ndarray
         The theoretical fall speed.
+
     """
     return 9.40 * (
         1 - np.exp(-1.57 * (10**3) * np.power(x * (10**-3), 1.15))
@@ -141,6 +146,7 @@ def f_fit(x, a, b, c):
     -------
     numpy.ndarray
         The fitted size classes distribution.
+
     """
     return a * (1 - np.exp(-b * np.power(x * (10**-3), c)))  # target shape
 
@@ -157,6 +163,7 @@ def get_size_and_classe_to_fit(data):
     -------
     numpy.ndarray, numpy.ndarray, numpy.ndarray
         The size classes, the speed classes and the drop density.
+
     """
     drop_density = np.nansum(data["psd"].values, axis=0)  # sum over time dim
     psd_nonzero_indexes = np.where(drop_density != 0)
@@ -190,6 +197,7 @@ def get_y_fit_dd(data):
     numpy.ndarray, numpy.ndarray, numpy.ndarray
         The fitted size classes distribution, the theoretical size classes distribution,
         the size classes, the speed classes, the drop density and the flag.
+
     """
     sizes, classes, drop_density = get_size_and_classe_to_fit(data)  # disdrometer
     #
@@ -234,6 +242,7 @@ def get_cdf(delta_ZH, nbins=100):
     -------
     scipy.stats._continuous_distns.cumfreq
         The cumulative frequency.
+
     """
     cdf = stats.cumfreq(delta_ZH, numbins=100)
     x_ = cdf.lowerlimit + np.linspace(
@@ -256,6 +265,7 @@ def get_min_max_limits(zh_dd, zh_gate):
     -------
     numpy.ndarray, numpy.ndarray
         minimum, maximum
+
     """
     df = pd.DataFrame.from_dict({"dd": zh_dd, "dcr": zh_gate})
     df = df.replace(-np.inf, np.nan)
@@ -296,6 +306,7 @@ def linear_reg_scipy(x, y):
     std_err: float
         Standard error of the estimated slope (gradient), under the assumption of
         residual normality.
+
     """
     slope, intercept, r_value, p_value, std_err = stats.linregress(x, y)
     return slope, intercept, r_value, p_value, std_err
@@ -312,6 +323,7 @@ def read_and_concatenante_preprocessed_ds(
         The process dataset.
     preprocessing_files : list[Path]
         The list of preprocessing files to read and concatenate.
+
     """
     tmp_ds = []
     for file in preprocessing_files:

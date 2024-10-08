@@ -1,4 +1,5 @@
 """The setup script."""
+
 from setuptools import setup
 
 version = {}

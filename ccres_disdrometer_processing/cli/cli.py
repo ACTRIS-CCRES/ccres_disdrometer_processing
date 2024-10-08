@@ -112,6 +112,7 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file, verbo
     Returns
     -------
     None
+
     """  # noqa
     return preprocess_cli.preprocess(
         disdro_file, ws_file, radar_file, config_file, output_file, verbosity
@@ -268,6 +269,7 @@ def process(
     Returns
     -------
     None
+
     """  # noqa
     processing.process(
         yesterday, today, tomorrow, config_file, output_file, no_meteo, verbosity
