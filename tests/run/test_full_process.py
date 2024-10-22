@@ -4,8 +4,8 @@ import datetime as dt
 
 from click.testing import CliRunner
 
+from ccres_disdrometer_processing import utils
 from ccres_disdrometer_processing.cli import cli
-from tests import utils
 
 
 def test_run_ndays(
@@ -15,7 +15,9 @@ def test_run_ndays(
     site = test_data_processing_ndays["site"]
     dates = test_data_processing_ndays["list_dates"]
     radar = test_data_processing_ndays["radar"]
+    radar_pid = test_data_processing_ndays["radar-pid"]
     disdro = test_data_processing_ndays["disdro"]
+    disdro_pid = test_data_processing_ndays["disdro-pid"]
     has_meteo = test_data_processing_ndays["meteo-available"]
     meteo = test_data_processing_ndays["meteo"]
     conf = test_data_processing_ndays["config_file"]
@@ -28,12 +30,19 @@ def test_run_ndays(
         # get the data if needed
         # ------------------------------------------------------------------------------
         # radar
-        radar_file = utils.get_file_from_cloudnet(site, date, radar, data_input_dir)
+        radar_file = utils.get_file_from_cloudnet(
+            site, date, radar, radar_pid, data_input_dir
+        )
         # disdro
-        disdro_file = utils.get_file_from_cloudnet(site, date, disdro, data_input_dir)
+        disdro_file = utils.get_file_from_cloudnet(
+            site, date, disdro, disdro_pid, data_input_dir
+        )
         # meteo
         if test_data_processing_ndays["meteo-available"]:
-            meteo_file = utils.get_file_from_cloudnet(site, date, meteo, data_input_dir)
+            meteo_pid = test_data_processing_ndays["meteo-pid"]
+            meteo_file = utils.get_file_from_cloudnet(
+                site, date, meteo, meteo_pid, data_input_dir
+            )
 
         # output file
         output_file = data_out_dir / test_data_processing_ndays["output"][

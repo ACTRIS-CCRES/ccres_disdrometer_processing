@@ -53,6 +53,7 @@ def resample_data_perfect_timesteps(filename: Union[str, Path], config) -> xr.Da
     -------
     xr.Dataset
         A dataset with a 1-minute regular sampling
+
     """
     data_nc = xr.open_dataset(filename)
     start_time = pd.Timestamp(data_nc.time.values[0]).replace(
@@ -113,6 +114,7 @@ def read_parsivel_cloudnet(
     xr.Dataset
         Dataset for Parsivel daily disdrometer data, with only
     the useful variables kept (after being renamed)
+
     """
     data = xr.Dataset(
         coords=dict(
@@ -201,6 +203,7 @@ def read_thies_cloudnet(
     xr.Dataset
         Dataset for Thies daily disdrometer data, with only
     the useful variables kept (after being renamed)
+
     """
     data = xr.Dataset(
         coords=dict(
@@ -221,9 +224,9 @@ def read_thies_cloudnet(
     data["F"] = data_nc["F"]
     data["F"].attrs["long_name"] = "Disdrometer sampling area"
     data["F"].attrs["units"] = "m^2"
-    data["F"].attrs[
-        "comment"
-    ] = "Varies from one instrument to another for Thies LNM disdrometers"
+    data["F"].attrs["comment"] = (
+        "Varies from one instrument to another for Thies LNM disdrometers"
+    )
     data["disdro_pr"] = xr.DataArray(
         data_nc["rainfall_rate"].values * 1000 * 3600,
         dims=["time"],
@@ -306,6 +309,7 @@ def read_parsivel_cloudnet_choice(
     xr.Dataset
         A formatted dataset with disdrometer data, with a structure independent
         from the disdrometer model used for the data acquisition
+
     """
     data_nc = resample_data_perfect_timesteps(filename=filename, config=config)
     source = data_nc.disdrometer_source
@@ -383,6 +387,7 @@ def reflectivity_model_multilambda_measmodV_hvfov(
     xr.Dataset
         The formatted disdrometer dataset enhanced with the additional variables
         (reflectivity in the different computed configurations, ...).
+
     """
     # scatt_list : list of scattering_prop() objects :
     # [(lambda1, vert), (lambda2, vert), ...(lambda1, hori), ...] -> 4 lambdas = 8 scatt objects # noqa E501

@@ -2,6 +2,7 @@
 
 Input : Daily preprocessed files at days D and D-1
 Output : Daily processed file for day D
+
 """
 
 import logging
@@ -20,20 +21,21 @@ def rmse(y, y_hat):  # rmse func to remove dependency from sklearn rmse
     return np.sqrt(((y - y_hat) ** 2).mean())
 
 
-def rain_event_selection_noweather(
-    ds, conf
-):  # with no constraint on cum for the moment
+def rain_event_selection_noweather(ds, conf):
     sel_ds = ds.isel({"time": np.where(ds.disdro_pr.values > 0)[0]})
 
-    min_duration, max_interval = (
+    min_duration, max_interval, min_rainfall_amount = (
         conf["thresholds"]["MIN_DURATION"],
         conf["thresholds"]["MAX_INTERVAL"],
+        conf["thresholds"]["MIN_RAINFALL_AMOUNT"],
     )
     t = sel_ds.time
     start, end = [], []
+    if t.size <= 1:
+        return start, end
     start_candidate = t[0]
-    for i in range(len(t) - 1):
-        if i + 1 == len(t) - 1:
+    for i in range(t.size - 1):
+        if i + 1 == t.size - 1:
             if t[i + 1] - t[i] > np.timedelta64(max_interval, "m"):
                 if t[i] - start_candidate >= np.timedelta64(min_duration, "m"):
                     start.append(start_candidate.values)
@@ -41,11 +43,18 @@ def rain_event_selection_noweather(
             elif t[i + 1] - start_candidate >= np.timedelta64(min_duration, "m"):
                 start.append(start_candidate.values)
                 end.append(t[i + 1].values)
-        if t[i + 1] - t[i] > np.timedelta64(max_interval, "m"):
+        elif t[i + 1] - t[i] > np.timedelta64(max_interval, "m"):
             if t[i] - start_candidate >= np.timedelta64(min_duration, "m"):
                 start.append(start_candidate.values)
                 end.append(t[i].values)
             start_candidate = t[i + 1]
+    for s, e in zip(start.copy(), end.copy()):
+        rain_accumulation_event = (
+            1 / 60 * np.nansum(sel_ds.disdro_pr.sel(time=slice(s, e)))
+        )
+        if rain_accumulation_event < min_rainfall_amount:
+            start.remove(s)
+            end.remove(e)
     return start, end
 
 
@@ -54,7 +63,7 @@ def compute_quality_checks_noweather(ds, conf, start, end):
 
     # flag the timesteps belonging to an event
     qc_ds["flag_event"] = xr.DataArray(
-        data=np.full(len(ds.time), 0, dtype="i2"),
+        data=np.full(ds.time.size, 0, dtype="i2"),
         dims=["time"],
         attrs={
             "long_name": "flag to describe if a timestep belongs to a rain event",
@@ -62,7 +71,7 @@ def compute_quality_checks_noweather(ds, conf, start, end):
     )
     # do a column for rain accumulation since last beginning of an event
     qc_ds["ams_cp_since_event_begin"] = xr.DataArray(
-        np.nan * np.zeros(len(ds.time)).astype(np.single),
+        np.nan * np.zeros(ds.time.size).astype(np.single),
         dims=["time"],
         attrs={
             "long_name": "pluviometer rain accumulation since last begin of an event",
@@ -71,7 +80,7 @@ def compute_quality_checks_noweather(ds, conf, start, end):
         },
     )
     qc_ds["disdro_cp_since_event_begin"] = xr.DataArray(
-        np.zeros(len(ds.time)).astype(np.single),
+        np.zeros(ds.time.size).astype(np.single),
         dims="time",
         attrs={
             "long_name": "disdrometer rain accumulation since last begin of an event",
@@ -102,7 +111,7 @@ def compute_quality_checks_noweather(ds, conf, start, end):
         data=(ds["disdro_pr"] < conf["thresholds"]["MAX_RR"]).astype("i2"),
         dims=["time"],
         attrs={
-            "long_name": "Quality check for rainfall rate",
+            "long_name": "Quality check for rainfall rate (based on disdro pr data)",
             "comment": f"threshold = {conf['thresholds']['MAX_RR']:.0f} mm/h",
         },
     )
@@ -128,9 +137,9 @@ def compute_quality_checks_noweather(ds, conf, start, end):
     )
 
     # Create non-computable QC variables in the dataset
-    for key in ["QC_ta", "QC_wd", "QC_ws", "QF_rg_dd"]:
+    for key in ["QC_ta", "QC_wd", "QC_ws", "QC_hur", "QF_rg_dd"]:
         qc_ds[key] = xr.DataArray(
-            data=QC_FILL_VALUE * np.ones(len(ds.time)).astype("i2"),
+            data=QC_FILL_VALUE * np.ones(ds.time.size).astype("i2"),
             dims="time",
             attrs={
                 "comment": "not computable when no AMS data is provided",
@@ -140,17 +149,21 @@ def compute_quality_checks_noweather(ds, conf, start, end):
     qc_ds["QC_ta"].attrs["long_name"] = "Quality check for air temperature"
     qc_ds["QC_wd"].attrs["long_name"] = "Quality check for wind direction"
     qc_ds["QC_ws"].attrs["long_name"] = "Quality check for wind speed"
-    qc_ds["QF_rg_dd"].attrs[
-        "long_name"
-    ] = "Quality flag for discrepancy between rain gauge and disdrometer precipitation rate"  # noqa
+    qc_ds["QC_hur"].attrs["long_name"] = "Quality check for relative humidity"
+    qc_ds["QF_rg_dd"].attrs["long_name"] = (
+        "Quality flag for discrepancy between rain gauge and disdrometer precipitation rate"  # noqa
+    )
     qc_ds["QC_ta"].attrs["flag_meanings"] = "temperature_under_threshold temperature_ok"
-    qc_ds["QC_wd"].attrs[
-        "flag_meanings"
-    ] = "wind_direction_out_of_good_range wind_direction_within_good_range"
+    qc_ds["QC_wd"].attrs["flag_meanings"] = (
+        "wind_direction_out_of_good_range wind_direction_within_good_range"
+    )
     qc_ds["QC_ws"].attrs["flag_meanings"] = "wind_speed_over_threshold wind_speed_ok"
-    qc_ds["QF_rg_dd"].attrs[
-        "flag_meanings"
-    ] = "discrepancy_rain_gauge_disdrometer_above_threshold discrepancy_rain_gauge_disdrometer_ok"  # noqa
+    qc_ds["QC_hur"].attrs["flag_meanings"] = (
+        "hur_above_lower_bound hur_over_upper_bound"
+    )
+    qc_ds["QF_rg_dd"].attrs["flag_meanings"] = (
+        "discrepancy_rain_gauge_disdrometer_above_threshold discrepancy_rain_gauge_disdrometer_ok"  # noqa
+    )
 
     # Overall QC : disdro_pr, v(d)
     qc_ds["QC_overall"] = xr.DataArray(
@@ -172,30 +185,29 @@ def compute_quality_checks_noweather(ds, conf, start, end):
     ]:
         qc_ds[key].attrs["flag_values"] = np.array([0, 1]).astype("i2")
 
-    qc_ds["flag_event"].attrs[
-        "flag_meanings"
-    ] = "timestep_not_involved_in_any_event timestep_part_of_an_event"
-    qc_ds["QF_rainfall_amount"].attrs[
-        "flag_meanings"
-    ] = "less_rain_than_threshold_since_event_begin more_rain_than_threshold_since_event_begin"  # noqa E501
-    qc_ds["QC_pr"].attrs[
-        "flag_meanings"
-    ] = "precipitation_rate_above threshold precipitation_rate_ok"
-    qc_ds["QC_vdsd_t"].attrs[
-        "flag_meanings"
-    ] = "discrepancy_between_observed_and_modeled_disdrometer_droplet_fallspeed_above_threshold discrepancy_under_threshold"  # noqa e501
+    qc_ds["flag_event"].attrs["flag_meanings"] = (
+        "timestep_not_involved_in_any_event timestep_part_of_an_event"
+    )
+    qc_ds["QF_rainfall_amount"].attrs["flag_meanings"] = (
+        "less_rain_than_threshold_since_event_begin more_rain_than_threshold_since_event_begin"  # noqa E501
+    )
+    qc_ds["QC_pr"].attrs["flag_meanings"] = (
+        "precipitation_rate_above threshold precipitation_rate_ok"
+    )
+    qc_ds["QC_vdsd_t"].attrs["flag_meanings"] = (
+        "discrepancy_between_observed_and_modeled_disdrometer_droplet_fallspeed_above_threshold discrepancy_under_threshold"  # noqa e501
+    )
     qc_ds["QC_overall"].attrs["flag_meanings"] = "at_least_one_QC_not_OK all_QC_OK"
 
     return qc_ds
 
 
-def compute_todays_events_stats_noweather(ds, Ze_ds, conf, qc_ds, start, end):
+def compute_todays_events_stats_noweather(
+    ds, Ze_ds, conf, qc_ds, start, end, day_today
+):
     n = 0
     for s in start:
-        if (
-            pd.to_datetime(s).day
-            == pd.to_datetime(ds.time.isel(time=len(qc_ds.time) // 2).values).day
-        ):
+        if pd.to_datetime(s).day == day_today:
             n += 1
     # n is the number of events to store in the dataset
     # i.e. the number of events which begin at day D
@@ -238,10 +250,7 @@ def compute_todays_events_stats_noweather(ds, Ze_ds, conf, qc_ds, start, end):
 
     event = 0
     for s, e in zip(start, end):
-        if (
-            pd.to_datetime(s).day
-            == pd.to_datetime(ds.time.isel(time=len(qc_ds.time) // 2).values).day
-        ):
+        if pd.to_datetime(s).day == day_today:
             start_event[event] = s
             end_event[event] = e
             r = conf["instrument_parameters"]["DCR_DZ_RANGE"]
@@ -256,49 +265,54 @@ def compute_todays_events_stats_noweather(ds, Ze_ds, conf, qc_ds, start, end):
             nb_dz_computable_pts[event] = len(dz_r_nonan)
             # Qc passed ratios
             qc_ds_event = qc_ds.sel(time=slice(s, e)).loc[{"time": np.isfinite(dz_r)}]
-            qc_pr_ratio[event] = np.sum(qc_ds_event["QC_pr"]) / len(qc_ds_event.time)
-            qc_vdsd_t_ratio[event] = np.sum(qc_ds_event["QC_vdsd_t"]) / len(
-                qc_ds_event.time
+            qc_pr_ratio[event] = np.sum(qc_ds_event["QC_pr"]) / qc_ds_event.time.size
+            qc_vdsd_t_ratio[event] = (
+                np.sum(qc_ds_event["QC_vdsd_t"]) / qc_ds_event.time.size
             )
             qc_overall_ratio[event] = np.sum(
-                qc_ds_event["QC_overall"] / len(qc_ds_event.time)
+                qc_ds_event["QC_overall"] / qc_ds_event.time.size
             )
-            nb_good_points[event] = np.sum(qc_ds_event["QC_overall"])
+            good_points_event = np.sum(qc_ds_event["QC_overall"])
+            nb_good_points[event] = good_points_event
 
             dz_r_good = dz_r_nonan.isel(
                 time=np.where(qc_ds_event["QC_overall"] == 1)[0]
             )
+            if good_points_event > 0:
+                # Delta Z statistics over computable points
+                dZ_mean[event] = np.mean(dz_r_good)
+                dZ_med[event] = np.median(dz_r_good)
+                dZ_q1[event] = np.quantile(dz_r_good, 0.25)
+                dZ_q3[event] = np.quantile(dz_r_good, 0.75)
+                dZ_min[event] = np.min(dz_r_good)
+                dZ_max[event] = np.max(dz_r_good)
 
-            # Delta Z statistics over computable points
-            dZ_mean[event] = np.mean(dz_r_good)
-            dZ_med[event] = np.median(dz_r_good)
-            dZ_q1[event] = np.quantile(dz_r_good, 0.25)
-            dZ_q3[event] = np.quantile(dz_r_good, 0.75)
-            dZ_min[event] = np.min(dz_r_good)
-            dZ_max[event] = np.max(dz_r_good)
+                # Stats for regression Zdcr/Zdd
+                z_dcr_nonan = (
+                    Ze_ds["Zdcr"]
+                    .sel(time=slice(s, e))
+                    .sel(range=r, method="nearest")[np.isfinite(dz_r)]
+                )
+                z_dd_nonan = Ze_ds["Zdd"].sel(time=slice(s, e))[np.isfinite(dz_r)]
+                z_dcr_nonan = z_dcr_nonan.isel(
+                    time=np.where(qc_ds_event["QC_overall"] == 1)[0]
+                ).values.reshape(
+                    (-1, 1)
+                )  # keep only QC passed timesteps for regression
+                z_dd_nonan = z_dd_nonan.isel(
+                    time=np.where(qc_ds_event["QC_overall"] == 1)[0]
+                ).values.reshape(
+                    (-1, 1)
+                )  # keep only QC passed timesteps for regression
 
-            # Stats for regression Zdcr/Zdd
-            z_dcr_nonan = (
-                Ze_ds["Zdcr"]
-                .sel(time=slice(s, e))
-                .sel(range=r, method="nearest")[np.isfinite(dz_r)]
-            )
-            z_dd_nonan = Ze_ds["Zdd"].sel(time=slice(s, e))[np.isfinite(dz_r)]
-            z_dcr_nonan = z_dcr_nonan.isel(
-                time=np.where(qc_ds_event["QC_overall"] == 1)[0]
-            ).values.reshape((-1, 1))  # keep only QC passed timesteps for regression
-            z_dd_nonan = z_dd_nonan.isel(
-                time=np.where(qc_ds_event["QC_overall"] == 1)[0]
-            ).values.reshape((-1, 1))  # keep only QC passed timesteps for regression
-
-            slope_event, intercept_event, r_event, p, se = linregress(
-                z_dd_nonan.flatten(), z_dcr_nonan.flatten()
-            )
-            z_dcr_hat = intercept_event + slope_event * z_dd_nonan
-            slope[event] = slope_event
-            intercept[event] = intercept_event
-            r2[event] = r_event**2
-            rms_error[event] = rmse(z_dcr_nonan, z_dcr_hat)
+                slope_event, intercept_event, r_event, p, se = linregress(
+                    z_dd_nonan.flatten(), z_dcr_nonan.flatten()
+                )
+                z_dcr_hat = intercept_event + slope_event * z_dd_nonan
+                slope[event] = slope_event
+                intercept[event] = intercept_event
+                r2[event] = r_event**2
+                rms_error[event] = rmse(z_dcr_nonan, z_dcr_hat)
 
             event += 1
     stats_ds["start_event"] = xr.DataArray(
@@ -331,7 +345,7 @@ def compute_todays_events_stats_noweather(ds, Ze_ds, conf, qc_ds, start, end):
     )
 
     stats_ds["QF_rg_dd_event"] = xr.DataArray(
-        data=QC_FILL_VALUE * np.zeros(len(stats_ds.events)).astype("i2"),
+        data=QC_FILL_VALUE * np.ones(len(stats_ds.events)).astype("i2"),
         dims=["events"],
         attrs={
             "long_name": "Flag on deviation between rain gauge and disdrometer precipitation rate at the end of an event",  # noqa
@@ -367,21 +381,21 @@ def compute_todays_events_stats_noweather(ds, Ze_ds, conf, qc_ds, start, end):
 
     for key in ["QC_ta_ratio", "QC_ws_ratio", "QC_wd_ratio"]:
         stats_ds[key] = xr.DataArray(
-            data=np.nan * np.zeros(len(stats_ds.events)).astype(np.float32),
+            data=np.nan * np.zeros(stats_ds.events.size).astype(np.float32),
             dims=["events"],
             attrs={
                 "comment": "not computable when no AMS data is provided",
             },
         )
-    stats_ds["QC_ta_ratio"].attrs[
-        "long_name"
-    ] = "ratio of timesteps where check for air temperature is good"
-    stats_ds["QC_wd_ratio"].attrs[
-        "long_name"
-    ] = "ratio of timesteps where check for wind direction is good"
-    stats_ds["QC_ws_ratio"].attrs[
-        "long_name"
-    ] = "ratio of timesteps where check for wind speed is good"
+    stats_ds["QC_ta_ratio"].attrs["long_name"] = (
+        "ratio of timesteps where check for air temperature is good"
+    )
+    stats_ds["QC_wd_ratio"].attrs["long_name"] = (
+        "ratio of timesteps where check for wind direction is good"
+    )
+    stats_ds["QC_ws_ratio"].attrs["long_name"] = (
+        "ratio of timesteps where check for wind speed is good"
+    )
 
     stats_ds["QC_overall_ratio"] = xr.DataArray(
         data=qc_overall_ratio.astype(np.float32),

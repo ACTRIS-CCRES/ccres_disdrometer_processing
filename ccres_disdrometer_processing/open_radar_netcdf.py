@@ -20,6 +20,7 @@ def read_radar_cloudnet(filename, max_radar_alt=2500):
     xr.Dataset
         A formatted dataset for radar data (specs, Z, DV and range vector)
         with a 1-minute regular sampling
+
     """
     range_bounds = [0, max_radar_alt]
     data_nc = xr.open_dataset(filename)[LIST_VARIABLES].sel(

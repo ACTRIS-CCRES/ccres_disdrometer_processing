@@ -2,6 +2,7 @@
 
 Input : Daily preprocessed files at days D and D-1
 Output : Daily processed file for day D
+
 """
 
 import datetime
@@ -135,28 +136,30 @@ def compute_quality_checks(ds, conf, start, end, no_meteo):
     else:
         data_avail = ds.time.isel({"time": np.where(np.isfinite(ds["ta"]))[0]}).values
         ams_time_sampling = (data_avail[1] - data_avail[0]) / np.timedelta64(1, "m")
-        print(f"AMS time sampling : {ams_time_sampling:.0f}")
+        lgr.info(f"AMS time sampling : {ams_time_sampling:.0f} minute(s)")
         if ams_time_sampling < 1.5:
             lgr.info("AMS data available at 1mn frequency")
             qc_ds = processing.compute_quality_checks_weather(ds, conf, start, end)
         else:
-            qc_ds = processing_noweather.compute_quality_checks_noweather(
+            qc_ds = processing.compute_quality_checks_weather_low_sampling(
                 ds, conf, start, end
             )
-            lgr.info("AMS data available at a frequency > 1mn : not used")
+            lgr.info("AMS data available at a frequency > 1mn")
         lgr.info("Compute QC dataset (case with weather)")
     return qc_ds
 
 
-def compute_todays_events_stats(ds, Ze_ds, conf, qc_ds, start, end, no_meteo):
+def compute_todays_events_stats(
+    ds, Ze_ds, conf, qc_ds, start, end, no_meteo, day_today
+):
     if bool(ds["weather_data_avail"].values[0]) is False or no_meteo is True:
         stats_ds = processing_noweather.compute_todays_events_stats_noweather(
-            ds, Ze_ds, conf, qc_ds, start, end
+            ds, Ze_ds, conf, qc_ds, start, end, day_today
         )
         lgr.info("Compute event stats dataset (case without weather)")
     else:
         stats_ds = processing.compute_todays_events_stats_weather(
-            ds, Ze_ds, conf, qc_ds, start, end
+            ds, Ze_ds, conf, qc_ds, start, end, day_today
         )
         lgr.info("Compute event stats dataset (case with weather)")
     return stats_ds
@@ -180,12 +183,12 @@ def add_attributes(processed_ds, preprocessed_ds):
     for key in keys_from_preprocessed:
         processed_ds.attrs[key] = preprocessed_ds.attrs[key]
 
-    processed_ds.attrs[
-        "title"
-    ] = f"CCRES processing output file for Doppler cloud radar stability monitoring with disdrometer at {processed_ds.attrs['location']} site"  # noqa E501
-    processed_ds.attrs[
-        "summary"
-    ] = f"Significant rain events are identified, and statistics of reflectivity differences between DCR and disdrometer-modeled data are computed at relevant radar ranges over each rain event period, after applying a filter based on several quality checks."  # noqa E501
+    processed_ds.attrs["title"] = (
+        f"CCRES processing output file for Doppler cloud radar stability monitoring with disdrometer at {processed_ds.attrs['location']} site"  # noqa E501
+    )
+    processed_ds.attrs["summary"] = (
+        f"Significant rain events are identified, and statistics of reflectivity differences between DCR and disdrometer-modeled data are computed at relevant radar ranges over each rain event period, after applying a filter based on several quality checks."  # noqa E501
+    )
 
     for key in [
         "keywords",
@@ -197,16 +200,16 @@ def add_attributes(processed_ds, preprocessed_ds):
         processed_ds.attrs[key] = preprocessed_ds.attrs[key]
 
     date_created = datetime.datetime.utcnow().strftime(ISO_DATE_FORMAT)
-    processed_ds.attrs[
-        "history"
-    ] = f"created on {date_created} by {script_name}, v{__version__}"
+    processed_ds.attrs["history"] = (
+        f"created on {date_created} by {script_name}, v{__version__}"
+    )
     processed_ds.attrs["date_created"] = date_created
     weather_str = ""
-    if processed_ds.weather_data_avail.values[0]:
+    if processed_ds.weather_data_used:
         weather_str = " and AMS"
-    processed_ds.attrs[
-        "source"
-    ] = f"surface observation from {processed_ds.radar_source} DCR, {processed_ds.disdrometer_source} disdrometer{weather_str}, processed by CloudNet"  # noqa
+    processed_ds.attrs["source"] = (
+        f"surface observation from {processed_ds.radar_source} DCR, {processed_ds.disdrometer_source} disdrometer{weather_str}, processed by CloudNet"  # noqa
+    )
     processed_ds.attrs["processing_level"] = "2b"
 
     for key in [
@@ -256,12 +259,12 @@ def add_attributes(processed_ds, preprocessed_ds):
         processed_ds.attrs[key] = preprocessed_ds.attrs[key]
 
     processed_ds.attrs["date_modified"] = date_created
-    processed_ds.attrs[
-        "date_issued"
-    ] = date_created  # file made available immediately to the users after creation
-    processed_ds.attrs[
-        "date_metadata_modified"
-    ] = ""  # will be set when everything will be of ; modify it if some fields evolve
+    processed_ds.attrs["date_issued"] = (
+        date_created  # file made available immediately to the users after creation
+    )
+    processed_ds.attrs["date_metadata_modified"] = (
+        ""  # will be set when everything will be of ; modify it if some fields evolve
+    )
     processed_ds.attrs["product_version"] = __version__
 
     for key in [
@@ -287,21 +290,38 @@ def process(yesterday, today, tomorrow, conf, output_file, no_meteo, verbosity):
     conf = toml.load(conf)
     ds, files_provided = merge_preprocessed_data(yesterday, today, tomorrow)
 
+    day_today = pd.to_datetime(xr.open_dataset(today)["time"].time.values[0]).day
+
     if bool(ds["weather_data_avail"].values[0]) is False or no_meteo is True:
         click.echo("Downgraded mode (no weather data is used)")
 
     start, end = rain_event_selection(ds, conf, no_meteo)
     Ze_ds = extract_dcr_data(ds, conf)
     qc_ds = compute_quality_checks(ds, conf, start, end, no_meteo)
-    stats_ds = compute_todays_events_stats(ds, Ze_ds, conf, qc_ds, start, end, no_meteo)
+    stats_ds = compute_todays_events_stats(
+        ds, Ze_ds, conf, qc_ds, start, end, no_meteo, day_today
+    )
+    lgr.info("Merging Ze data, QC dataset and event stats dataset")
     processed_ds = xr.merge([Ze_ds, qc_ds, stats_ds], combine_attrs="no_conflicts")
     # Select only timesteps from the day to process
     today_ds = xr.open_dataset(today)
+    lgr.info("Extracting the data from the day to process")
     processed_ds = processed_ds.sel(
         {"time": slice(today_ds.time.values[0], today_ds.time.values[-1])}
     )
+    lgr.info("Filling attributes")
     # get variable for weather data availability from prepro file
-    processed_ds["weather_data_avail"] = ds["weather_data_avail"]
+    if not no_meteo:
+        processed_ds["weather_data_used"] = (
+            ds["weather_data_avail"].values[0].astype("i2")
+        )
+    else:
+        processed_ds["weather_data_used"] = np.array([0])[0].astype("i2")
+    processed_ds["weather_data_used"].attrs = {
+        "long_name": "use of weather data for processing",
+        "flag_values": np.array([0, 1]).astype("i2"),
+        "flag_meanings": "yes no ",
+    }
     # set attributes
     add_attributes(processed_ds, ds)
     str_files_provided = ""
@@ -316,6 +336,7 @@ def process(yesterday, today, tomorrow, conf, output_file, no_meteo, verbosity):
 
     processed_ds.rename_dims({"events": "event"})  # rename dimension
     # save to netCDF
+    lgr.info("Saving to netCDF")
     processed_ds.to_netcdf(
         output_file,
         encoding={
@@ -337,17 +358,19 @@ def process(yesterday, today, tomorrow, conf, output_file, no_meteo, verbosity):
             "QF_rg_dd_event": {"_FillValue": QC_FILL_VALUE},
         },
     )
+    lgr.info("Processing : success")
     return
 
 
 if __name__ == "__main__":
     test_weather = False
     test_weather_downgraded = False
-    test_noweather = True
+    test_noweather = False
     test_lindenberg_10mn = False
     test_no_meteo = (
         False  # downgraded without weather even when available in prepro files
     )
+    test_lindenberg_low_sampling = True
 
     if test_lindenberg_10mn:
         yesterday = None
@@ -367,7 +390,7 @@ if __name__ == "__main__":
         ds, files_provided = merge_preprocessed_data(yesterday, today, tomorrow)
         output_file = "./{}_{}_processed_downgraded.nc".format(
             ds.attrs["location"].lower(),
-            pd.to_datetime(ds.time.isel(time=len(ds.time) // 2).values).strftime(
+            pd.to_datetime(ds.time.isel(time=ds.time.size // 2).values).strftime(
                 "%Y-%m-%d"
             ),
         )
@@ -385,7 +408,7 @@ if __name__ == "__main__":
         ds, files_provided = merge_preprocessed_data(yesterday, today, tomorrow)
         output_file = "./{}_{}_processed.nc".format(
             ds.attrs["station_name"],
-            pd.to_datetime(ds.time.isel(time=len(ds.time) // 2).values).strftime(
+            pd.to_datetime(ds.time.isel(time=ds.time.size // 2).values).strftime(
                 "%Y-%m-%d"
             ),
         )
@@ -483,7 +506,7 @@ if __name__ == "__main__":
         ds, files_provided = merge_preprocessed_data(yesterday, today, tomorrow)
         output_file = "./{}_{}_processed_scipy.nc".format(
             ds.attrs["station_name"],
-            pd.to_datetime(ds.time.isel(time=len(ds.time) // 2).values).strftime(
+            pd.to_datetime(ds.time.isel(time=ds.time.size // 2).values).strftime(
                 "%Y-%m-%d"
             ),
         )
@@ -504,3 +527,14 @@ if __name__ == "__main__":
         #     processed_ds.nb_dz_computable_pts.values,
         #     processed_ds.good_points_number.values,
         # )
+
+    if test_lindenberg_low_sampling:
+        print("Test Lindenberg low sampling")
+        yesterday = None
+        today = "../../tests/data/outputs/lindenberg_2023-09-22_rpg-parsivel_preprocessed.nc"  # noqa E501
+        tomorrow = None  # noqa E501
+        conf = "../../tests/data/conf/config_lindenberg_rpg-parsivel.toml"
+        output_file = "./Lindenberg_low_sampling_test.nc"
+        process(
+            yesterday, today, tomorrow, conf, output_file, no_meteo=False, verbosity=1
+        )

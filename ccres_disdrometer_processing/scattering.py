@@ -35,6 +35,7 @@ def compute_fallspeed(d, strMethod="GunAndKinzer"):
         Formula from Khvorostyanov and Curry (2002) is yet not implemented.
     NotImplementedError
         Formula from Atlas and Ulbrich (1977) is yet not implemented.
+
     """
     if strMethod == "GunAndKinzer":
         v = 9.40 * (1 - np.exp(-1.57 * (10**3) * np.power(d * (10**-3), 1.15)))
@@ -63,6 +64,7 @@ def axis_ratio(D, axrMethod="BeardChuang_PolynomialFit"):
     -------
     np.ndarray
         Array containing the modeled axis ratios at the specified diameters.
+
     """
     if axrMethod == "BeardChuang_PolynomialFit":
         AR = 1.0 / (
@@ -98,6 +100,7 @@ def compute_bscat_tmatrix(Diam, lambda_m, e, axis_ratio, beam_orientation):
     -------
     float, float
         backscattering coefficient and attenuation.
+
     """
     scatterer_tm = Scatterer(
         radius=(0.5 * Diam * 1e3), wavelength=lambda_m * 1e3, m=e, axis_ratio=axis_ratio
@@ -144,6 +147,7 @@ def compute_bscat_mie(Diam, lambda_m, e, beam_orientation):
     -------
     float, float
         backscattering coefficient and attenuation.
+
     """
     scatterer_mie = Scatterer(
         radius=(0.5 * Diam * 1e3),
@@ -193,6 +197,7 @@ def scattering_prop(
         - one for t-matrix attenuation,
         - one for t-matrix backscattering coefficients,
         - one for Mie backscattering coefficients.
+
     """
     scatt = DATA()
 

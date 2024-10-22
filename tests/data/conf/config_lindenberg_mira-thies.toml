@@ -18,7 +18,7 @@ DD_SAMPLING_AREA_DEFAULT = 0.0046
 DD_SAMPLING_AREA = 0.0046414 # m^2 ; = SAMPLING_AREA_DEFAULT*AU/1000
 DCR_DZ_RANGE = 200 # m ; height at which to compute Delta Z ; fill with the real value
 RAIN_GAUGE_SAMPLING = 0.01 # mm ; fill with the real value
-DD_ORIENTATION = 0 # degree, from North ; fill with the real value
+DD_ORIENTATION = 90 # degree, from North
 
 [plot_parameters]
 DCR_PLOTTED_RANGES = [150, 200, 300] # ; fill with the good values
@@ -29,8 +29,8 @@ MIN_RAINFALL_AMOUNT = 3 # mm/episode
 MAX_MEAN_WS = 7 # m/s ; maximum average wind over a "good" event
 MAX_WS = 10 # m/s ; max wind to keep a timestep
 MIN_TEMP = 2 # °C
-MIN_HUR = 0 # min relative humidity : avoid cases with evaporation
-MAX_HUR = 100 # max relative humidity : avoid fog, ...
+MIN_HUR = 80 # min relative humidity : avoid cases with evaporation
+MAX_HUR = 98 # max relative humidity : avoid fog, ...
 DD_ANGLE = 45 # degree ; keep wind data at DD_ORIENTATION[pi] +- DD_ANGLE
 MAX_INTERVAL = 60 # mn ; max interval between two tipping of the pluviometer, to "close" an event
 MIN_DURATION = 180 # mn ; min duration of an event

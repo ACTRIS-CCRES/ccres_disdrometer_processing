@@ -1,4 +1,5 @@
 """Module containing physical constants."""
+
 from scipy import constants
 
 FREQ = 95.0 * 1e9  # Hz
