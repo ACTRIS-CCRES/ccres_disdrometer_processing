@@ -350,6 +350,19 @@ def process(
     ),
     required=True,
 )
+@click.option(
+    "--flag",
+    is_flag=True,
+    show_default=True,
+    default=True,
+    help="nothing is plotted if no event fulfils the flags for long-term monitoring (minimum good timesteps number, and QF on rain gauge VS disdrometer rain accumulation if weather station data is provided)",  # noqa E501
+)
+@click.option(
+    "--min-points",
+    type=int,
+    default=50,
+    help="minimum number of points with ",
+)
 def process_ql(
     process_file,
     preprocess_yesterday,
@@ -358,6 +371,8 @@ def process_ql(
     prefix_output_ql_summary,
     prefix_output_ql_detailled,
     config_file,
+    flag,
+    min_points,
 ):
     """Create quicklooks from process netCDF files."""
     # create list of input preprocess files
@@ -382,10 +397,16 @@ def process_ql(
 
         # 3 - Plot
         plot.plot_processed_ql_summary(
-            ds_pro, prefix_output_ql_summary, config, __version__
+            ds_pro, prefix_output_ql_summary, config, __version__, flag, min_points
         )
         plot.plot_processed_ql_detailled(
-            ds_pro, ds_prepro, prefix_output_ql_detailled, config, __version__
+            ds_pro,
+            ds_prepro,
+            prefix_output_ql_detailled,
+            config,
+            __version__,
+            flag,
+            min_points,
         )
 
     sys.exit(0)
