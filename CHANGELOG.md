@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.1 (2024-10-30)
+
+- update plots
+
 ## 0.2.0 (2024-10-22)
 
 - improvement for getting files from cloudnet api for testing the code + management of several instruments of the same type at a specific site
