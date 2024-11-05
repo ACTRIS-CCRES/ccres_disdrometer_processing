@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.2 (2024-11-05)
+
+- fix bug when weather station data have a 10 minutes resolution
+
 ## 0.2.1 (2024-10-30)
 
 - update plots
