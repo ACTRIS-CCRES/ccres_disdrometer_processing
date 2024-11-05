@@ -674,20 +674,21 @@ def compute_quality_checks_weather_low_sampling(
 
     for t in copy.time.values[0 : -int(ams_time_sampling + 1)]:
         for key in ["ta", "ws", "wd", "hur"]:
-            copy[key].loc[t] = (
+            nearest_data = (
                 ds[key]
-                .isel({"time": np.where(np.isfinite(copy[key]))[0]})
+                .isel({"time": np.where(np.isfinite(ds[key]))[0]})
                 .sel(time=t, method="nearest")
             )
+            copy[key].loc[t] = nearest_data
         try:
             next_valid_index_pr = (
                 ds["ams_pr"]
-                .isel({"time": np.where(np.isfinite(copy["ams_pr"]))[0]})
+                .isel({"time": np.where(np.isfinite(ds["ams_pr"]))[0]})
                 .time.searchsorted(t)
             )
             copy["ams_pr"].loc[t] = (
                 ds["ams_pr"]
-                .isel({"time": np.where(np.isfinite(copy["ams_pr"]))[0]})
+                .isel({"time": np.where(np.isfinite(ds["ams_pr"]))[0]})
                 .isel(time=next_valid_index_pr)
             )
         except IndexError:
