@@ -134,38 +134,15 @@ def compute_quality_checks_weather(ds, conf, start, end):
         },
     )
 
-    # QC on AMS precipitation rate
+    # QC on precipitation rate : based on DISDROMETER even though AMS precipitation is available : it provides more consistent results  # noqa E501
     qc_ds["QC_pr"] = xr.DataArray(
-        data=np.full(len(ds.time), False, dtype=bool),
+        data=(ds["disdro_pr"] < conf["thresholds"]["MAX_RR"]).astype("i2"),
         dims=["time"],
         attrs={
-            "long_name": "Quality check for rainfall rate",
-            "unit": "1",
+            "long_name": "Quality check for rainfall rate (based on disdro pr data)",
             "comment": f"threshold = {conf['thresholds']['MAX_RR']:.0f} mm/h",
         },
     )
-
-    for s, e in zip(start, end):
-        time_chunks = np.arange(
-            np.datetime64(s),
-            np.datetime64(e),
-            np.timedelta64(conf["thresholds"]["PR_SAMPLING"], "m"),
-        )
-        for start_time_chunk, stop_time_chunk in zip(time_chunks[:-1], time_chunks[1:]):
-            RR_chunk = (
-                ds["ams_pr"]
-                .sel(
-                    {
-                        "time": slice(
-                            start_time_chunk, stop_time_chunk - np.timedelta64(1, "m")
-                        )
-                    }
-                )
-                .mean()
-            )
-            qc_ds["QC_pr"].loc[
-                slice(start_time_chunk, stop_time_chunk - np.timedelta64(1, "m"))
-            ] = RR_chunk <= conf["thresholds"]["MAX_RR"]
 
     # QC relationship v(dsd)
     vth_disdro = (
@@ -753,54 +730,15 @@ def compute_quality_checks_weather_low_sampling(
         },
     )
 
-    # QC on AMS precipitation rate
+    # QC on precipitation rate : based on DISDROMETER even though AMS precipitation is available : it provides more consistent results  # noqa E501
     qc_ds["QC_pr"] = xr.DataArray(
-        data=np.full(ds.time.size, False, dtype=bool),
+        data=(ds["disdro_pr"] < conf["thresholds"]["MAX_RR"]).astype("i2"),
         dims=["time"],
         attrs={
-            "long_name": f"Quality check for rainfall rate, {conf['thresholds']['PR_SAMPLING']:.0f} minutes averaging",  # noqa E501
-            "unit": "1",
+            "long_name": "Quality check for rainfall rate (based on disdro pr data)",
             "comment": f"threshold = {conf['thresholds']['MAX_RR']:.0f} mm/h",
         },
     )
-    # qc_ds["pr_avg"] = xr.DataArray(
-    #     data=QC_FILL_VALUE * np.ones(len(ds.time)),
-    #     dims=["time"],
-    #     attrs={
-    #         "long_name": f"averaged precipitation rate, {conf['thresholds']['PR_SAMPLING']:.0f} minutes averaging",  # noqa E501
-    #         "unit": "1",
-    #         "comment": f"threshold = {conf['thresholds']['MAX_RR']:.0f} mm/h",
-    #     },
-    # )
-
-    for s, e in zip(start, end):
-        time_chunks = np.arange(
-            np.datetime64(s),
-            np.datetime64(e),
-            np.timedelta64(conf["thresholds"]["PR_SAMPLING"], "m"),
-        )
-
-        for start_time_chunk, stop_time_chunk in zip(time_chunks[:-1], time_chunks[1:]):
-            pr_data_extract = (
-                copy["ams_pr"]
-                .sel(
-                    {
-                        "time": slice(
-                            start_time_chunk + np.timedelta64(1, "m"),
-                            stop_time_chunk,
-                        )
-                    }
-                )
-                .values
-            )
-            RR_chunk = np.mean(pr_data_extract)
-
-            qc_ds["QC_pr"].loc[
-                slice(start_time_chunk, stop_time_chunk - np.timedelta64(1, "m"))
-            ] = RR_chunk <= conf["thresholds"]["MAX_RR"]
-            # qc_ds["pr_avg"].loc[
-            #     slice(start_time_chunk, stop_time_chunk - np.timedelta64(1, "m"))
-            # ] = RR_chunk
 
     # QC relationship v(dsd)
     vth_disdro = (
