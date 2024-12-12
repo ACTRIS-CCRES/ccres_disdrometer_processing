@@ -2,16 +2,17 @@
 
 ## General diagram of the code
 
-![Schema](../assets/Schema_fonctionnel_dcrcc-Page-1.drawio.png)
-
-
-
+ ![Schema](../assets/Schema_fonctionnel_dcrcc-Page-1.drawio.png)
 General diagram of the DCR calibration constant monitoring code
+
+ <!-- <img src="/source/assets/Schema_fonctionnel_dcrcc-Page-1.drawio.png" alt="General diagram of the DCR calibration constant monitoring code" width="500" height="600">
+-->
+
 :::
 
-## Different command line interfaces available in the package
+## Different command lines available in the package
 
-
+:::
 
    | **Command** | **Description** |
    |------|------|
