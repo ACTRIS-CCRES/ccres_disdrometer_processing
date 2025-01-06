@@ -6,6 +6,7 @@ from pathlib import Path
 
 import click
 import toml
+import xarray as xr
 
 import ccres_disdrometer_processing.cli.preprocess_cli as preprocess_cli
 import ccres_disdrometer_processing.processing.preprocessed_file2processed as processing
@@ -280,7 +281,18 @@ def process(
 
 @cli.command()
 @click.argument(
-    "process-file",
+    "process-yesterday",
+    type=click.Path(
+        exists=True,
+        dir_okay=False,
+        file_okay=True,
+        readable=True,
+        resolve_path=True,
+        path_type=Path,
+    ),
+)
+@click.argument(
+    "process-today",
     type=click.Path(
         exists=True,
         dir_okay=False,
@@ -351,7 +363,8 @@ def process(
     required=True,
 )
 def process_ql(
-    process_file,
+    process_yesterday,
+    process_today,
     preprocess_yesterday,
     preprocess_today,
     preprocess_tomorrow,
@@ -372,12 +385,15 @@ def process_ql(
     config = toml.load(config_file)
 
     # 2a - get processed data
-    ds_pro = utils.read_nc(process_file)
+    ds_pro_yesterday = utils.read_nc(process_yesterday)
+    ds_pro_today = utils.read_nc(process_today)
+
+    ds_pro = xr.concat(ds_pro_yesterday, ds_pro_today, dim="time")
 
     # 2b - get preprocessed data
-    if ds_pro.events.size != 0:
+    if ds_pro_today.events.size != 0:
         ds_prepro = utils.read_and_concatenante_preprocessed_ds(
-            ds_pro, preprocess_files
+            ds_pro_today, preprocess_files
         )
 
         # 3 - Plot
