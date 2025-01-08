@@ -569,14 +569,20 @@ def plot_preprocessed_ql_overview_zh(
 
 
 def plot_processed_ql_summary(
-    ds_pro: xr.Dataset, mask_output_ql_summary: str, conf: dict, version: str
+    ds_pro: xr.Dataset,
+    ds_pro_today: xr.Dataset,
+    mask_output_ql_summary: str,
+    conf: dict,
+    version: str,
 ):
     """Create summary quicklook from processed data.
 
     Parameters
     ----------
     ds_pro : xarray.Dataset
-        data read from processing file.
+        dataset got from concatenation of day D-1/D processing files.
+    ds_pro_today : xarray.Dataset
+        data read from day D processing file.
     mask_output_ql_summary : str or pathlib.Path
         The mask of the path to the output quicklook.
     conf : dict
@@ -587,8 +593,8 @@ def plot_processed_ql_summary(
     """
     selected_alt = conf["instrument_parameters"]["DCR_DZ_RANGE"]
 
-    if ds_pro.events.size != 0:
-        for n, event in enumerate(ds_pro["events"]):  # noqa B007
+    if ds_pro_today.events.size != 0:
+        for n, event in enumerate(ds_pro_today["events"]):  # noqa B007
             subdata = ds_pro.sel(
                 time=slice(
                     ds_pro["start_event"][n].values, ds_pro["end_event"][n].values
@@ -800,6 +806,7 @@ def plot_processed_ql_summary(
 
 def plot_processed_ql_detailled(
     ds_pro: xr.Dataset,
+    ds_pro_today: xr.Dataset,
     ds_prepro: xr.Dataset,
     mask_output_ql_detailled: str,
     conf: dict,
@@ -810,7 +817,9 @@ def plot_processed_ql_detailled(
     Parameters
     ----------
     ds_pro : xarray.Dataset
-        data read from processing file.
+        dataset got from concatenation of day D-1/D processing files.
+    ds_pro_today : xarray.Dataset
+        data read from day D processing file.
     ds_prepro : xarray.Dataset
         data read from preprocessing file.
     mask_output_ql_detailled : str or pathlib.Path
@@ -824,8 +833,8 @@ def plot_processed_ql_detailled(
     # TODO: properly
     selected_alt = conf["instrument_parameters"]["DCR_DZ_RANGE"]
 
-    if ds_pro.events.size != 0:
-        for n, event in enumerate(ds_pro["events"]):  # noqa B007
+    if ds_pro_today.events.size != 0:
+        for n, event in enumerate(ds_pro_today["events"]):  # noqa B007
             # focus on each rain event
             date_start = npdt64_to_datetime(
                 ds_pro["start_event"][n].values

@@ -398,10 +398,15 @@ def process_ql(
 
         # 3 - Plot
         plot.plot_processed_ql_summary(
-            ds_pro, prefix_output_ql_summary, config, __version__
+            ds_pro, ds_pro_today, prefix_output_ql_summary, config, __version__
         )
         plot.plot_processed_ql_detailled(
-            ds_pro, ds_prepro, prefix_output_ql_detailled, config, __version__
+            ds_pro,
+            ds_pro_today,
+            ds_prepro,
+            prefix_output_ql_detailled,
+            config,
+            __version__,
         )
 
     sys.exit(0)
