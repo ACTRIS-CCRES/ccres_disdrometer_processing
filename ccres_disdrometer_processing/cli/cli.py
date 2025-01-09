@@ -388,7 +388,7 @@ def process_ql(
     ds_pro_yesterday = utils.read_nc(process_yesterday)
     ds_pro_today = utils.read_nc(process_today)
 
-    ds_pro = xr.concat(ds_pro_yesterday, ds_pro_today, dim="time")
+    ds_pro = xr.concat((ds_pro_yesterday, ds_pro_today), dim="time")
 
     # 2b - get preprocessed data
     if ds_pro_today.events.size != 0:

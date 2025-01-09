@@ -1,4 +1,4 @@
-tests/**/outputs/
+tests/**/outputs*/
 # Coverage data
 coverage/
 
