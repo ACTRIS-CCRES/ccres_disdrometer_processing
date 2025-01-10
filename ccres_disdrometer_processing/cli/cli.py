@@ -362,6 +362,23 @@ def process(
     ),
     required=True,
 )
+@click.option(
+    "--flag",
+    is_flag=True,
+    show_default=True,
+    default=True,
+    help="nothing is plotted if no event fulfils the flags for long-term monitoring (minimum good timesteps number, and QF on rain gauge VS disdrometer rain accumulation if weather station data is provided)",  # noqa E501
+)
+@click.option(
+    "--min-points",
+    type=int,
+    default=50,
+    help="minimum number of points with ",
+)
+# TODO : put this value in conf file, and use the value given in conf.
+# Also having this value in the configuration could be a good idea for selection of
+# events to keep for long term monitoring (currently it is set
+# in hard in the local productions of long-term time series and PDF)
 def process_ql(
     process_yesterday,
     process_today,
@@ -371,6 +388,8 @@ def process_ql(
     prefix_output_ql_summary,
     prefix_output_ql_detailled,
     config_file,
+    flag,
+    min_points,
 ):
     """Create quicklooks from process netCDF files."""
     # create list of input preprocess files
@@ -398,7 +417,13 @@ def process_ql(
 
         # 3 - Plot
         plot.plot_processed_ql_summary(
-            ds_pro, ds_pro_today, prefix_output_ql_summary, config, __version__
+            ds_pro,
+            ds_pro_today,
+            prefix_output_ql_summary,
+            config,
+            __version__,
+            flag,
+            min_points,
         )
         plot.plot_processed_ql_detailled(
             ds_pro,
@@ -407,6 +432,8 @@ def process_ql(
             prefix_output_ql_detailled,
             config,
             __version__,
+            flag,
+            min_points,
         )
 
     sys.exit(0)
