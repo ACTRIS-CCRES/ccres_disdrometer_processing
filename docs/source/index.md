@@ -11,6 +11,8 @@ CCRES code to convert data
 
 get-started/index.md
 how_to/index.md
+how_to/preprocessing.md
+how_to/processing.md
 ```
 
 ```{toctree}
