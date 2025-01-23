@@ -24,9 +24,6 @@ General diagram of the DCR calibration constant monitoring code
 
 
 
-- write a cli for event data extraction ? (for static plots)
-- a cli for static plot from an events data collection ?
-
 ## Content of the config file that drives the data processing
 
 Here is an example of a configuration file
@@ -113,7 +110,15 @@ metadata_link = ""
 
 ## Preprocessing quicklooks command
 
-    ccres-disdrometer-processing preprocess_ql FILE OUTPUT_QL_OVERVIEW OUTPUT_QL_OVERVIEW_ZH --config-file CONFIG_FILE --output-file OUTPUT_FILE [--no-meteo NO_METEO] [-v VERBOSITY]
+    ccres-disdrometer-processing preprocess_ql FILE OUTPUT_QL_OVERVIEW OUTPUT_QL_OVERVIEW_ZH --config-file CONFIG_FILE
+
+| **Short** | **Long** | **Default** | **Description** |
+|------|------|------|------|
+|      |   `--config-file`   |      |   TOML configuration file suited for the input data (site, instruments, ...)   |
+|      |   `file`   |      |   Output of preprocessing for the day to be displayed   |
+|      |   `output-ql-overview`   |      |   Path to save the first panel of quicklooks (overview and met variables)   |
+|      |   `output-ql-overview-zh`   |      |   Path to save the second panel of quicklooks (time series of DCR and DD reflectivity)   |
+|      |      |      |      |
 
 
 ## Processing command
@@ -137,10 +142,14 @@ metadata_link = ""
 
 | **Short** | **Long** | **Default** | **Description** |
 |------|------|------|------|
+|      |   `--process-yesterday`   |      |   Output of processing for the day before the day  for which we want to plot rain events   |
+|      |   `--process-today`   |      |   Output of processing for the day for which we want to plot rain events   |
 |      |   `--preprocess-yesterday`   |      |   Output of preprocessing for the day before the day  for which we want to plot rain events   |
 |      |   `--preprocess-today`   |      |   Output of preprocessing for the day  for which we want to plot rain events   |
 |      |   `--preprocess-tomorrow`   |      |   Output of preprocessing for the day before the day  for which we want to plot rain events   |
 |      |   `--prefix-output-ql-summary`   |      |   Path to save the first panel of quicklooks (summary panel)   |
 |      |   `--prefix-output-ql-detailled`   |      |   Path to save the second panel of quicklooks (panel with detaileld analysis)   |
 |      |   `--config-file`   |      |   TOML configuration file suited for the input data (site, instruments, ...)   |
+|      |   `--flag`   |      |   If True, plots only events which pass the Quality Flags specified in processing file |
+|      |   `--min-points`   |      |   Criterion for minimum number of timesteps on which events statistics are computed to plot the event  |
 |      |      |      |      |
