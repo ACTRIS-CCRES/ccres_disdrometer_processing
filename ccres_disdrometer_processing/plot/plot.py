@@ -598,13 +598,15 @@ def plot_processed_ql_summary(
     """
     selected_alt = conf["instrument_parameters"]["DCR_DZ_RANGE"]
 
-    mask_good_event = np.where(
-        (ds_pro.good_points_number > min_points) & (ds_pro.QF_rg_dd_event != 0)
-    )[0]
     if flag:
-        plotted_events = ds_pro.events.isel(events=mask_good_event)
+        mask_good_event = np.where(
+            (ds_pro_today.good_points_number > min_points)
+            & (ds_pro_today.QF_rg_dd_event != 0)
+        )[0]
+        plotted_events = ds_pro_today.events.isel(events=mask_good_event)
     else:
-        plotted_events = ds_pro.events
+        mask_good_event = np.arange(len(ds_pro_today.events))
+        plotted_events = ds_pro_today.events
 
     if plotted_events.size != 0:
         for n, event in enumerate(plotted_events):  # noqa B007
@@ -766,12 +768,12 @@ def plot_processed_ql_summary(
             axes[2].set_ylim(0, 2)
             axes[2].axis("off")
             axes[2].annotate(
-                f"Event duration : {int(ds_pro_today['event_length'].isel({"events": mask_good_event})[n].values)} minutes",  # noqa E501
+                f"Event duration : {int(ds_pro_today['event_length'].isel(events= mask_good_event)[n].values)} minutes",  # noqa E501
                 (0, 1.5),
                 fontsize=asize,
             )
             axes[2].annotate(
-                f"Rainfall accumulation : {ds_pro_today['rain_accumulation'].isel({"events": mask_good_event})[n].values:.2f}mm",  # noqa E501
+                f"Rainfall accumulation : {ds_pro_today['rain_accumulation'].isel(events= mask_good_event)[n].values:.2f}mm",  # noqa E501
                 (0, 1),
                 fontsize=asize,
             )
@@ -860,13 +862,15 @@ def plot_processed_ql_detailled(
     # TODO: properly
     selected_alt = conf["instrument_parameters"]["DCR_DZ_RANGE"]
 
-    mask_good_event = np.where(
-        (ds_pro.good_points_number > min_points) & (ds_pro.QF_rg_dd_event != 0)
-    )[0]
     if flag:
-        plotted_events = ds_pro.events.isel(events=mask_good_event)
+        mask_good_event = np.where(
+            (ds_pro_today.good_points_number > min_points)
+            & (ds_pro_today.QF_rg_dd_event != 0)
+        )[0]
+        plotted_events = ds_pro_today.events.isel(events=mask_good_event)
     else:
-        plotted_events = ds_pro.events
+        mask_good_event = np.arange(len(ds_pro_today.events))
+        plotted_events = ds_pro_today.events
 
     if plotted_events.size != 0:
         for n, event in enumerate(plotted_events):  # noqa B007
