@@ -280,8 +280,8 @@ def process(
 
 
 @cli.command()
-@click.argument(
-    "process-yesterday",
+@click.option(
+    "--process-yesterday",
     type=click.Path(
         exists=True,
         dir_okay=False,
@@ -290,9 +290,10 @@ def process(
         resolve_path=True,
         path_type=Path,
     ),
+    default=None,
 )
-@click.argument(
-    "process-today",
+@click.option(
+    "--process-today",
     type=click.Path(
         exists=True,
         dir_okay=False,
@@ -301,6 +302,7 @@ def process(
         resolve_path=True,
         path_type=Path,
     ),
+    required=True,
 )
 @click.option(
     "--preprocess-yesterday",
@@ -404,10 +406,12 @@ def process_ql(
     config = toml.load(config_file)
 
     # 2a - get processed data
-    ds_pro_yesterday = utils.read_nc(process_yesterday)
     ds_pro_today = utils.read_nc(process_today)
-
-    ds_pro = xr.concat((ds_pro_yesterday, ds_pro_today), dim="time")
+    if process_yesterday is not None:
+        ds_pro_yesterday = utils.read_nc(process_yesterday)
+        ds_pro = xr.concat((ds_pro_yesterday, ds_pro_today), dim="time")
+    else:
+        ds_pro = ds_pro_today
 
     # 2b - get preprocessed data
     if ds_pro_today.events.size != 0:

@@ -120,6 +120,7 @@ tests/data/outputs/
 
 # config files, slurm issues, tools to explore data files, processing files not used anymore
 /tests/data/inputs/config_files
+/tests/data/outputs_bug_fixes/*.nc
 slurm*.out
 /tests/data/inputs/CONFIG_test.toml
 /ccres_disdrometer_processing/*.toml

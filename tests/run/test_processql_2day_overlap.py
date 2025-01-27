@@ -186,7 +186,9 @@ def test_overlap(data_input_dir, data_conf_dir, data_dir):
     # ---------------------------------------------------------------------------------
     # required args
     args = [
+        "--process-yesterday",
         str(process_file_yesterday),
+        "--process-today",
         str(process_file_today),
         "--preprocess-yesterday",
         str(preprocess_file_yesterday),
