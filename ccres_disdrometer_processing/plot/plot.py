@@ -569,29 +569,55 @@ def plot_preprocessed_ql_overview_zh(
 
 
 def plot_processed_ql_summary(
-    ds_pro: xr.Dataset, mask_output_ql_summary: str, conf: dict, version: str
+    ds_pro: xr.Dataset,
+    ds_pro_today: xr.Dataset,
+    mask_output_ql_summary: str,
+    conf: dict,
+    version: str,
+    flag: bool,
+    min_points: int,
 ):
     """Create summary quicklook from processed data.
 
     Parameters
     ----------
     ds_pro : xarray.Dataset
-        data read from processing file.
+        dataset got from concatenation of day D-1/D processing files.
+    ds_pro_today : xarray.Dataset
+        data read from day D processing file.
     mask_output_ql_summary : str or pathlib.Path
         The mask of the path to the output quicklook.
     conf : dict
         The data read in the toml configuration file.
     version : str
         Version of the code.
-
+    flag : bool
+        If True, quicklooks are saved only for events which pass the quality flags.
+    min_points : int
+        Value for quality flag on minimum number of QC OK timesteps to keep an event.
     """
     selected_alt = conf["instrument_parameters"]["DCR_DZ_RANGE"]
 
-    if ds_pro.events.size != 0:
-        for n, event in enumerate(ds_pro["events"]):  # noqa B007
+    if flag:
+        mask_good_event = np.where(
+            (ds_pro_today.good_points_number > min_points)
+            & (ds_pro_today.QF_rg_dd_event != 0)
+        )[0]
+        plotted_events = ds_pro_today.events.isel(events=mask_good_event)
+    else:
+        mask_good_event = np.arange(len(ds_pro_today.events))
+        plotted_events = ds_pro_today.events
+
+    if plotted_events.size != 0:
+        for n, event in enumerate(plotted_events):  # noqa B007
             subdata = ds_pro.sel(
                 time=slice(
-                    ds_pro["start_event"][n].values, ds_pro["end_event"][n].values
+                    ds_pro_today["start_event"]
+                    .isel({"events": mask_good_event})
+                    .values[n],
+                    ds_pro_today["end_event"]
+                    .isel({"events": mask_good_event})
+                    .values[n],
                 )
             )
             # =================
@@ -742,12 +768,12 @@ def plot_processed_ql_summary(
             axes[2].set_ylim(0, 2)
             axes[2].axis("off")
             axes[2].annotate(
-                f"Event duration : {int(ds_pro['event_length'][n].values)} minutes",
+                f"Event duration : {int(ds_pro_today['event_length'].isel(events= mask_good_event)[n].values)} minutes",  # noqa E501
                 (0, 1.5),
                 fontsize=asize,
             )
             axes[2].annotate(
-                f"Rainfall accumulation : {ds_pro['rain_accumulation'][n].values:.2f}mm",  # noqa E501
+                f"Rainfall accumulation : {ds_pro_today['rain_accumulation'].isel(events= mask_good_event)[n].values:.2f}mm",  # noqa E501
                 (0, 1),
                 fontsize=asize,
             )
@@ -771,10 +797,14 @@ def plot_processed_ql_summary(
                     ax.grid(ls="--", alpha=0.5)
                     ax.tick_params(labelsize=lsize)
             # suptitle
-            start_event = npdt64_to_datetime(ds_pro["start_event"][n].values).strftime(  # noqa
+            start_event = npdt64_to_datetime(
+                ds_pro_today["start_event"].isel({"events": mask_good_event})[n].values
+            ).strftime(  # noqa
                 "%H:%M %d-%m-%Y"
             )
-            end_event = npdt64_to_datetime(ds_pro["end_event"][n].values).strftime(  # noqa
+            end_event = npdt64_to_datetime(
+                ds_pro_today["end_event"].isel({"events": mask_good_event})[n].values
+            ).strftime(  # noqa
                 "%H:%M %d-%m-%Y"
             )
             event_number = n + 1
@@ -800,17 +830,22 @@ def plot_processed_ql_summary(
 
 def plot_processed_ql_detailled(
     ds_pro: xr.Dataset,
+    ds_pro_today: xr.Dataset,
     ds_prepro: xr.Dataset,
     mask_output_ql_detailled: str,
     conf: dict,
     version: str,
+    flag: bool,
+    min_points: int,
 ):
     """Create detailled quicklook from processed data.
 
     Parameters
     ----------
     ds_pro : xarray.Dataset
-        data read from processing file.
+        dataset got from concatenation of day D-1/D processing files.
+    ds_pro_today : xarray.Dataset
+        data read from day D processing file.
     ds_prepro : xarray.Dataset
         data read from preprocessing file.
     mask_output_ql_detailled : str or pathlib.Path
@@ -819,20 +854,33 @@ def plot_processed_ql_detailled(
         The data read in the toml configuration file.
     version : str
         Version of the code.
-
+    flag : bool
+        If True, quicklooks are saved only for events which pass the quality flags.
+    min_points : int
+        Value for quality flag on minimum number of QC OK timesteps to keep an event.
     """
     # TODO: properly
     selected_alt = conf["instrument_parameters"]["DCR_DZ_RANGE"]
 
-    if ds_pro.events.size != 0:
-        for n, event in enumerate(ds_pro["events"]):  # noqa B007
+    if flag:
+        mask_good_event = np.where(
+            (ds_pro_today.good_points_number > min_points)
+            & (ds_pro_today.QF_rg_dd_event != 0)
+        )[0]
+        plotted_events = ds_pro_today.events.isel(events=mask_good_event)
+    else:
+        mask_good_event = np.arange(len(ds_pro_today.events))
+        plotted_events = ds_pro_today.events
+
+    if plotted_events.size != 0:
+        for n, event in enumerate(plotted_events):  # noqa B007
             # focus on each rain event
             date_start = npdt64_to_datetime(
-                ds_pro["start_event"][n].values
+                ds_pro_today["start_event"].isel({"events": mask_good_event})[n].values
             ) - dt.timedelta(hours=1)
-            date_end = npdt64_to_datetime(ds_pro["end_event"][n].values) + dt.timedelta(
-                hours=1
-            )
+            date_end = npdt64_to_datetime(
+                ds_pro_today["end_event"].isel({"events": mask_good_event})[n].values
+            ) + dt.timedelta(hours=1)
             subdata_pro = ds_pro.sel(time=slice(date_start, date_end))
             subdata_prepro = ds_prepro.sel(time=slice(date_start, date_end))
 
@@ -979,10 +1027,14 @@ def plot_processed_ql_detailled(
                 ax.tick_params(labelsize=lsize)
 
             # suptitle
-            start_event = npdt64_to_datetime(ds_pro["start_event"][n].values).strftime(  # noqa
+            start_event = npdt64_to_datetime(
+                ds_pro_today["start_event"].isel({"events": mask_good_event})[n].values
+            ).strftime(  # noqa
                 "%H:%M %d-%m-%Y"
             )
-            end_event = npdt64_to_datetime(ds_pro["end_event"][n].values).strftime(  # noqa
+            end_event = npdt64_to_datetime(
+                ds_pro_today["end_event"].isel({"events": mask_good_event})[n].values
+            ).strftime(  # noqa
                 "%H:%M %d-%m-%Y"
             )
             event_number = n + 1
@@ -1003,6 +1055,6 @@ def plot_processed_ql_detailled(
 
             output_png = mask_output_ql_detailled.format(n)
             plt.savefig(output_png)
-            plt.show()
+            plt.close()
     else:
         lgr.info("No event to plot")
