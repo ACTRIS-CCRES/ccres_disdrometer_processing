@@ -1,8 +1,8 @@
-title = "Configuration for the computation of the dcrcc monitoring (preprocessing and processing) at Palaiseau"
+title = "Configuration for the computation of the dcrcc monitoring (preprocessing and processing) at Munich"
 
 [location]
-SITE = "Palaiseau"
-STATION = "SIRTA" # useful for plots
+SITE = "Munich"
+STATION = "München" # useful for plots
 
 [methods]
 FALL_SPEED_METHOD = "GunAndKinzer"
@@ -14,7 +14,7 @@ MAX_ALTITUDE_RADAR_DATA = 2500
 
 [instrument_parameters]
 DD_SAMPLING_AREA = 0.0054 # m^2 ; Parsivel2 sampling surface
-DCR_DZ_RANGE = 300 # m ; height at which to compute Delta Z
+DCR_DZ_RANGE = 200 # m ; height at which to compute Delta Z # TODO : set a suited value
 DD_ORIENTATION = 0 # degree, from North
 
 [plot_parameters]
@@ -24,15 +24,14 @@ MAX_RR = 3  # mm/h
 MIN_RAINFALL_AMOUNT = 3 # mm/episode
 MAX_WS = 10 # m/s ; max wind to keep a timestep
 MIN_TEMP = 2 # °C
-MIN_HUR = 80 # min relative humidity : avoid cases with evaporation
-MAX_HUR = 99 # max relative humidity : avoid fog, ...
+MIN_HUR = 80 # min relative humidity : avoid cases with evaporation ; default value
+MAX_HUR = 98 # max relative humidity : avoid fog, ... ; default value
 DD_ANGLE = 45 # degree ; keep wind data at DD_ORIENTATION[pi] +- DD_ANGLE
 MAX_INTERVAL = 60 # mn ; max interval between two tipping of the pluviometer, to "close" an event
 MIN_DURATION = 180 # mn ; min duration of an event
 PR_SAMPLING = 15  # mn ; ex CHUNK_THICKNESS ; period of averaging for AMS pr
 DD_RG_MAX_PR_ACC_RATIO = 0.3 # ex ACCUMULATION_RELATIVE_ERROR ; max relative error in rain accumulation measurement, DD vs Rain gauge
 DD_FALLSPEED_RATIO = 0.3 # ex FALLSPEED_RELATIVE_ERROR ; relative difference between "theoretical" and DD fall speed
-MIN_POINTS = 50
 
 [nc_meta]
 title = ""
