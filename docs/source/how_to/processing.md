@@ -208,7 +208,7 @@ First aim of the code is to provide long-term DCR calibration monitoring over ti
 
 We can sweep all the events detected in daily prcessing files to gather all the significant rain events on the period for which we want to monitor the DCR calibration. Inside this set of events saved in the daily processing outputs, we only keep the subset of events which satisfy two conditions :
 - **QF_rg_dd_event** is verified (quality flag on consistency between disdrometer and pluviometer rainfall amounts, when weather is provided )
-- **good_points_number**  $\seq$ 50 : ensure robustness of **Delta_Z** distribution over an event.
+- **good_points_number**  $\geq 50$ : ensure robustness of **Delta_Z** distribution over an event.
 
     **Remark :** *We may add a variable to flag this criterion directly in the processing files. A field called* **MIN_POINTS** *is already set in the station configuration files but is not used in the code yet.*
 
