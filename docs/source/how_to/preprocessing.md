@@ -1,13 +1,17 @@
-# Further information on preprocesssing
+## Further information on preprocesssing
 
-
+### Block diagram of the preprocessing step
 
  ![Schema](../assets/Schema_fonctionnel_dcrcc-Page-2.drawio.png)
 Focus on the preprocessing step (needs to be slightly modified)
 
 
+### Generalities
+
 The preprocessing step is made by a specific command line (inputs are listed in the page before) calling several scripts.
 One script is dedicated for the opening and reformatting of each of the three input data sources, with a _xarray.Dataset_ as output, and after this, the three reformatted datasets are merged and the result is saved to a daily netCDF file after filling the corresponding metadata.
+
+### Outline of the preprocessing and different scripts involved
 
 
 - The script **_ccres_disdrometer_processing.open_weather_netcdf_** is used to open and reformat input daily weather netCDF files from CloudNet, and outputs a _xarray.Dataset_ :
@@ -119,7 +123,8 @@ One script is dedicated for the opening and reformatting of each of the three in
 
 
 
-Summary of the assumptions for the forward-modeling of reflectivity values :
+### Summary of the assumptions for the forward-modeling of reflectivity values
+
 * The disdrometer sampling surface **F** varies from an instrument to an other and is given in configuration file. All Parsivel² instruments have the same value **$F=0.0054m²$**. For Thies disdrometers, each instrument has a scale factor called "AU" that has to be applied to a standard surface **$F_0 = 0.0046m²$** to get the sampling area : **$F = AU * F_0$**}. F is used to normalize reflectivity data, and one needs to be careful to specify the good value as a scale factor can introduce an offset in log-reflectivity.
 * The formula used to model droplet fall speed is described in (Gun and Kinzer, 1949) and is of common use. Other formulas are given in the litterature (Khvorostyanov and Curry 2002, Atlas and Ulbrich 1977, …), that are not implemented in the code yet, but the code is ready to host their implementation if necessary (including a field in config file for the method to use)
 * For T-matrix computations, droplets are assumed to be non-spherical : elliptic, with a shape descriebd by the ratio between major and minor axes. This ratio is a function of droplet diameter, the relationship used in the code is a 4th order polynomial fil suggested by (Andsager et al. 1999) based on a formula from (Beard, Chuang 1987).
@@ -130,7 +135,7 @@ The output preprocessing file is the result obtained after the three reformatted
 The command line *ccres_disdrometer_processing preprocess*, enables to launch this preprocessing with Paths to CloudNet data files, name of the configuration file and save path as inputs.
 
 
-# Detailed content of the preprocessing file :
+### Detailed content of the preprocessing file
 
 
 * Coordinates :
