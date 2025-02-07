@@ -188,7 +188,7 @@ The above table sums up the quality controls and thresholds implemented :
         - **QF_rg_dd_event** : boolean, checks if the relative error between disdrometer and pluviometer rainfall amount is lower than a defined threshold (default : 30%, in configuration file). Aim is to flag events with high discrepancies between pluviometer and disdrometer when weather data is provided, to have a critical look on disdrometer data reliability.
         - **nb_dz_computable_points** : number of timesteps for which the variable **Delta_Z** has a finite value at the comparison range (**DCR_DZ_RANGE**) given in configuration file for each station and instrument setup.  ***The choice of this comparison range follows a logic : it must not be "too high" to ensure representativeness of Droplet Size distribuution and minimize Delta_Z variability, and it must not be "too low" so that we avoid radar antenna near field effects. One needs to look at the DCR and disdrometer-modeled reflectivity data during significant rain periods in order to find a good trade-off for this comparison range.***
         - **QC_[var]_ratio**: ratio of timesteps for which the quality control for the variable *[var]* is satisfied.
-        - **good_points_number** : number of timesteps for which **QC_overall** is satisfied and with a finite value of **Delta_Z** (so, we have necessarily $\mathbf{good{\_}points{\_}number}  \leq  \mathbf{nb{\_}dz{\_}computable{\_}points}$). It corresponds to the number of data points kept for **Delta_Z** analysis and monitoring i.e. the number of timesteps used to compute **Delta_Z** statistics over the event.
+        - **good_points_number** : number of timesteps for which **QC_overall** is satisfied and with a finite value of **Delta_Z** (so, we have necessarily **good_points_number**  $\leq$  **nb_dz_cmputable_points**). It corresponds to the number of data points kept for **Delta_Z** analysis and monitoring i.e. the number of timesteps used to compute **Delta_Z** statistics over the event.
         - **dZ_min** / **dZ_max** / **dZ_med** / **dZ_mean** / **dZ_q1** / **dZ_q3** : min and max values, mean and quartiles for **Delta_Z** distribution over the event
         - **reg_slope** / **reg_intercept** / **reg_score** / **reg_rmse** : statistics of the linear regression **Zdcr** vs. **Zdd** (for the subset of points kept for the analysis i.e. with QC OK)
 
@@ -208,7 +208,7 @@ First aim of the code is to provide long-term DCR calibration monitoring over ti
 
 We can sweep all the events detected in daily prcessing files to gather all the significant rain events on the period for which we want to monitor the DCR calibration. Inside this set of events saved in the daily processing outputs, we only keep the subset of events which satisfy two conditions :
 - **QF_rg_dd_event** is verified (quality flag on consistency between disdrometer and pluviometer rainfall amounts, when weather is provided )
-- $\textbf{good_points_number}  \seq 50$ : ensure robustness of **Delta_Z** distribution over an event.
+- **good_points_number**  $\seq 50$ : ensure robustness of **Delta_Z** distribution over an event.
 
     **Remark :** *We may add a variable to flag this criterion directly in the processing files. A field called* **MIN_POINTS** *is already set in the station configuration files but is not used in the code yet.*
 
