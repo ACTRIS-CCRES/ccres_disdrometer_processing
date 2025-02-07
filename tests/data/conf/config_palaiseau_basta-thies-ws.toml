@@ -17,6 +17,7 @@ AU = 965
 DD_SAMPLING_AREA_DEFAULT = 0.0046
 DD_SAMPLING_AREA = 0.004439 # m^2 ; = SAMPLING_AREA_DEFAULT*AU/1000
 DCR_DZ_RANGE = 300 # m ; height at which to compute Delta Z
+PROCESSING_RANGES = [100, 200, 300]
 DD_ORIENTATION = 0 # degree, from North
 
 [plot_parameters]
