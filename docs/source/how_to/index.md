@@ -24,52 +24,49 @@ General diagram of the DCR calibration constant monitoring code
 
 
 
-- write a cli for event data extraction ? (for static plots)
-- a cli for static plot from an events data collection ?
-
 ## Content of the config file that drives the data processing
 
-Here is an example of a configuration file
+Here is an example of a configuration file (Palaiseau, with a *BASTA* radar and a *Thies* disdrometer)
 
 ```
 
-title = "Configuration for the computation of the dcrcc monitoring (preprocessing and processing)"
+title = "Configuration for the computation of the dcrcc monitoring (preprocessing and processing) at Palaiseau"
 
 [location]
 SITE = "Palaiseau"
-STATION = "SIRTA"  # useful for plots
+STATION = "SIRTA" # useful for plots
 
 [methods]
 FALL_SPEED_METHOD = "GunAndKinzer"
 AXIS_RATIO_METHOD = "BeardChuang_PolynomialFit"
 COMPUTE_MIE_METHOD = "pytmatrix"
-REFRACTION_INDEX = [2.99645, 1.54866]                # complex refractive index of water
+REFRACTION_INDEX = [[2.99645,1.54866], [2.99645,1.54866], [2.99645,1.54866], [2.99645,1.54866]] # complex index
 RADAR_FREQUENCIES = [10.0e9, 24.0e9, 35.0e9, 94.0e9] # Hz
 MAX_ALTITUDE_RADAR_DATA = 2500
 
 [instrument_parameters]
-DD_SAMPLING_AREA = 0.0054 # m^2 ; Parsivel2 sampling surface
-DCR_DZ_RANGE = 300        # m ; height at which to compute Delta Z
-RAIN_GAUGE_SAMPLING = 0.2 # mm
-DD_ORIENTATION = 0        # degree, from North
+AU = 965
+DD_SAMPLING_AREA_DEFAULT = 0.0046
+DD_SAMPLING_AREA = 0.004439 # m^2 ; = SAMPLING_AREA_DEFAULT*AU/1000
+DCR_DZ_RANGE = 300 # m ; height at which to compute Delta Z
+DD_ORIENTATION = 0 # degree, from North
 
 [plot_parameters]
-DCR_PLOTTED_RANGES = [100, 200, 300]
 
 [thresholds]
-MAX_RR = 3                   # mm/h
-MIN_RAINFALL_AMOUNT = 3      # mm/episode
-MAX_MEAN_WS = 7              # m/s ; maximum average wind over a "good" event
-MAX_WS = 10                  # m/s ; max wind to keep a timestep
-MIN_TEMP = 2                 # °C
-MIN_HUR = 0                  # min relative humidity : avoid cases with evaporation
-MAX_HUR = 100                # max relative humidity : avoid fog, ...
-DD_ANGLE = 45                # degree ; keep wind data at DD_ORIENTATION[pi] +- DD_ANGLE
-MAX_INTERVAL = 60            # mn ; max interval between two tipping of the pluviometer, to "close" an event
-MIN_DURATION = 180           # mn ; min duration of an event
-PR_SAMPLING = 15             # mn ; ex CHUNK_THICKNESS ; period of averaging for AMS pr
+MAX_RR = 3  # mm/h
+MIN_RAINFALL_AMOUNT = 3 # mm/episode
+MAX_WS = 10 # m/s ; max wind to keep a timestep
+MIN_TEMP = 2 # °C
+MIN_HUR = 80 # min relative humidity : avoid cases with evaporation
+MAX_HUR = 99 # max relative humidity : avoid fog, ...
+DD_ANGLE = 45 # degree ; keep wind data at DD_ORIENTATION[pi] +- DD_ANGLE
+MAX_INTERVAL = 60 # mn ; max interval between two tipping of the pluviometer, to "close" an event
+MIN_DURATION = 180 # mn ; min duration of an event
+PR_SAMPLING = 15  # mn ; ex CHUNK_THICKNESS ; period of averaging for AMS pr
 DD_RG_MAX_PR_ACC_RATIO = 0.3 # ex ACCUMULATION_RELATIVE_ERROR ; max relative error in rain accumulation measurement, DD vs Rain gauge
-DD_FALLSPEED_RATIO = 0.3     # ex FALLSPEED_RELATIVE_ERROR ; relative difference between "theoretical" and DD fall speed
+DD_FALLSPEED_RATIO = 0.3 # ex FALLSPEED_RELATIVE_ERROR ; relative difference between "theoretical" and DD fall speed
+MIN_POINTS = 50
 
 [nc_meta]
 title = ""
@@ -113,7 +110,15 @@ metadata_link = ""
 
 ## Preprocessing quicklooks command
 
-    ccres-disdrometer-processing preprocess_ql FILE OUTPUT_QL_OVERVIEW OUTPUT_QL_OVERVIEW_ZH --config-file CONFIG_FILE --output-file OUTPUT_FILE [--no-meteo NO_METEO] [-v VERBOSITY]
+    ccres-disdrometer-processing preprocess_ql FILE OUTPUT_QL_OVERVIEW OUTPUT_QL_OVERVIEW_ZH --config-file CONFIG_FILE
+
+| **Short** | **Long** | **Default** | **Description** |
+|------|------|------|------|
+|      |   `--config-file`   |      |   TOML configuration file suited for the input data (site, instruments, ...)   |
+|      |   `file`   |      |   Output of preprocessing for the day to be displayed   |
+|      |   `output-ql-overview`   |      |   Path to save the first panel of quicklooks (overview and met variables)   |
+|      |   `output-ql-overview-zh`   |      |   Path to save the second panel of quicklooks (time series of DCR and DD reflectivity)   |
+|      |      |      |      |
 
 
 ## Processing command
@@ -137,10 +142,14 @@ metadata_link = ""
 
 | **Short** | **Long** | **Default** | **Description** |
 |------|------|------|------|
+|      |   `--process-yesterday`   |      |   Output of processing for the day before the day  for which we want to plot rain events   |
+|      |   `--process-today`   |      |   Output of processing for the day for which we want to plot rain events   |
 |      |   `--preprocess-yesterday`   |      |   Output of preprocessing for the day before the day  for which we want to plot rain events   |
 |      |   `--preprocess-today`   |      |   Output of preprocessing for the day  for which we want to plot rain events   |
 |      |   `--preprocess-tomorrow`   |      |   Output of preprocessing for the day before the day  for which we want to plot rain events   |
 |      |   `--prefix-output-ql-summary`   |      |   Path to save the first panel of quicklooks (summary panel)   |
 |      |   `--prefix-output-ql-detailled`   |      |   Path to save the second panel of quicklooks (panel with detaileld analysis)   |
 |      |   `--config-file`   |      |   TOML configuration file suited for the input data (site, instruments, ...)   |
+|      |   `--flag`   |      |   If True, plots only events which pass the Quality Flags specified in processing file |
+|      |   `--min-points`   |      |   Criterion for minimum number of timesteps on which events statistics are computed to plot the event  |
 |      |      |      |      |
