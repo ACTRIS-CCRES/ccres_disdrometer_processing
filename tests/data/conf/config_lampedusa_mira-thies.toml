@@ -1,8 +1,8 @@
-title = "Configuration for the computation of the dcrcc monitoring (preprocessing and processing) at Bucharest"
+title = "Configuration for the computation of the dcrcc monitoring (preprocessing and processing) at Lampedusa"
 
 [location]
-SITE = "Bucharest"
-STATION = "RADO-Bucharest" # useful for plots
+SITE = "Lampedusa"
+STATION = "Lampedusa" # useful for plots
 
 [methods]
 FALL_SPEED_METHOD = "GunAndKinzer"
@@ -13,10 +13,12 @@ RADAR_FREQUENCIES = [10.0e9, 24.0e9, 35.0e9, 94.0e9] # Hz
 MAX_ALTITUDE_RADAR_DATA = 2500
 
 [instrument_parameters]
-DD_SAMPLING_AREA = 0.0054 # m^2 ; Parsivel2 sampling surface
-DCR_DZ_RANGE = 220 # m ; height at which to compute Delta Z ; fill with the real value
-PROCESSING_RANGES = [220, 250, 280]
-DD_ORIENTATION = 90 # degree, from North
+AU = 1009
+DD_SAMPLING_AREA_DEFAULT = 0.0046
+DD_SAMPLING_AREA = 0.0046414 # m^2 ; = SAMPLING_AREA_DEFAULT*AU/1000
+DCR_DZ_RANGE = 125 # m ; height at which to compute Delta Z ; fill with the real value
+PROCESSING_RANGES = [100, 125, 150]
+DD_ORIENTATION = 0 # degree, from North ; fill with the real value
 
 [plot_parameters]
 
