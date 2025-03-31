@@ -371,7 +371,7 @@ def data_out_dir(data_dir):
         # hyytiala
         {
             "site": "hyytiala",
-            "date": "2023-10-15",
+            "date": "2024-08-02",
             "radar": "rpg-fmcw-94",
             "radar-pid": "https://hdl.handle.net/21.12132/3.191564170f8a4686",
             "disdro": "parsivel",
@@ -381,15 +381,15 @@ def data_out_dir(data_dir):
             "meteo-pid": "",
             "config_file": "config_hyytiala_rpg-parsivel.toml",
             "output": {
-                "preprocess": "hyytiala_2023-10-15_rpg-parsivel_preprocessed.nc",
+                "preprocess": "hyytiala_2024-08-02_rpg-parsivel_preprocessed.nc",
                 "preprocessing_ql": {
-                    "weather-overview": "hyytiala_2023-10-15_rpg-parsivel_preproc-weather-overview.png",  # noqa E501
-                    "zh-overview": "hyytiala_2023-10-15_rpg-parsivel_zh-preproc-overview.png",  # noqa E501
+                    "weather-overview": "hyytiala_2024-08-02_rpg-parsivel_preproc-weather-overview.png",  # noqa E501
+                    "zh-overview": "hyytiala_2024-08-02_rpg-parsivel_zh-preproc-overview.png",  # noqa E501
                 },
-                "process": "hyytiala_2023-10-15_rpg-parsivel_processed.nc",
+                "process": "hyytiala_2024-08-02_rpg-parsivel_processed.nc",
                 "process_ql": {
-                    "summary": "hyytiala_2023-10-15_rpg-parsivel_process-summary",
-                    "detailled": "hyytiala_2023-10-15_rpg-parsivel_process-detailled",  # noqa E501
+                    "summary": "hyytiala_2024-08-02_rpg-parsivel_process-summary",
+                    "detailled": "hyytiala_2024-08-02_rpg-parsivel_process-detailled",  # noqa E501
                 },
             },
         },

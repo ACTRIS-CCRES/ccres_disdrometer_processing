@@ -1,5 +1,6 @@
 """Tests preprocessing."""
 
+import xarray as xr
 from click.testing import CliRunner
 
 from ccres_disdrometer_processing.cli import cli
@@ -18,6 +19,9 @@ def test_run_one_day(
     detail_png = (
         data_out_dir / test_data_preprocessing["output"]["process_ql"]["detailled"]
     )
+    print("HELLO 1")
+    processed_nc = xr.open_dataset(process_file)
+    print(processed_nc.events.size)
 
     # other parameters
     # ---------------------------------------------------------------------------------
@@ -28,15 +32,16 @@ def test_run_one_day(
     # ---------------------------------------------------------------------------------
     # required args
     args = [
+        "--preprocess-today",
+        str(preprocess_file),
+        "--process-today",
+        str(process_file),
         "--config-file",
         str(conf),
         "--prefix-output-ql-summary",
         str(summary_png),
         "--prefix-output-ql-detailled",
         str(detail_png),
-        "--preprocess-today",
-        str(preprocess_file),
-        str(process_file),
     ]
 
     runner = CliRunner()
@@ -45,5 +50,7 @@ def test_run_one_day(
         args,
         catch_exceptions=False,
     )
+
+    print("HELLO")
 
     assert result.exit_code == 0, result.output

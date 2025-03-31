@@ -151,6 +151,8 @@ def test_run_ndays(
 
         # required args
         args += [
+            "--process-today",
+            str(process_file),
             "--preprocess-today",
             str(d_file),
             "--config-file",
@@ -159,7 +161,6 @@ def test_run_ndays(
             str(prefix_output_ql_summary),
             "--prefix-output-ql-detailled",
             str(prefix_output_ql_detailled),
-            str(process_file),
         ]
         print(args)
         runner = CliRunner()

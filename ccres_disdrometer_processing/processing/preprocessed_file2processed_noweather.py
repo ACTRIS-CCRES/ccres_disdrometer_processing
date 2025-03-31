@@ -206,11 +206,11 @@ def compute_todays_events_stats_noweather(
     ds, Ze_ds, conf, qc_ds, start, end, day_today
 ):
     n = 0
-    for s in start:
-        if pd.to_datetime(s).day == day_today:
+    for e in end:
+        if pd.to_datetime(e).day == day_today:
             n += 1
     # n is the number of events to store in the dataset
-    # i.e. the number of events which begin at day D
+    # i.e. the number of events which end at day D
 
     stats_ds = xr.Dataset(
         coords=dict(events=(["events"], np.linspace(1, n, n, dtype="int32")))
@@ -250,7 +250,7 @@ def compute_todays_events_stats_noweather(
 
     event = 0
     for s, e in zip(start, end):
-        if pd.to_datetime(s).day == day_today:
+        if pd.to_datetime(e).day == day_today:
             start_event[event] = s
             end_event[event] = e
             r = conf["instrument_parameters"]["DCR_DZ_RANGE"]

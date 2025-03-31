@@ -1,7 +1,7 @@
 
 # Welcome to CCRES Disdrometer processing
 
-CCRES code to convert data
+CCRES code to convert CloudNet data files (DCR and disdrometer) into valorizable products for DCR calibration constant monitoring
 
 ## Table of content
 
@@ -13,6 +13,7 @@ get-started/index.md
 how_to/index.md
 how_to/preprocessing.md
 how_to/processing.md
+how_to/visualizations.md
 ```
 
 ```{toctree}
