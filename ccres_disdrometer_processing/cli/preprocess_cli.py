@@ -33,11 +33,15 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file, verbo
 
     axrMethod = config["methods"]["AXIS_RATIO_METHOD"]
     strMethod = config["methods"]["FALL_SPEED_METHOD"]
-    E = config["methods"]["REFRACTION_INDEX"]
-    E = complex(E[0], E[1])
+    refraction_indices = config["methods"]["REFRACTION_INDEX"]
     computed_frequencies = config["methods"][
         "RADAR_FREQUENCIES"
     ]  # given in Hz -> ok for the scattering script
+    E = {}
+    for frequency, index in zip(computed_frequencies, refraction_indices):
+        refr_index = complex(index[0], index[1])
+        E[frequency] = refr_index
+
     max_radar_altitude = config["methods"]["MAX_ALTITUDE_RADAR_DATA"]
 
     # read doppler radar data
@@ -62,7 +66,7 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file, verbo
                 disdro_xr.size_classes[0:-5],
                 fov,
                 frequency,
-                e=E,
+                e=E[frequency],
                 axrMethod=axrMethod,
             )
             scatt_list.append(scatt)

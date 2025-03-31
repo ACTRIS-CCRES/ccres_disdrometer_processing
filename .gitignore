@@ -117,12 +117,14 @@ bdd_rain_events
 # test working dirs
 tests/data/inputs/
 tests/data/outputs/
+tests/data/inputs/config_files
+tests/data/outputs_bug_fixes/*.nc
+tests/data/inputs/CONFIG_test.toml
+
 
 # config files, slurm issues, tools to explore data files, processing files not used anymore
-/tests/data/inputs/config_files
-/tests/data/outputs_bug_fixes/*.nc
+
 slurm*.out
-/tests/data/inputs/CONFIG_test.toml
 /ccres_disdrometer_processing/*.toml
 script_*.sh
 explore_input_ncfiles.py

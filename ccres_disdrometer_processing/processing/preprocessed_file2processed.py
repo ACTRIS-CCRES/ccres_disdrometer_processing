@@ -65,7 +65,7 @@ def rain_event_selection(ds, conf, no_meteo):
 def extract_dcr_data(ds, conf):
     # Extract DCR Ze at 3/4 relevant gates, extract DD Ze, compute Delta Ze
     # Get Doppler velocity at relevant gates, compute avg disdrometer fall speed(t)
-    ranges_to_keep = conf["plot_parameters"]["DCR_PLOTTED_RANGES"]
+    ranges_to_keep = conf["instrument_parameters"]["PROCESSING_RANGES"]
     Ze_ds = xr.Dataset(
         coords=dict(
             time=(["time"], ds.time.data),
