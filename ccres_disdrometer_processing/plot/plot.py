@@ -42,6 +42,7 @@ def divider(axe, size="2%", axis="off"):
     -------
     matplotlib.axes
         The newly created axis.
+
     """
     divider = make_axes_locatable(axe)
     cax = divider.append_axes("right", size=size, pad=0.2)
@@ -70,6 +71,7 @@ def plot_preprocessed_ql_overview(
         The data read in the toml configuration file.
     version : str
         Version of the code.
+
     """
     if not isinstance(output_ql_overview, Path):
         output_ql_overview = Path(output_ql_overview)
@@ -323,6 +325,7 @@ def plot_preprocessed_ql_overview_downgraded_mode(
         The data read in the toml configuration file.
     version : str
         Version of the code.
+
     """
     if not isinstance(output_ql_overview, Path):
         output_ql_overview = Path(output_ql_overview)
@@ -504,6 +507,7 @@ def plot_preprocessed_ql_overview_zh(
         The data read in the toml configuration file.
     version : str
         Version of the code.
+
     """
     site = data.attrs["location"]
     station = conf["location"]["STATION"]
@@ -579,6 +583,7 @@ def plot_processed_ql_summary(
         The data read in the toml configuration file.
     version : str
         Version of the code.
+
     """
     selected_alt = conf["instrument_parameters"]["DCR_DZ_RANGE"]
 
@@ -814,6 +819,7 @@ def plot_processed_ql_detailled(
         The data read in the toml configuration file.
     version : str
         Version of the code.
+
     """
     # TODO: properly
     selected_alt = conf["instrument_parameters"]["DCR_DZ_RANGE"]

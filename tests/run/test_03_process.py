@@ -1,5 +1,4 @@
-"""Tests preprocessing."""
-
+"""Tests processing."""
 
 from click.testing import CliRunner
 

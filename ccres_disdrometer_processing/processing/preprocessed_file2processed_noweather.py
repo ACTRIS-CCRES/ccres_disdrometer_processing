@@ -2,6 +2,7 @@
 
 Input : Daily preprocessed files at days D and D-1
 Output : Daily processed file for day D
+
 """
 
 import logging
@@ -42,7 +43,7 @@ def rain_event_selection_noweather(ds, conf):
             elif t[i + 1] - start_candidate >= np.timedelta64(min_duration, "m"):
                 start.append(start_candidate.values)
                 end.append(t[i + 1].values)
-        if t[i + 1] - t[i] > np.timedelta64(max_interval, "m"):
+        elif t[i + 1] - t[i] > np.timedelta64(max_interval, "m"):
             if t[i] - start_candidate >= np.timedelta64(min_duration, "m"):
                 start.append(start_candidate.values)
                 end.append(t[i].values)
@@ -149,20 +150,20 @@ def compute_quality_checks_noweather(ds, conf, start, end):
     qc_ds["QC_wd"].attrs["long_name"] = "Quality check for wind direction"
     qc_ds["QC_ws"].attrs["long_name"] = "Quality check for wind speed"
     qc_ds["QC_hur"].attrs["long_name"] = "Quality check for relative humidity"
-    qc_ds["QF_rg_dd"].attrs[
-        "long_name"
-    ] = "Quality flag for discrepancy between rain gauge and disdrometer precipitation rate"  # noqa
+    qc_ds["QF_rg_dd"].attrs["long_name"] = (
+        "Quality flag for discrepancy between rain gauge and disdrometer precipitation rate"  # noqa
+    )
     qc_ds["QC_ta"].attrs["flag_meanings"] = "temperature_under_threshold temperature_ok"
-    qc_ds["QC_wd"].attrs[
-        "flag_meanings"
-    ] = "wind_direction_out_of_good_range wind_direction_within_good_range"
+    qc_ds["QC_wd"].attrs["flag_meanings"] = (
+        "wind_direction_out_of_good_range wind_direction_within_good_range"
+    )
     qc_ds["QC_ws"].attrs["flag_meanings"] = "wind_speed_over_threshold wind_speed_ok"
-    qc_ds["QC_hur"].attrs[
-        "flag_meanings"
-    ] = "hur_above_lower_bound hur_over_upper_bound"
-    qc_ds["QF_rg_dd"].attrs[
-        "flag_meanings"
-    ] = "discrepancy_rain_gauge_disdrometer_above_threshold discrepancy_rain_gauge_disdrometer_ok"  # noqa
+    qc_ds["QC_hur"].attrs["flag_meanings"] = (
+        "hur_above_lower_bound hur_over_upper_bound"
+    )
+    qc_ds["QF_rg_dd"].attrs["flag_meanings"] = (
+        "discrepancy_rain_gauge_disdrometer_above_threshold discrepancy_rain_gauge_disdrometer_ok"  # noqa
+    )
 
     # Overall QC : disdro_pr, v(d)
     qc_ds["QC_overall"] = xr.DataArray(
@@ -184,18 +185,18 @@ def compute_quality_checks_noweather(ds, conf, start, end):
     ]:
         qc_ds[key].attrs["flag_values"] = np.array([0, 1]).astype("i2")
 
-    qc_ds["flag_event"].attrs[
-        "flag_meanings"
-    ] = "timestep_not_involved_in_any_event timestep_part_of_an_event"
-    qc_ds["QF_rainfall_amount"].attrs[
-        "flag_meanings"
-    ] = "less_rain_than_threshold_since_event_begin more_rain_than_threshold_since_event_begin"  # noqa E501
-    qc_ds["QC_pr"].attrs[
-        "flag_meanings"
-    ] = "precipitation_rate_above threshold precipitation_rate_ok"
-    qc_ds["QC_vdsd_t"].attrs[
-        "flag_meanings"
-    ] = "discrepancy_between_observed_and_modeled_disdrometer_droplet_fallspeed_above_threshold discrepancy_under_threshold"  # noqa e501
+    qc_ds["flag_event"].attrs["flag_meanings"] = (
+        "timestep_not_involved_in_any_event timestep_part_of_an_event"
+    )
+    qc_ds["QF_rainfall_amount"].attrs["flag_meanings"] = (
+        "less_rain_than_threshold_since_event_begin more_rain_than_threshold_since_event_begin"  # noqa E501
+    )
+    qc_ds["QC_pr"].attrs["flag_meanings"] = (
+        "precipitation_rate_above threshold precipitation_rate_ok"
+    )
+    qc_ds["QC_vdsd_t"].attrs["flag_meanings"] = (
+        "discrepancy_between_observed_and_modeled_disdrometer_droplet_fallspeed_above_threshold discrepancy_under_threshold"  # noqa e501
+    )
     qc_ds["QC_overall"].attrs["flag_meanings"] = "at_least_one_QC_not_OK all_QC_OK"
 
     return qc_ds
@@ -386,15 +387,15 @@ def compute_todays_events_stats_noweather(
                 "comment": "not computable when no AMS data is provided",
             },
         )
-    stats_ds["QC_ta_ratio"].attrs[
-        "long_name"
-    ] = "ratio of timesteps where check for air temperature is good"
-    stats_ds["QC_wd_ratio"].attrs[
-        "long_name"
-    ] = "ratio of timesteps where check for wind direction is good"
-    stats_ds["QC_ws_ratio"].attrs[
-        "long_name"
-    ] = "ratio of timesteps where check for wind speed is good"
+    stats_ds["QC_ta_ratio"].attrs["long_name"] = (
+        "ratio of timesteps where check for air temperature is good"
+    )
+    stats_ds["QC_wd_ratio"].attrs["long_name"] = (
+        "ratio of timesteps where check for wind direction is good"
+    )
+    stats_ds["QC_ws_ratio"].attrs["long_name"] = (
+        "ratio of timesteps where check for wind speed is good"
+    )
 
     stats_ds["QC_overall_ratio"] = xr.DataArray(
         data=qc_overall_ratio.astype(np.float32),

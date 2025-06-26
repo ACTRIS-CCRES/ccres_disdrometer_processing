@@ -1,5 +1,6 @@
 """Top-level package for CCRES Disdrometer processing."""
-version_str = "0.1.0"
+
+version_str = "0.2.0"
 version_tuple = version_str.split(".")
 
 __author__ = "ACTRIS-CCRES"

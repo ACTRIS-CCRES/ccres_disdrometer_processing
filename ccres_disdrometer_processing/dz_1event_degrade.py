@@ -821,9 +821,7 @@ def dz_plot(
     plt.text(
         x=pd.Timestamp((t[0].value + t[-1].value) / 2.0),
         y=20,
-        s=r"Gate n° {} ({}m AGL) used for $\Delta Z$ computation".format(
-            int(gate) + 1, int(preprocessed_ds.range.values[int(gate)])
-        ),
+        s=rf"Gate n° {int(gate) + 1} ({int(preprocessed_ds.range.values[int(gate)])}m AGL) used for $\Delta Z$ computation",  # noqa: E501
         fontsize=14,
         ha="center",
     )
