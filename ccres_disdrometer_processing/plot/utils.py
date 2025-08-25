@@ -77,16 +77,13 @@ def add_logo():
     plt.axis("off")
 
     try:
-        logo = plt.imread(
-            Path(__file__).parent.resolve()
-            / ".."
-            / "assets"
-            / "logo"
-            / "logo_CCRES.png"
-        )
+        with importlib.resources.open_binary(
+            "ccres_disdrometer_processing.assets.logo", "logo_CCRES.png"
+        ) as logo_file:
+            logo = plt.imread(logo_file)
         plt.imshow(logo, origin="upper")
     except OSError:
-        print("graphreobs file : Impossible to include the logo !!!!!")
+        print("Impossible to include the logo !!!!!")
 
     return
 
