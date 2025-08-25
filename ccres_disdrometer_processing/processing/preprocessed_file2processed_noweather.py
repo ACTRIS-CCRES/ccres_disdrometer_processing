@@ -132,7 +132,7 @@ def compute_quality_checks_noweather(ds, conf, start, end):
         dims="time",
         attrs={
             "long_name": "Quality check for cohence between fall speed and droplet diameter",  # noqa E501
-            "comment": f"threshold = {conf['thresholds']['DD_FALLSPEED_RATIO']:.1f} i.e. {100*conf['thresholds']['DD_FALLSPEED_RATIO']:.0f}% of relative error between average fall speed computed from speed distribution and average fall speed modeled from diameter distribution",  # noqa E501,
+            "comment": f"threshold = {conf['thresholds']['DD_FALLSPEED_RATIO']:.1f} i.e. {100 * conf['thresholds']['DD_FALLSPEED_RATIO']:.0f}% of relative error between average fall speed computed from speed distribution and average fall speed modeled from diameter distribution",  # noqa E501,
         },
     )
 

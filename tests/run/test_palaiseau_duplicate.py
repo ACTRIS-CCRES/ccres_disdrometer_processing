@@ -131,7 +131,7 @@ def test_duplicate_events(data_input_dir, data_conf_dir, data_dir):
     print("Number of events : ", len(ds.events))
     for k in range(len(ds.events)):
         print(
-            f"event {k+1} : {ds.start_event.values[k]} - {ds.end_event.values[k]}"  # noqa E501
+            f"event {k + 1} : {ds.start_event.values[k]} - {ds.end_event.values[k]}"  # noqa E501
         )
 
     return
