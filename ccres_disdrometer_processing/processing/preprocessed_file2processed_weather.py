@@ -161,7 +161,7 @@ def compute_quality_checks_weather(ds, conf, start, end):
         attrs={
             "long_name": "Quality check for cohence between fall speed and droplet diameter",  # noqa E501
             "unit": "1",
-            "comment": f"threshold = {conf['thresholds']['DD_FALLSPEED_RATIO']:.1f} i.e. {100*conf['thresholds']['DD_FALLSPEED_RATIO']:.0f}% of relative error between average fall speed computed from speed distribution and average fall speed modeled from diameter distribution",  # noqa E501,
+            "comment": f"threshold = {conf['thresholds']['DD_FALLSPEED_RATIO']:.1f} i.e. {100 * conf['thresholds']['DD_FALLSPEED_RATIO']:.0f}% of relative error between average fall speed computed from speed distribution and average fall speed modeled from diameter distribution",  # noqa E501,
         },
     )
 
@@ -757,7 +757,7 @@ def compute_quality_checks_weather_low_sampling(
         attrs={
             "long_name": "Quality check for cohence between fall speed and droplet diameter",  # noqa E501
             "unit": "1",
-            "comment": f"threshold = {conf['thresholds']['DD_FALLSPEED_RATIO']:.1f} i.e. {100*conf['thresholds']['DD_FALLSPEED_RATIO']:.0f}% of relative error between average fall speed computed from speed distribution and average fall speed modeled from diameter distribution",  # noqa E501,
+            "comment": f"threshold = {conf['thresholds']['DD_FALLSPEED_RATIO']:.1f} i.e. {100 * conf['thresholds']['DD_FALLSPEED_RATIO']:.0f}% of relative error between average fall speed computed from speed distribution and average fall speed modeled from diameter distribution",  # noqa E501,
         },
     )
 
