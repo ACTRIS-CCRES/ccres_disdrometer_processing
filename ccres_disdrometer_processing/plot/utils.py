@@ -1,5 +1,6 @@
 import importlib.util
 import sys
+from importlib import resources as impresources
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -8,6 +9,8 @@ import pandas as pd
 import scipy.optimize as so
 import scipy.stats as stats
 import xarray as xr
+
+from ccres_disdrometer_processing.assets import logo as logo_dir
 
 
 def load_module(name, path):
@@ -76,14 +79,12 @@ def add_logo():
     plt.axes([0.76, 0.9, 0.2, 0.1])  # left, bottom, width, height
     plt.axis("off")
 
-    try:
-        with importlib.resources.open_binary(
-            "ccres_disdrometer_processing.assets.logo", "logo_CCRES.png"
-        ) as logo_file:
-            logo = plt.imread(logo_file)
-        plt.imshow(logo, origin="upper")
-    except OSError:
-        print("Impossible to include the logo !!!!!")
+    with impresources.as_file(
+        impresources.files(logo_dir).joinpath("logo_CCRES.png")
+    ) as img_path:
+        logo = plt.imread(img_path)
+
+    plt.imshow(logo, origin="upper")
 
     return
 
