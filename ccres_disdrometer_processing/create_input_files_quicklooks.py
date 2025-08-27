@@ -2,7 +2,7 @@ import datetime as dt
 import glob
 import logging
 import os
-from typing import List, Optional
+from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -34,7 +34,7 @@ DELTA_DISDRO = dt.timedelta(minutes=MN)
 
 def get_valid_paths(
     start: dt.datetime, end: dt.datetime, path: str
-) -> Optional[List[str]]:
+) -> Optional[list[str]]:
     lgr.info("Concatenate weather station data over the rain event duration")
     ndays = (
         (end + DELTA_DISDRO).replace(hour=0, minute=0, second=0)
