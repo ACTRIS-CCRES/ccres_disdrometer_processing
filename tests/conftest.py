@@ -126,6 +126,31 @@ def data_out_dir(data_dir):
                 },
             },
         },
+        # test change cloudnet L1 file format lat, lon alt become time dependant in 2025-08-28 # noqa E501
+        {
+            "site": "palaiseau",
+            "date": "2025-09-13",
+            "radar": "basta",
+            "radar-pid": "https://hdl.handle.net/21.12132/3.643b7b5b43814e6f",
+            "disdro": "thies-lnm",
+            "disdro-pid": "https://hdl.handle.net/21.12132/3.11d3217867474e22",
+            "meteo-available": True,
+            "meteo": "weather-station",
+            "meteo-pid": "https://hdl.handle.net/21.12132/3.739041931dac4de5",
+            "config_file": "config_palaiseau_basta-thies-ws.toml",
+            "output": {
+                "preprocess": "palaiseau_2025-09-13_basta-thies-ws_preprocessed.nc",
+                "preprocessing_ql": {
+                    "weather-overview": "palaiseau_2025-09-13_basta-thies-ws_preproc-weather-overview.png",  # noqa E501
+                    "zh-overview": "palaiseau_2025-09-13_basta-thies-ws_zh-preproc-overview.png",  # noqa E501
+                },
+                "process": "palaiseau_2025-09-13_basta-thies-ws_processed.nc",
+                "process_ql": {
+                    "summary": "palaiseau_2025-09-13_basta-thies-ws_process-summary",
+                    "detailled": "palaiseau_2025-09-13_basta-thies-ws_process-detailled",  # noqa E501
+                },
+            },
+        },
         # lindenberg
         {
             "site": "lindenberg",
