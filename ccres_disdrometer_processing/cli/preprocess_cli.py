@@ -168,128 +168,123 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file, verbo
         return str(nb)[::-1].find(".")
 
     if weather_avail:
-        geospatial_lat_min = np.min(
-            np.array(
-                [
-                    final_data.disdro_latitude.values,
-                    final_data.radar_latitude.values,
-                    final_data.ams_latitude.values,
-                ]
-            )
+        geospatial_lat_min = np.nanmin(
+            [
+                np.nanmin(final_data.disdro_latitude.values),
+                np.nanmin(final_data.radar_latitude.values),
+                np.nanmin(final_data.ams_latitude.values),
+            ]
         )
-        geospatial_lat_max = np.max(
-            np.array(
-                [
-                    final_data.disdro_latitude.values,
-                    final_data.radar_latitude.values,
-                    final_data.ams_latitude.values,
-                ]
-            )
+        geospatial_lat_max = np.nanmax(
+            [
+                np.nanmax(final_data.disdro_latitude.values),
+                np.nanmax(final_data.radar_latitude.values),
+                np.nanmax(final_data.ams_latitude.values),
+            ]
         )
-        geospatial_lon_min = np.min(
-            np.array(
-                [
-                    final_data.disdro_longitude.values,
-                    final_data.radar_longitude.values,
-                    final_data.ams_longitude.values,
-                ]
-            )
+        geospatial_lon_min = np.nanmin(
+            [
+                np.nanmin(final_data.disdro_longitude.values),
+                np.nanmin(final_data.radar_longitude.values),
+                np.nanmin(final_data.ams_longitude.values),
+            ]
         )
-        geospatial_lon_max = np.max(
-            np.array(
-                [
-                    final_data.disdro_longitude.values,
-                    final_data.radar_longitude.values,
-                    final_data.ams_longitude.values,
-                ]
-            )
+        geospatial_lon_max = np.nanmax(
+            [
+                np.nanmax(final_data.disdro_longitude.values),
+                np.nanmax(final_data.radar_longitude.values),
+                np.nanmax(final_data.ams_longitude.values),
+            ]
         )
         geospatial_lat_res = 10 ** -(
             min(
-                precision(final_data.disdro_latitude.values),
-                precision(final_data.radar_latitude.values),
-                precision(final_data.ams_latitude.values),
+                precision(np.nanmin(final_data.disdro_latitude.values)),
+                precision(np.nanmin(final_data.radar_latitude.values)),
+                precision(np.nanmin(final_data.ams_latitude.values)),
             )
         )
         geospatial_lon_res = 10 ** -(
             min(
-                precision(final_data.disdro_longitude.values),
-                precision(final_data.radar_longitude.values),
-                precision(final_data.ams_longitude.values),
+                precision(np.nanmin(final_data.disdro_longitude.values)),
+                precision(np.nanmin(final_data.radar_longitude.values)),
+                precision(np.nanmin(final_data.ams_longitude.values)),
             )
         )
-        geospatial_vert_min = np.min(
-            np.array(
-                [
-                    final_data.disdro_altitude.values,
-                    final_data.radar_altitude.values,
-                    final_data.ams_altitude.values,
-                ]
-            )
+        geospatial_vert_min = np.nanmin(
+            [
+                np.nanmin(final_data.disdro_altitude.values),
+                np.nanmin(final_data.radar_altitude.values),
+                np.nanmin(final_data.ams_altitude.values),
+            ]
         )
-        geospatial_vert_max = np.max(
-            np.array(
-                [
-                    final_data.disdro_altitude.values,
-                    final_data.radar_altitude.values,
-                    final_data.ams_altitude.values,
-                ]
-            )
+        geospatial_vert_max = np.nanmax(
+            [
+                np.nanmax(final_data.disdro_altitude.values),
+                np.nanmax(final_data.radar_altitude.values),
+                np.nanmax(final_data.ams_altitude.values),
+            ]
         )
         geospatial_vert_res = 10 ** -(
             min(
-                precision(final_data.disdro_altitude.values),
-                precision(final_data.radar_altitude.values),
-                precision(final_data.ams_altitude.values),
+                precision(np.nanmin(final_data.disdro_altitude.values)),
+                precision(np.nanmin(final_data.radar_altitude.values)),
+                precision(np.nanmin(final_data.ams_altitude.values)),
             )
         )
     else:
-        geospatial_lat_min = np.min(
-            np.array(
-                [final_data.disdro_latitude.values, final_data.radar_latitude.values]
-            )
+        geospatial_lat_min = np.nanmin(
+            [
+                np.nanmin(final_data.disdro_latitude.values),
+                np.nanmin(final_data.radar_latitude.values),
+            ]
         )
-        geospatial_lat_max = np.max(
-            np.array(
-                [final_data.disdro_latitude.values, final_data.radar_latitude.values]
-            )
+        geospatial_lat_max = np.nanmax(
+            [
+                np.nanmax(final_data.disdro_latitude.values),
+                np.nanmax(final_data.radar_latitude.values),
+            ]
         )
-        geospatial_lon_min = np.min(
-            np.array(
-                [final_data.disdro_longitude.values, final_data.radar_longitude.values]
-            )
+        geospatial_lon_min = np.nanmin(
+            [
+                np.nanmin(final_data.disdro_longitude.values),
+                np.nanmin(final_data.radar_longitude.values),
+            ]
         )
-        geospatial_lon_max = np.max(
-            np.array(
-                [final_data.disdro_longitude.values, final_data.radar_longitude.values]
-            )
+
+        geospatial_lon_max = np.nanmax(
+            [
+                np.nanmax(final_data.disdro_longitude.values),
+                np.nanmax(final_data.radar_longitude.values),
+            ]
         )
         geospatial_lat_res = 10 ** -(
             min(
-                precision(final_data.disdro_latitude.values),
-                precision(final_data.radar_latitude.values),
+                precision(np.nanmin(final_data.disdro_latitude.values)),
+                precision(np.nanmin(final_data.radar_latitude.values)),
             )
         )
         geospatial_lon_res = 10 ** -(
             min(
-                precision(final_data.disdro_longitude.values),
-                precision(final_data.radar_longitude.values),
+                precision(np.nanmin(final_data.disdro_longitude.values)),
+                precision(np.nanmin(final_data.radar_longitude.values)),
             )
         )
-        geospatial_vert_min = np.min(
-            np.array(
-                [final_data.disdro_altitude.values, final_data.radar_altitude.values]
-            )
+        geospatial_vert_min = np.nanmin(
+            [
+                np.nanmin(final_data.disdro_altitude.values),
+                np.nanmin(final_data.radar_altitude.values),
+            ]
         )
-        geospatial_vert_max = np.max(
-            np.array(
-                [final_data.disdro_altitude.values, final_data.radar_altitude.values]
-            )
+        geospatial_vert_max = np.nanmax(
+            [
+                np.nanmax(final_data.disdro_altitude.values),
+                np.nanmax(final_data.radar_altitude.values),
+            ]
         )
         geospatial_vert_res = 10 ** -(
             min(
-                precision(final_data.disdro_altitude.values),
-                precision(final_data.radar_altitude.values),
+                precision(np.nanmin(final_data.disdro_altitude.values)),
+                precision(np.nanmin(final_data.radar_altitude.values)),
             )
         )
     final_data.attrs["geospatial_bounds"] = (
