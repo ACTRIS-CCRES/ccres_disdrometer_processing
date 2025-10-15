@@ -43,14 +43,29 @@ def read_radar_cloudnet(filename, max_radar_alt=2500):
     )
     radar_ds.range.attrs = {"units": "m", "long_name": "Range of each gate"}
 
+    # manage case were lat/lon/alt are 1D arrays instead of scalars
+    # linked to change of file format in cloudnet L1
+    if data_nc.longitude.values.size > 1:
+        radar_longitude = data_nc.longitude.values[0]
+    else:
+        radar_longitude = data_nc.longitude.values
+    if data_nc.latitude.values.size > 1:
+        radar_latitude = data_nc.latitude.values[0]
+    else:
+        radar_latitude = data_nc.latitude.values
+    if data_nc.altitude.values.size > 1:
+        radar_altitude = data_nc.altitude.values[0]
+    else:
+        radar_altitude = data_nc.altitude.values
+
     radar_ds["radar_longitude"] = xr.DataArray(
-        data_nc.longitude.values, attrs=data_nc.longitude.attrs
+        radar_longitude, attrs=data_nc.longitude.attrs
     )
     radar_ds["radar_latitude"] = xr.DataArray(
-        data_nc.latitude.values, attrs=data_nc.latitude.attrs
+        radar_latitude, attrs=data_nc.latitude.attrs
     )
     radar_ds["radar_altitude"] = xr.DataArray(
-        data_nc.altitude.values, attrs=data_nc.altitude.attrs
+        radar_altitude, attrs=data_nc.altitude.attrs
     )
     radar_ds["radar_altitude"].attrs["positive"] = "up"
 
