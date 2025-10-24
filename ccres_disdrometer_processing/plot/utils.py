@@ -201,7 +201,7 @@ def get_y_fit_dd(data):
     #
     if classes.size != 0:
         try:
-            popt, pcov = so.curve_fit(f_fit, sizes, classes)
+            popt, pcov = so.curve_fit(f_fit, sizes, classes, max_nfev=5000)
             y_hat = f_fit(data["size_classes"], popt[0], popt[1], popt[2])
             y_th = f_th(data["size_classes"])
             return y_hat, y_th, sizes, classes, drop_density, 1
