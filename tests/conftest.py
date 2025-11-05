@@ -50,6 +50,15 @@ def data_out_dir(data_dir):
     return path
 
 
+@pytest.fixture
+def data_out_dir_big_diff(data_out_dir):
+    path: Path = data_out_dir / "big_diff"
+    if not path.exists():
+        path.mkdir(parents=True, exist_ok=True)
+
+    return path
+
+
 @pytest.fixture(
     params=[
         # palaiseau
@@ -558,6 +567,46 @@ def test_data_processing_ndays(request):
     ]
 )
 def test_data_processing_cli_option_no_meteo(request):
+    """Data to test processing on several days."""
+    param = request.param
+    yield param
+
+
+# test for big difference in comaprison of DD and DCR
+@pytest.fixture(
+    params=[
+        # Munich
+        {
+            "site": "munich",
+            "radar": "mira-35",
+            "radar-pid": "https://hdl.handle.net/21.12132/3.7c1d258632f94cdd",
+            "disdro": "parsivel",
+            "disdro-pid": "https://hdl.handle.net/21.12132/3.fab6c205243949eb",
+            "meteo-available": False,
+            "meteo": "weather-station",
+            "meteo-pid": "https://hdl.handle.net/21.12132/3.fa676e2576644868",
+            "config_file": "config_munich_mira-parsivel.toml",
+            "list_dates": [
+                "2025-09-04",
+                "2025-09-05",
+                "2025-09-06",
+            ],
+            "output": {
+                "preprocess_tmpl": "munich-big-diff_{}_mira-parsivel_preprocessed.nc",
+                "preprocessing_ql": {
+                    "weather-overview_tmpl": "munich-big-diff_{}_mira-parsivel_preproc-weather-overview.png",  # noqa E501
+                    "zh-overview_tmpl": "munich-big-diff_{}_mira-parsivel_zh-preproc-overview.png",  # noqa E501
+                },
+                "process_tmpl": "munich-big-diff_{}_mira-parsivel_processed.nc",
+                "process_ql": {
+                    "summary_tmpl": "munich-big-diff_{}_mira-parsivel_processed_summary",  # noqa E501
+                    "detailled_tmpl": "munich-big-diff_{}_mira-parsivel_processed_detailled",  # noqa E501
+                },
+            },
+        },
+    ]
+)
+def test_data_proc_big_diff(request):
     """Data to test processing on several days."""
     param = request.param
     yield param
