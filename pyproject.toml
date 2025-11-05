@@ -139,6 +139,8 @@ filterwarnings = [
     "ignore::FutureWarning",
     "default:::ccres_disdrometer_processing.*",
 ]
+log_cli = true
+log_level = "INFO"
 
 [tool.coverage.run]
 branch = true
