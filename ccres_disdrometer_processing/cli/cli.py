@@ -416,7 +416,7 @@ def process_ql(
     # 2b - get preprocessed data
     if ds_pro_today.events.size != 0:
         ds_prepro = utils.read_and_concatenante_preprocessed_ds(
-            ds_pro_today, preprocess_files
+            preprocess_files,
         )
 
         # 3 - Plot

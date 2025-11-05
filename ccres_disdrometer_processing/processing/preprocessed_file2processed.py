@@ -44,7 +44,9 @@ def merge_preprocessed_data(yesterday, today, tomorrow):
 
     tmp_data = []
     for file in list_available_files:
-        tmp_data.append(xr.open_dataset(file))
+        tmp = xr.open_dataset(file).load()
+        tmp_data.append(tmp)
+        tmp.close()
 
     ds = xr.concat(tmp_data, dim="time")
     return ds, files_provided
@@ -290,7 +292,8 @@ def process(yesterday, today, tomorrow, conf, output_file, no_meteo, verbosity):
     conf = toml.load(conf)
     ds, files_provided = merge_preprocessed_data(yesterday, today, tomorrow)
 
-    day_today = pd.to_datetime(xr.open_dataset(today)["time"].time.values[0]).day
+    with xr.open_dataset(today) as tmp_ds:
+        day_today = pd.to_datetime(tmp_ds["time"].time.values[0]).day
 
     if bool(ds["weather_data_avail"].values[0]) is False or no_meteo is True:
         click.echo("Downgraded mode (no weather data is used)")
@@ -358,8 +361,10 @@ def process(yesterday, today, tomorrow, conf, output_file, no_meteo, verbosity):
             "QF_rg_dd_event": {"_FillValue": QC_FILL_VALUE},
         },
     )
+    processed_ds.close()
     lgr.info("Processing : success")
-    return
+
+    return 0
 
 
 if __name__ == "__main__":

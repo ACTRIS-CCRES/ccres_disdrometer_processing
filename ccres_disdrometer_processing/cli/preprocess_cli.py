@@ -346,6 +346,7 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file, verbo
     final_data.to_netcdf(
         output_file, encoding={"time": {"units": TIME_UNITS, "calendar": "standard"}}
     )
+    final_data.close()
 
     click.echo("Preprocessing : SUCCESS")
 

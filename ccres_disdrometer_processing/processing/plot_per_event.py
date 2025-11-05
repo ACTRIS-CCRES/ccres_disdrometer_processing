@@ -200,7 +200,7 @@ def plot_from_preprocessed_noweather(preprocessed, processed, conf):
             )
             plt.close()
 
-    return
+    return 0
 
 
 if __name__ == "__main__":

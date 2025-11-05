@@ -62,7 +62,7 @@ def read_nc(file_: str):
     if not isinstance(file_, Path):
         file_ = Path(file_)
 
-    return xr.open_dataset(file_)
+    return xr.open_dataset(file_).load()
 
 
 def add_logo():
@@ -310,22 +310,25 @@ def linear_reg_scipy(x, y):
     return slope, intercept, r_value, p_value, std_err
 
 
-def read_and_concatenante_preprocessed_ds(
-    ds_pro: xr.Dataset, preprocessing_files: list[Path]
-):
+def read_and_concatenante_preprocessed_ds(preprocessing_files: list[Path]):
     """Read and concatenate preprocessed file.
 
     Parameters
     ----------
-    ds_pro : xr.Dataset
-        The process dataset.
     preprocessing_files : list[Path]
         The list of preprocessing files to read and concatenate.
+
+    Returns
+    -------
+    xarray.Dataset
+        The concatenated pre-processed xarray dataset.
 
     """
     tmp_ds = []
     for file in preprocessing_files:
-        tmp_ds.append(read_nc(file))
+        tmp = xr.open_dataset(file).load()
+        tmp_ds.append(tmp)
+        tmp.close()
 
     ds_prepro = xr.concat(tmp_ds, dim="time")
 
