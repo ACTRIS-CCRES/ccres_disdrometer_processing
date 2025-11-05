@@ -17,7 +17,9 @@ This code provides tools to process disdrometer data from [ACTRIS-CCRES](https:/
 ## Installation
 
 ```bash
-pip install numpy wheels
+conda create -p ccres-disdro-processing python=3.11 wheel libgcc-ng=13.2.0 'setuptools<60'
+conda activate ccres-disdro-processing
+pip install 'numpy<2'
 pip install ccres_disdrometer_processing
 ```
 
