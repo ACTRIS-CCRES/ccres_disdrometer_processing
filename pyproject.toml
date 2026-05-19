@@ -3,8 +3,11 @@ requires = ["setuptools", "numpy"]
 build-backend = "setuptools.build_meta"
 
 [project]
+authors = [
+    { name = "ACTRIS-CCRES", email = "ccres-dev@listes.ipsl.fr" },
+    { name = "Julien Delanoë" },
+]
 name = "ccres_disdrometer_processing"
-authors = [{ name = "ACTRIS-CCRES", email = "ccres-dev@listes.ipsl.fr" }]
 description = "CCRES code to convert data"
 readme = "README.md"
 requires-python = ">=3.9"
