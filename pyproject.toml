@@ -6,6 +6,7 @@ build-backend = "setuptools.build_meta"
 authors = [
     { name = "ACTRIS-CCRES", email = "ccres-dev@listes.ipsl.fr" },
     { name = "Julien Delanoë" },
+    { name = "Susana Jorquera" },
 ]
 name = "ccres_disdrometer_processing"
 description = "CCRES code to convert data"
