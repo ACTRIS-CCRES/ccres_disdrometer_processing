@@ -32,7 +32,7 @@ def selection(
         (xr.open_dataset(file) for file in FILES_weather[:]), dim="time"
     )
 
-    weather_ds_full["time"] = weather_ds_full.time.dt.round(freq="S")
+    weather_ds_full["time"] = weather_ds_full.time.dt.round(freq="s")
     weather_ds_full["rain"] = weather_ds_full["rainfall_rate"] * 1000 * 60
 
     weather_ds = weather_ds_full.isel(
