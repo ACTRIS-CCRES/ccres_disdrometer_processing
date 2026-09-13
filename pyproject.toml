@@ -11,7 +11,7 @@ authors = [
 name = "ccres_disdrometer_processing"
 description = "CCRES code to convert data"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 classifiers = [
     'Development Status :: 2 - Pre-Alpha',
     'Intended Audience :: Developers',
@@ -19,8 +19,6 @@ classifiers = [
     'Natural Language :: English',
     'Programming Language :: Python :: Implementation :: CPython',
     'Programming Language :: Python :: 3',
-    'Programming Language :: Python :: 3.9',
-    'Programming Language :: Python :: 3.10',
     'Programming Language :: Python :: 3.11',
 ]
 keywords = ['ccres_disdrometer_processing']
@@ -29,12 +27,12 @@ dependencies = [
     "netCDF4",
     "xarray",
     "pandas",
-    "numpy<2 ",
+    "numpy",
     "requests",
     "matplotlib",
     "scipy",
     "pyarrow",
-    "pytmatrix == 0.3.2",
+    "pytmatrix @ git+https://github.com/ltelab/pytmatrix-lte.git@v0.4.5",
     "toml",
 ]
 # Dynamic for setuptools
