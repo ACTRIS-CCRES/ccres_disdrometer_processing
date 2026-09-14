@@ -96,7 +96,7 @@ def data_pluvio_event(
         np.datetime64(start), np.datetime64(end), np.timedelta64(CHUNK_THICKNESS, "m")
     )
 
-    for start_time_chunk, stop_time_chunk in zip(time_chunks[:-1], time_chunks[1:]):
+    for start_time_chunk, stop_time_chunk in zip(time_chunks[:-1], time_chunks[1:]): # noqa: B905
         RR_chunk = (
             weather_event["rain"]
             .sel(

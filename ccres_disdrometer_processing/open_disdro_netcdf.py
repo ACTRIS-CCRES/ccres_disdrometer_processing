@@ -322,7 +322,7 @@ def read_parsivel_cloudnet_choice(
         data = None
 
     if data is not None:
-        for latlon_nc, latlon in zip(
+        for latlon_nc, latlon in zip( # noqa: B905
             ["longitude", "latitude", "altitude"],
             ["disdro_longitude", "disdro_latitude", "disdro_altitude"],
         ):

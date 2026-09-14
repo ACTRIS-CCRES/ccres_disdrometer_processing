@@ -47,7 +47,7 @@ def test_duplicate_events(data_input_dir, data_conf_dir, data_dir):
     output_process = data_bugfix_dir / params["output"]["process"]
 
     # do the preprocessing for the three input days :
-    for date, output in zip(
+    for date, output in zip( # noqa: B905
         [params["date_yesterday"], params["date_today"], params["date_tomorrow"]],
         [prepro_file_yesterday, prepro_file_today, prepro_file_tomorrow],
     ):

@@ -217,7 +217,7 @@ def timestep_pdf_with_filter(
 
     # gather and plot "good" timesteps
     df_list = []
-    for today, tomorrow in zip(files[0:-1], files[1:]):
+    for today, tomorrow in zip(files[0:-1], files[1:]): # noqa: B905
         output = extract.data_for_static_pdf(
             today,
             tomorrow,
