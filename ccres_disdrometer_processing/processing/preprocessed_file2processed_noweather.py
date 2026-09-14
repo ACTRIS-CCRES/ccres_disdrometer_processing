@@ -48,7 +48,7 @@ def rain_event_selection_noweather(ds, conf):
                 start.append(start_candidate.values)
                 end.append(t[i].values)
             start_candidate = t[i + 1]
-    for s, e in zip(start.copy(), end.copy()): # noqa: B905
+    for s, e in zip(start.copy(), end.copy()):  # noqa: B905
         rain_accumulation_event = (
             1 / 60 * np.nansum(sel_ds.disdro_pr.sel(time=slice(s, e)))
         )
@@ -87,7 +87,7 @@ def compute_quality_checks_noweather(ds, conf, start, end):
             "units": "mm",
         },
     )
-    for s, e in zip(start, end): # noqa: B905
+    for s, e in zip(start, end):  # noqa: B905
         qc_ds["flag_event"].loc[slice(s, e)] = 1
         qc_ds["disdro_cp_since_event_begin"].loc[slice(s, e)] = (
             1 / 60 * np.nancumsum(ds["disdro_pr"].sel(time=slice(s, e)).values)
@@ -249,7 +249,7 @@ def compute_todays_events_stats_noweather(
     )
 
     event = 0
-    for s, e in zip(start, end): # noqa: B905
+    for s, e in zip(start, end):  # noqa: B905
         if pd.to_datetime(e).day == day_today:
             start_event[event] = s
             end_event[event] = e
