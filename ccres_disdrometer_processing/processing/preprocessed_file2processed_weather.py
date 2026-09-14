@@ -67,7 +67,7 @@ def rain_event_selection_weather(ds, conf):
     # constraint on rain accumulation
     data_avail = ds.time.isel({"time": np.where(np.isfinite(ds["ta"]))[0]}).values
     ams_time_sampling = (data_avail[1] - data_avail[0]) / np.timedelta64(1, "m")
-    for s, e in zip(start.copy(), end.copy()): # noqa: B905
+    for s, e in zip(start.copy(), end.copy()):  # noqa: B905
         rain_accumulation_event = (
             ams_time_sampling / 60 * np.nansum(sel_ds.ams_pr.sel(time=slice(s, e)))
         )
@@ -109,7 +109,7 @@ def compute_quality_checks_weather(ds, conf, start, end):
             "unit": "mm",
         },
     )
-    for s, e in zip(start, end): # noqa: B905
+    for s, e in zip(start, end):  # noqa: B905
         # mask = (qc_ds.time >= s) & (qc_ds.time <= e)
         # qc_ds["ams_cp_since_event_begin"] = qc_ds["ams_cp_since_event_begin"].where(
         #     ~mask, 1
@@ -207,7 +207,7 @@ def compute_quality_checks_weather(ds, conf, start, end):
             "long_name": "Quality flag for discrepancy between rain gauge and disdrometer precipitation rate"  # noqa
         },
     )
-    for s, e in zip(start, end): # noqa: B905
+    for s, e in zip(start, end):  # noqa: B905
         # event_mask = np.where((ds.time.values >= s) | (ds.time.values <= e))[0]
         qc_ds["QF_rg_dd"].loc[slice(s, e)] = (
             np.abs(
@@ -353,7 +353,7 @@ def compute_todays_events_stats_weather(ds, Ze_ds, conf, qc_ds, start, end, day_
     )
 
     event = 0
-    for s, e in zip(start, end): # noqa: B905
+    for s, e in zip(start, end):  # noqa: B905
         if (
             pd.to_datetime(e).day == day_today
         ):  # we only treat events which end on day D
@@ -698,7 +698,7 @@ def compute_quality_checks_weather_low_sampling(
             "unit": "mm",
         },
     )
-    for s, e in zip(start, end): # noqa: B905
+    for s, e in zip(start, end):  # noqa: B905
         qc_ds["flag_event"].loc[slice(s, e)] = True
 
         cp_since_begin = (
@@ -802,7 +802,7 @@ def compute_quality_checks_weather_low_sampling(
             "long_name": "Quality flag for discrepancy between rain gauge and disdrometer precipitation rate"  # noqa
         },
     )
-    for s, e in zip(start, end): # noqa: B905
+    for s, e in zip(start, end):  # noqa: B905
         # event_mask = np.where((ds.time.values >= s) | (ds.time.values <= e))[0]
         qc_ds["QF_rg_dd"].loc[slice(s, e)] = (
             np.abs(

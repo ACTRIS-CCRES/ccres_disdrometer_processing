@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import Union
 
 import numpy as np
 import pandas as pd
@@ -35,7 +34,7 @@ NEW_KEYS = [
 ]
 
 
-def resample_data_perfect_timesteps(filename: Union[str, Path], config) -> xr.Dataset:
+def resample_data_perfect_timesteps(filename: str | Path, config) -> xr.Dataset:
     """Open and resample CLU daily disdrometer files.
 
     CLU daily files can have an irregular timestamping. This function resamples data
@@ -287,7 +286,7 @@ def read_thies_cloudnet(
 
 
 def read_parsivel_cloudnet_choice(
-    filename: Union[str, Path], radar_frequencies: list, config
+    filename: str | Path, radar_frequencies: list, config
 ) -> xr.Dataset:
     """Format a daily nc file from any daily disdrometer file from CLU.
 
@@ -322,7 +321,7 @@ def read_parsivel_cloudnet_choice(
         data = None
 
     if data is not None:
-        for latlon_nc, latlon in zip( # noqa: B905
+        for latlon_nc, latlon in zip(  # noqa: B905
             ["longitude", "latitude", "altitude"],
             ["disdro_longitude", "disdro_latitude", "disdro_altitude"],
         ):
