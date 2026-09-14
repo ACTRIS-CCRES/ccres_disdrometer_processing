@@ -2,7 +2,6 @@ import datetime as dt
 import glob
 import logging
 import os
-from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -34,7 +33,7 @@ DELTA_DISDRO = dt.timedelta(minutes=MN)
 
 def get_valid_paths(
     start: dt.datetime, end: dt.datetime, path: str
-) -> Optional[list[str]]:
+) -> list[str] | None:
     lgr.info("Concatenate weather station data over the rain event duration")
     ndays = (
         (end + DELTA_DISDRO).replace(hour=0, minute=0, second=0)
@@ -96,7 +95,7 @@ def data_pluvio_event(
         np.datetime64(start), np.datetime64(end), np.timedelta64(CHUNK_THICKNESS, "m")
     )
 
-    for start_time_chunk, stop_time_chunk in zip(time_chunks[:-1], time_chunks[1:]): # noqa: B905
+    for start_time_chunk, stop_time_chunk in zip(time_chunks[:-1], time_chunks[1:]):  # noqa: B905
         RR_chunk = (
             weather_event["rain"]
             .sel(
