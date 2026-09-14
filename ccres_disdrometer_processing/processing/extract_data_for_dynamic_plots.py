@@ -46,7 +46,7 @@ def data_for_static_pdf(today, tomorrow, rng, min_timesteps):
     cpt = 0
     weather_avail = ds.weather_data_avail.values[0]
 
-    for s, e in zip(today_ds["start_event"].values, today_ds["end_event"].values):
+    for s, e in zip(today_ds["start_event"].values, today_ds["end_event"].values): # noqa: B905
         if today_ds["QF_rain_accumulation"].values[cpt] == 1 and (
             weather_avail == 0 or today_ds["QF_rg_dd_event"].values[cpt] == 1
         ):

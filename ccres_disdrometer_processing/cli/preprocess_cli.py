@@ -38,7 +38,7 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file, verbo
         "RADAR_FREQUENCIES"
     ]  # given in Hz -> ok for the scattering script
     E = {}
-    for frequency, index in zip(computed_frequencies, refraction_indices):
+    for frequency, index in zip(computed_frequencies, refraction_indices): # noqa: B905
         refr_index = complex(index[0], index[1])
         E[frequency] = refr_index
 
