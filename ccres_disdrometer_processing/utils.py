@@ -75,12 +75,19 @@ def get_file_from_cloudnet(
         }
     )
     metadata = requests.get(request_urls).json()
-    filename = metadata[0]["filename"]
+    # Cloudnet may expose several files for the same site/date/instrument
+    # query (e.g. derived "epsilon-*" turbulence products alongside the raw
+    # instrument product). Skip those derived products so the raw file
+    # (e.g. containing Zh for a radar) is picked instead.
+    candidates = [
+        item for item in metadata if not item["product"]["id"].startswith("epsilon")
+    ] or metadata
+    filename = candidates[0]["filename"]
     local_file = local_dir / filename
 
     if not is_file_available(filename, local_dir):
         # get url of file
-        file_url = metadata[0]["downloadUrl"]
+        file_url = candidates[0]["downloadUrl"]
         print(f"Downloading {file_url} into {local_file}")
         # download file
         response = requests.get(file_url, stream=True)

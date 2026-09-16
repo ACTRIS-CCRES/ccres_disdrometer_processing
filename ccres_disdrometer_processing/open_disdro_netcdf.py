@@ -83,7 +83,7 @@ def resample_data_perfect_timesteps(filename: Union[str, Path], config) -> xr.Da
     )
     data_perfect_timesteps.attrs = {}
     data_perfect_timesteps["time_bins"] = data_perfect_timesteps.time_bins.dt.round(
-        freq="1S"
+        freq="1s"
     )
     # TODO: to fix. variable in other option in config file
     data_perfect_timesteps["F"] = config["instrument_parameters"]["DD_SAMPLING_AREA"]

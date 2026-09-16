@@ -72,7 +72,7 @@ def data_pluvio_event(
         return None
 
     weather_ds = xr.concat((xr.open_dataset(path) for path in paths), dim="time")
-    weather_ds["time"] = weather_ds.time.dt.round(freq="S")
+    weather_ds["time"] = weather_ds.time.dt.round(freq="s")
 
     weather_event = weather_ds.sel(
         {"time": slice(start - DELTA_DISDRO, end + DELTA_DISDRO)}
@@ -132,7 +132,7 @@ def data_dcr_event(data_dir, start, end, r_type):
         return None
 
     dcr_ds = xr.concat((xr.open_dataset(path) for path in paths), dim="time")
-    dcr_ds["time"] = dcr_ds.time.dt.round(freq="S")
+    dcr_ds["time"] = dcr_ds.time.dt.round(freq="s")
 
     dcr_event = dcr_ds.sel({"time": slice(start - DELTA_DISDRO, end + DELTA_DISDRO)})
 
@@ -159,7 +159,7 @@ def data_disdro_event(data_dir, start, end):
         return None
 
     disdro_ds = xr.concat((xr.open_dataset(path) for path in paths), dim="time")
-    disdro_ds["time"] = disdro_ds.time.dt.round(freq="S")
+    disdro_ds["time"] = disdro_ds.time.dt.round(freq="s")
 
     disdro_event = disdro_ds.sel(
         {"time": slice(start - DELTA_DISDRO, end + DELTA_DISDRO)}
