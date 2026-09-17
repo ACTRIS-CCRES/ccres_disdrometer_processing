@@ -67,7 +67,8 @@ dev = [
     "pre-commit",
 
     # Commitizen
-    "commitizen>=4.13.8",
+    # 4.11 dropped Python 3.9
+    "commitizen>=4.10.1,<4.11",
     # Formatting
     "ruff",
 
