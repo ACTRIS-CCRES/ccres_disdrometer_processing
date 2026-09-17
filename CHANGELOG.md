@@ -22,3 +22,11 @@
 ## 0.1.0 (2023-07-10)
 
 - First release on PyPI.
+
+## v0.3.5 (2026-09-17)
+
+### Fix
+
+- use correct  kwarg for curve_fit in get_y_fit_dd
+- replace deprecated pandas frequency alias S with s
+- exclude derived epsilon-* products when fetching files from Cloudnet
