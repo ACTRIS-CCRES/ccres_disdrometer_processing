@@ -20,6 +20,9 @@ classifiers = [
     'Programming Language :: Python :: Implementation :: CPython',
     'Programming Language :: Python :: 3',
     'Programming Language :: Python :: 3.11',
+    'Programming Language :: Python :: 3.12',
+    'Programming Language :: Python :: 3.13',
+    'Programming Language :: Python :: 3.14',
 ]
 keywords = ['ccres_disdrometer_processing']
 dependencies = [
@@ -65,8 +68,7 @@ dev = [
     "pre-commit",
 
     # Commitizen
-    # 4.11 dropped Python 3.9
-    "commitizen>=4.10.1,<4.11",
+    "commitizen>=4.18.0",
     # Formatting
     "ruff",
 
