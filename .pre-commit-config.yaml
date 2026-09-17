@@ -12,7 +12,6 @@ repos:
           - id: mixed-line-ending
             args: ["--fix", "lf"]
           - id: trailing-whitespace
-            exclude: .bumpversion.cfg
           - id: check-json
           - id: check-toml
           - id: check-yaml
@@ -38,3 +37,9 @@ repos:
           - id: pydocstyle
             additional_dependencies: [".[toml]"]
             args: ["--config", ".pydocstyle.ini"]
+    # Commitizen
+    - repo: https://github.com/commitizen-tools/commitizen
+      rev: v4.18.0
+      hooks:
+          - id: commitizen
+            stages: [commit-msg]
