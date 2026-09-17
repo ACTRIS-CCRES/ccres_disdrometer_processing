@@ -104,6 +104,9 @@ zip-safe = false
 [tool.setuptools.packages.find]
 include = ["ccres_disdrometer_processing", "ccres_disdrometer_processing.*"]
 
+[tool.setuptools.package-data]
+ccres_disdrometer_processing = ["assets/logo/*.png"]
+
 [tool.mypy]
 explicit_package_bases = true
 disallow_untyped_defs = true
