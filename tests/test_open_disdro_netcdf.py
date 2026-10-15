@@ -5,6 +5,7 @@ import pytest
 import toml
 import xarray as xr
 
+from ccres_disdrometer_processing import utils
 from ccres_disdrometer_processing.open_disdro_netcdf import (
     read_parsivel_cloudnet_choice,
 )
@@ -12,29 +13,44 @@ from ccres_disdrometer_processing.open_disdro_netcdf import (
 RADAR_FREQUENCIES = [35.0e9, 94.0e9]
 
 
+def write_layout(ds, raw, version, path):
+    """Write ds with data_raw replaced by raw and cloudnetpy_version by version."""
+    out = ds.copy()
+    out["data_raw"] = (("time", "diameter", "velocity"), raw, ds["data_raw"].attrs)
+    out.attrs["cloudnetpy_version"] = version
+    out.to_netcdf(path)
+    return path
+
+
 @pytest.fixture
 def parsivel_files(data_input_dir, data_conf_dir, tmp_path):
-    """Build a cloudnetpy < 1.94 Parsivel2 file and its cloudnetpy >= 1.94 equivalent.
+    """Build the same Parsivel2 day in its cloudnetpy < 1.94 and >= 1.94 layouts.
 
     cloudnetpy < 1.94 stored data_raw as (time, velocity, diameter) despite its
-    (time, diameter, velocity) dimension names; 1.94 fixed the order. The
-    second file is the first one rewritten the way cloudnetpy >= 1.94 does.
+    (time, diameter, velocity) dimension names; 1.94 fixed the order. Cloudnet
+    reprocesses old days, so the downloaded file may come in either layout:
+    both are rebuilt from it rather than relying on the version served.
     """
-    old_file = data_input_dir / "20240208_juelich_parsivel_2a1ca46e.nc"
+    source = utils.get_file_from_cloudnet(
+        "juelich",
+        "2024-02-08",
+        "parsivel",
+        "https://hdl.handle.net/21.12132/3.2a1ca46ed70c4929",
+        data_input_dir,
+    )
     config = toml.load(data_conf_dir / "config_juelich_mira-parsivel.toml")
 
-    with xr.open_dataset(old_file) as ds:
-        assert ds.attrs["cloudnetpy_version"].startswith("1.58.")
-        new = ds.load().copy()
-    new["data_raw"] = (
-        ("time", "diameter", "velocity"),
-        np.swapaxes(new["data_raw"].values, 1, 2),
-        new["data_raw"].attrs,
-    )
-    new.attrs["cloudnetpy_version"] = "1.94.0"
-    new_file = tmp_path / "20240208_juelich_parsivel_2a1ca46e_1.94.nc"
-    new.to_netcdf(new_file)
+    with xr.open_dataset(source) as ds:
+        ds = ds.load()
+    major, minor = ds.attrs["cloudnetpy_version"].split(".")[:2]
+    raw = ds["data_raw"].values  # (time, diameter, velocity) from 1.94 on
+    if (int(major), int(minor)) < (1, 94):
+        raw = np.swapaxes(raw, 1, 2)
 
+    old_file = write_layout(
+        ds, np.swapaxes(raw, 1, 2), "1.93.0", tmp_path / "parsivel_1.93.nc"
+    )
+    new_file = write_layout(ds, raw, "1.94.0", tmp_path / "parsivel_1.94.nc")
     return old_file, new_file, config
 
 
