@@ -91,7 +91,25 @@ def resample_data_perfect_timesteps(filename: str | Path, config) -> xr.Dataset:
         data_perfect_timesteps.attrs[key] = data_nc.attrs[key]
     data_perfect_timesteps.attrs["disdrometer_source"] = data_nc.attrs["source"]
     data_perfect_timesteps.attrs["disdrometer_pid"] = data_nc.attrs["instrument_pid"]
+    # needed by read_parsivel_cloudnet() to know the data_raw axis order
+    data_perfect_timesteps.attrs["disdrometer_cloudnetpy_version"] = data_nc.attrs.get(
+        "cloudnetpy_version", ""
+    )
     return data_perfect_timesteps
+
+
+def cloudnetpy_version(data_nc: xr.Dataset) -> tuple[int, int]:
+    """Return the (major, minor) cloudnetpy version of a resampled CLU disdro file.
+
+    (0, 0) when the attribute is missing or unreadable, so that such files keep
+    the historical (pre-1.94) handling.
+    """
+    try:
+        version = data_nc.attrs.get("disdrometer_cloudnetpy_version", "")
+        major, minor = version.split(".")[:2]
+        return int(major), int(minor)
+    except ValueError:
+        return (0, 0)
 
 
 def read_parsivel_cloudnet(
@@ -154,8 +172,14 @@ def read_parsivel_cloudnet(
             },
         )
 
+        # cloudnetpy < 1.94 stored Parsivel2 data_raw as (time, velocity, diameter)
+        # despite its (time, diameter, velocity) dimension names; fixed in 1.94,
+        # so only the older files must be transposed.
+        psd = data_nc["data_raw"].values
+        if cloudnetpy_version(data_nc) < (1, 94):
+            psd = np.transpose(psd, axes=(0, 2, 1))
         data["psd"] = xr.DataArray(
-            np.transpose(data_nc["data_raw"].values, axes=(0, 2, 1)),
+            psd,
             dims=["time", "size_classes", "speed_classes"],
             attrs={
                 "units": "#/bin/mn",
@@ -438,7 +462,7 @@ def reflectivity_model_multilambda_measmodV_hvfov(
 
     for ii in range(len(mparsivel.time)):
         # sum over speed axis -> number of drops per time and size
-        # replace axis=1 by 0 if not transposed in parsivel
+        # psd is (time, size_classes, speed_classes): axis 1 here is speed
         Ni = np.nansum(mparsivel.psd.values[ii, :, :], 1)
 
         model.RR[ii] = (
