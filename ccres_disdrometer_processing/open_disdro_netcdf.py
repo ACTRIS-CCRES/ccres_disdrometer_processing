@@ -98,18 +98,18 @@ def resample_data_perfect_timesteps(filename: str | Path, config) -> xr.Dataset:
     return data_perfect_timesteps
 
 
-def cloudnetpy_version(data_nc: xr.Dataset) -> tuple[int, int]:
+def cloudnetpy_version(data_nc: xr.Dataset) -> tuple[int, int] | None:
     """Return the (major, minor) cloudnetpy version of a resampled CLU disdro file.
 
-    (0, 0) when the attribute is missing or unreadable, so that such files keep
-    the historical (pre-1.94) handling.
+    None when the attribute is missing or unreadable: the file was not written
+    by cloudnetpy (e.g. a station's own netCDF, only "harmonized" by CLU).
     """
     try:
         version = data_nc.attrs.get("disdrometer_cloudnetpy_version", "")
         major, minor = version.split(".")[:2]
         return int(major), int(minor)
     except ValueError:
-        return (0, 0)
+        return None
 
 
 def read_parsivel_cloudnet(
@@ -174,9 +174,12 @@ def read_parsivel_cloudnet(
 
         # cloudnetpy < 1.94 stored Parsivel2 data_raw as (time, velocity, diameter)
         # despite its (time, diameter, velocity) dimension names; fixed in 1.94,
-        # so only the older files must be transposed.
+        # so only the older files must be transposed. Files not written by
+        # cloudnetpy (no version, e.g. Munich) already hold (time, diameter,
+        # velocity), whatever their dimension names say.
         psd = data_nc["data_raw"].values
-        if cloudnetpy_version(data_nc) < (1, 94):
+        version = cloudnetpy_version(data_nc)
+        if version is not None and version < (1, 94):
             psd = np.transpose(psd, axes=(0, 2, 1))
         data["psd"] = xr.DataArray(
             psd,
