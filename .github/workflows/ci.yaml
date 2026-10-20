@@ -36,7 +36,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
-          python-version: "3.11"
+          python-version: "3.13"
 
       - name: Cache python environment
         uses: actions/cache@v5
@@ -44,7 +44,7 @@ jobs:
         # This restore and/or save in the same action
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-python-3.11-venv-${{ hashFiles('pyproject.toml') }}
+          key: ${{ runner.os }}-python-3.13-venv-${{ hashFiles('pyproject.toml') }}
 
       - name: Install dependencies
         # pytmatrix-lte (meson-python build) needs no build-isolation
@@ -64,18 +64,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - {
-              python: "3.12",
-              os: "ubuntu-latest",
-              session: "tests",
-              cache-path: ~/.cache/pip,
-            }
-          - {
-              python: "3.13",
-              os: "ubuntu-latest",
-              session: "tests",
-              cache-path: ~/.cache/pip,
-            }
           - {
               python: "3.14",
               os: "ubuntu-latest",
@@ -133,7 +121,7 @@ jobs:
           python -m pytest
 
   linux-tests:
-    name: Tests for Python 3.11 on ubuntu-latest
+    name: Tests for Python 3.13 on ubuntu-latest
     runs-on: ubuntu-latest
     needs: pre-commit
     # If not default branch
@@ -153,10 +141,10 @@ jobs:
           sudo apt-get update
           sudo apt-get -y install gfortran
 
-      - name: Set up Python 3.11
+      - name: Set up Python 3.13
         uses: actions/setup-python@v7
         with:
-          python-version: "3.11"
+          python-version: "3.13"
 
       - name: Cache python environment
         uses: actions/cache@v5
@@ -166,7 +154,7 @@ jobs:
           path: |
             tests/data/outputs/
             ~/.cache/pip
-          key: ${{ runner.os }}-python-3.11-pip-${{ hashFiles('pyproject.toml') }}
+          key: ${{ runner.os }}-python-3.13-pip-${{ hashFiles('pyproject.toml') }}
 
       - name: Install dependencies
         run: |
@@ -225,7 +213,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
-          python-version: "3.11"
+          python-version: "3.13"
 
       - name: Install pypa/build
         run: |
@@ -256,7 +244,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
-          python-version: "3.11"
+          python-version: "3.13"
 
       - name: Install pypa/build
         run: |

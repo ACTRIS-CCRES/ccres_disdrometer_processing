@@ -67,7 +67,7 @@ Ready to contribute? Here's how to set up `ccres_disdrometer_processing` for loc
 
     ```
     cd ccres_disdrometer_processing/
-    conda create -n <name_of_your_env> python=3.10
+    conda create -n <name_of_your_env> python=3.13
     conda activate <name_of_your_env>
     pip install -e .[dev]
     ```

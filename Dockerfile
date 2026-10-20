@@ -1,5 +1,5 @@
 
-FROM python:3.11-bullseye
+FROM python:3.13-bullseye
 
 LABEL description="ccres_disdrometer_processing docker image"
 
