@@ -82,6 +82,12 @@ jobs:
               session: "tests",
               cache-path: ~/.cache/pip,
             }
+          - {
+              python: "3.15",
+              os: "ubuntu-latest",
+              session: "tests",
+              cache-path: ~/.cache/pip,
+            }
 
     env:
       FORCE_COLOR: "1"
