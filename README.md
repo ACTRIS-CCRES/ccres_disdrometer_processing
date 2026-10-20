@@ -21,8 +21,8 @@ pip install numpy wheels
 pip install ccres_disdrometer_processing
 ```
 
-> [!WARNING]
-> The code is not compatible with python 3.12 because of [pytmatrix](https://github.com/jleinonen/pytmatrix).
+> [!NOTE]
+> Python 3.13 or later is required. Installing [pytmatrix-lte](https://github.com/ltelab/pytmatrix-lte) compiles its Fortran extension, so a Fortran compiler (e.g. `gfortran`) must be available.
 
 ## Usage
 

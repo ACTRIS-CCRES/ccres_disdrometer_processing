@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import Union
 
 import numpy as np
 import pandas as pd
@@ -35,7 +34,7 @@ NEW_KEYS = [
 ]
 
 
-def resample_data_perfect_timesteps(filename: Union[str, Path], config) -> xr.Dataset:
+def resample_data_perfect_timesteps(filename: str | Path, config) -> xr.Dataset:
     """Open and resample CLU daily disdrometer files.
 
     CLU daily files can have an irregular timestamping. This function resamples data
@@ -92,7 +91,25 @@ def resample_data_perfect_timesteps(filename: Union[str, Path], config) -> xr.Da
         data_perfect_timesteps.attrs[key] = data_nc.attrs[key]
     data_perfect_timesteps.attrs["disdrometer_source"] = data_nc.attrs["source"]
     data_perfect_timesteps.attrs["disdrometer_pid"] = data_nc.attrs["instrument_pid"]
+    # needed by read_parsivel_cloudnet() to know the data_raw axis order
+    data_perfect_timesteps.attrs["disdrometer_cloudnetpy_version"] = data_nc.attrs.get(
+        "cloudnetpy_version", ""
+    )
     return data_perfect_timesteps
+
+
+def cloudnetpy_version(data_nc: xr.Dataset) -> tuple[int, int] | None:
+    """Return the (major, minor) cloudnetpy version of a resampled CLU disdro file.
+
+    None when the attribute is missing or unreadable: the file was not written
+    by cloudnetpy (e.g. a station's own netCDF, only "harmonized" by CLU).
+    """
+    try:
+        version = data_nc.attrs.get("disdrometer_cloudnetpy_version", "")
+        major, minor = version.split(".")[:2]
+        return int(major), int(minor)
+    except ValueError:
+        return None
 
 
 def read_parsivel_cloudnet(
@@ -155,8 +172,17 @@ def read_parsivel_cloudnet(
             },
         )
 
+        # cloudnetpy < 1.94 stored Parsivel2 data_raw as (time, velocity, diameter)
+        # despite its (time, diameter, velocity) dimension names; fixed in 1.94,
+        # so only the older files must be transposed. Files not written by
+        # cloudnetpy (no version, e.g. Munich) already hold (time, diameter,
+        # velocity), whatever their dimension names say.
+        psd = data_nc["data_raw"].values
+        version = cloudnetpy_version(data_nc)
+        if version is not None and version < (1, 94):
+            psd = np.transpose(psd, axes=(0, 2, 1))
         data["psd"] = xr.DataArray(
-            np.transpose(data_nc["data_raw"].values, axes=(0, 2, 1)),
+            psd,
             dims=["time", "size_classes", "speed_classes"],
             attrs={
                 "units": "#/bin/mn",
@@ -287,7 +313,7 @@ def read_thies_cloudnet(
 
 
 def read_parsivel_cloudnet_choice(
-    filename: Union[str, Path], radar_frequencies: list, config
+    filename: str | Path, radar_frequencies: list, config
 ) -> xr.Dataset:
     """Format a daily nc file from any daily disdrometer file from CLU.
 
@@ -322,7 +348,7 @@ def read_parsivel_cloudnet_choice(
         data = None
 
     if data is not None:
-        for latlon_nc, latlon in zip(
+        for latlon_nc, latlon in zip(  # noqa: B905
             ["longitude", "latitude", "altitude"],
             ["disdro_longitude", "disdro_latitude", "disdro_altitude"],
         ):
@@ -439,7 +465,7 @@ def reflectivity_model_multilambda_measmodV_hvfov(
 
     for ii in range(len(mparsivel.time)):
         # sum over speed axis -> number of drops per time and size
-        # replace axis=1 by 0 if not transposed in parsivel
+        # psd is (time, size_classes, speed_classes): axis 1 here is speed
         Ni = np.nansum(mparsivel.psd.values[ii, :, :], 1)
 
         model.RR[ii] = (
