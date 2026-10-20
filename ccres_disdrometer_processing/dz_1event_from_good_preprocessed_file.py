@@ -886,7 +886,7 @@ def dz_plot(
 
     ax.legend()
     ax.set_title(
-        "PDF of $\Delta Z$ timestep by timestep \n"
+        "PDF of $\\Delta Z$ timestep by timestep \n"
         + "Studied period : {} - {} \n".format(
             t[0].strftime("%Y/%m"), t[-1].strftime("%Y/%m")
         )

@@ -124,6 +124,10 @@ exclude = ["docs"]
 select = [
     # pycodestyle
     "E",
+    # pycodestyle: invalid escape sequence (a future SyntaxError)
+    "W605",
+    # flake8-datetimez: datetime.utcnow() is deprecated
+    "DTZ003",
     # Pyflakes
     "F",
     # pyupgrade

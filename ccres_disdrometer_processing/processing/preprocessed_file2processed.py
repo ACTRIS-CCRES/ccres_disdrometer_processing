@@ -199,7 +199,7 @@ def add_attributes(processed_ds, preprocessed_ds):
     ]:
         processed_ds.attrs[key] = preprocessed_ds.attrs[key]
 
-    date_created = datetime.datetime.utcnow().strftime(ISO_DATE_FORMAT)
+    date_created = datetime.datetime.now(datetime.UTC).strftime(ISO_DATE_FORMAT)
     processed_ds.attrs["history"] = (
         f"created on {date_created} by {script_name}, v{__version__}"
     )

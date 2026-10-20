@@ -269,7 +269,7 @@ def timestep_pdf_with_filter(
     ax.set_yticklabels(np.round(100 * np.array(ax.get_yticks()), decimals=0))
     ax.legend()
     ax.set_title(
-        f"PDF of $\Delta Z$ timestep by timestep @ {output.location} \n"
+        f"PDF of $\\Delta Z$ timestep by timestep @ {output.location} \n"
         + "Studied period : {} - {} \n".format(
             timestep_df.index[0].strftime("%Y/%m"),
             timestep_df.index[-1].strftime("%Y/%m"),
