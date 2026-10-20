@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.0.1 (2026-10-20)
+
+### Fix
+
+- remove invalid escape sequences and deprecated datetime.utcnow()
+
 ## v1.0.0 (2026-10-20)
 
 ### BREAKING CHANGE

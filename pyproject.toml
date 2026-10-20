@@ -177,7 +177,7 @@ ignore_errors = true
 
 [tool.commitizen]
 name = "cz_conventional_commits"
-version = "1.0.0"
+version = "1.0.1"
 changelog_start_rev = "v0.3.4"
 tag_format = "v$version"
 version_files = [
