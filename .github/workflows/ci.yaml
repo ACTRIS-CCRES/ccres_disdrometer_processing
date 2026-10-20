@@ -195,7 +195,11 @@ jobs:
 
   test-pypi:
     name: Deploy Package to Test PyPI
-    if: startsWith(github.ref, 'refs/tags/')
+    # Disabled while pytmatrix-lte is not on PyPI: the package depends on it
+    # through a git URL, which PyPI rejects. Restore the condition below once
+    # the dependency points to a PyPI release:
+    #   if: startsWith(github.ref, 'refs/tags/')
+    if: false
     runs-on: ubuntu-latest
     needs: [pre-commit]
     environment:
@@ -230,8 +234,11 @@ jobs:
 
   pypi:
     name: Deploy Package to PyPI
-    # Deploy only tagged commit and if tests have succeeded
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
+    # Deploy only tagged commit and if tests have succeeded.
+    # Disabled while pytmatrix-lte is not on PyPI (see test-pypi above).
+    # Restore once the dependency points to a PyPI release:
+    #   if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
+    if: false
     runs-on: ubuntu-latest
     needs: linux-tests
     steps:
