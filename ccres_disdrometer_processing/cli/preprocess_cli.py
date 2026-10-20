@@ -131,7 +131,7 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file, verbo
     final_data.attrs["Conventions"] = "CF-1.8, ACDD-1.3, GEOMS"
     final_data.attrs["id"] = config["nc_meta"]["id"]
     final_data.attrs["naming_authority"] = config["nc_meta"]["naming_authority"]
-    date_created = datetime.datetime.utcnow().strftime(ISO_DATE_FORMAT)
+    date_created = datetime.datetime.now(datetime.UTC).strftime(ISO_DATE_FORMAT)
     final_data.attrs["history"] = (
         f"created on {date_created} by {script_name}, v{__version__}"
     )

@@ -5,17 +5,22 @@
 # Required
 version: 2
 
-# Set the version of Python and other tools you might need
+# Plain Python, no conda: the conda environment could not be solved within
+# Read the Docs' limits. gfortran is the only system dependency, needed to
+# compile pytmatrix-lte's Fortran extension when the package is installed.
 build:
-  os: ubuntu-22.04
+  os: ubuntu-24.04
   tools:
-    python: "miniconda3-4.7"
-  jobs:
-    pre_create_environment:
-      - conda update --yes --quiet --name=base --channel=defaults conda
-    post_create_environment:
-      - pip install numpy wheel
-      - pip install .[docs]
+    python: "3.13"
+  apt_packages:
+    - gfortran
+
+python:
+  install:
+    - method: pip
+      path: .
+      extra_requirements:
+        - docs
 
 # Build documentation in the docs/ directory with Sphinx
 sphinx:
@@ -25,6 +30,3 @@ sphinx:
 formats:
   - pdf
   - epub
-
-conda:
-  environment: docs/environment.yml
