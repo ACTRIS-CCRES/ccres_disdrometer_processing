@@ -1,5 +1,26 @@
 # Changelog
 
+## v1.0.0 (2026-10-20)
+
+### BREAKING CHANGE
+
+- Python 3.11 and 3.12 are no longer supported (requires-python >= 3.13).
+- NumPy 1.x is no longer supported.
+- Installing pytmatrix-lte needs a Fortran compiler (gfortran).
+
+### Feat
+
+- require Python 3.13 or later
+- pin numpy to >=2 now that pytmatrix-lte supports it
+- replace pytmatrix with pytmatrix-lte to fix NumPy 2 compatibility
+
+### Fix
+
+- do not transpose Parsivel2 data_raw from files not written by cloudnetpy
+- transpose Parsivel2 data_raw only for cloudnetpy < 1.94
+- bundle logo PNG assets into the installed package
+- reorder changelog entry and pin commitizen <4.11 for Python 3.9 support
+
 ## v0.3.5 (2026-09-17)
 
 ### Fix
