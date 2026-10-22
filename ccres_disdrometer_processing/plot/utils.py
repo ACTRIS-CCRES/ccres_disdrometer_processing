@@ -12,7 +12,11 @@ from ccres_disdrometer_processing.assets import logo as logo_dir
 
 
 def read_nc(file_: str):
-    """Open netCDF file with xarray.
+    """Read a netCDF file in memory with xarray, then close it.
+
+    Files left open break later HDF5 reopenings of the same file in the same
+    process ("NetCDF: HDF error", or a crash), e.g. a preprocessed file read
+    by process-ql after preprocess-ql and process.
 
     Parameters
     ----------
@@ -28,7 +32,7 @@ def read_nc(file_: str):
     if not isinstance(file_, Path):
         file_ = Path(file_)
 
-    return xr.open_dataset(file_)
+    return xr.load_dataset(file_)
 
 
 def add_logo():
