@@ -145,7 +145,7 @@ ccres_disdrometer_processing process-ql \
         --preprocess-tomorrow path/to/tomorrow_preprocess_file.nc \
         --prefix-output-ql-summary path/to/summary_ql \
         --prefix-output-ql-detailled path/to/detailled_ql \
-        path/to/process_file.nc
+        --process-today path/to/process_file.nc
 ```
 
 If at list one event is found in the process file, the script will created the files:

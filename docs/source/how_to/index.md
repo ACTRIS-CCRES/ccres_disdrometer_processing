@@ -17,9 +17,9 @@ General diagram of the DCR calibration constant monitoring code
    | **Command** | **Description** |
    |------|------|
    |   `preprocess`   |   Preprocess daily data from CLU daily instruments files : outputs a preprocessing file   |
-   |   `preprocess_ql`   |   Generates daily quicklooks at specified paths from daily preprocessing file + a configuration file   |
+   |   `preprocess-ql`   |   Generates daily quicklooks at specified paths from daily preprocessing file + a configuration file   |
    |   `process`   |   Outputs a daily processing file from a daily preprocesing file and the neighbouring days' preprocessing files   |
-   |   `process_ql`   |   Generates quicklooks focusing on detected rain events at specified paths from daily processing file and the neighbouring day's preprocessing files + configuration file   |
+   |   `process-ql`   |   Generates quicklooks focusing on detected rain events at specified paths from daily processing file and the neighbouring day's preprocessing files + configuration file   |
    |      |      |
 
 
@@ -97,7 +97,7 @@ metadata_link = ""
 ## Preprocessing command
 
 
-    ccres-disdrometer-processing preprocess --disdro-file DISDRO_FILE [--ws-file WS_FILE] --radar-file RADAR_FILE --config-file CONFIG_FILE OUTPUT_FILE [-v VERBOSITY]
+    ccres_disdrometer_processing preprocess --disdro-file DISDRO_FILE [--ws-file WS_FILE] --radar-file RADAR_FILE --config-file CONFIG_FILE [-v] OUTPUT_FILE
 
 | **Short** | **Long** | **Default** | **Description** |
 |------|------|------|------|
@@ -110,7 +110,7 @@ metadata_link = ""
 
 ## Preprocessing quicklooks command
 
-    ccres-disdrometer-processing preprocess_ql FILE OUTPUT_QL_OVERVIEW OUTPUT_QL_OVERVIEW_ZH --config-file CONFIG_FILE
+    ccres_disdrometer_processing preprocess-ql --config-file CONFIG_FILE FILE OUTPUT_QL_OVERVIEW OUTPUT_QL_OVERVIEW_ZH
 
 | **Short** | **Long** | **Default** | **Description** |
 |------|------|------|------|
@@ -124,7 +124,7 @@ metadata_link = ""
 ## Processing command
 
 
-    ccres-disdrometer-processing process [--yesterday YESTERDAY_FILE] --today TODAY_FILE [--tomorrow TOMORROW_FILE] --config-file CONFIG_FILE OUTPUT_FILE [-v VERBOSITY]
+    ccres_disdrometer_processing process [--yesterday YESTERDAY_FILE] --today TODAY_FILE [--tomorrow TOMORROW_FILE] --config-file CONFIG_FILE [--no-meteo] [-v] OUTPUT_FILE
 
 | **Short** | **Long** | **Default** | **Description** |
 |------|------|------|------|
@@ -138,7 +138,7 @@ metadata_link = ""
 
 ## Processing quicklooks command
 
-    ccres-disdrometer-processing process_ql PROCESS_FILE --preprocess-yesterday PREPROCESS_YESTERDAY --preprocess-today PREPROCESS_TODAY --preprocess-tomorrow PREPROCESS_TOMORROW --prefix-output-ql-summary PREFIX_OUTPUT_QL_SUMMARY --prefix-output-ql-detailled PREFIX_OUTPUT_QL_DETAILLED OUTPUT_QL_OVERVIEW_ZH --config-file CONFIG_FILE
+    ccres_disdrometer_processing process-ql [--process-yesterday PROCESS_YESTERDAY] --process-today PROCESS_TODAY [--preprocess-yesterday PREPROCESS_YESTERDAY] --preprocess-today PREPROCESS_TODAY [--preprocess-tomorrow PREPROCESS_TOMORROW] --prefix-output-ql-summary PREFIX_OUTPUT_QL_SUMMARY --prefix-output-ql-detailled PREFIX_OUTPUT_QL_DETAILLED --config-file CONFIG_FILE [--flag | --no-flag] [--min-points MIN_POINTS]
 
 | **Short** | **Long** | **Default** | **Description** |
 |------|------|------|------|
@@ -151,5 +151,5 @@ metadata_link = ""
 |      |   `--prefix-output-ql-detailled`   |      |   Path to save the second panel of quicklooks (panel with detaileld analysis)   |
 |      |   `--config-file`   |      |   TOML configuration file suited for the input data (site, instruments, ...)   |
 |      |   `--flag` / `--no-flag`   |   `--flag`   |   With `--flag`, plots only events which pass the Quality Flags specified in processing file; with `--no-flag`, plots every event |
-|      |   `--min-points`   |      |   Criterion for minimum number of timesteps on which events statistics are computed to plot the event  |
+|      |   `--min-points`   |   50   |   Criterion for minimum number of timesteps on which events statistics are computed to plot the event  |
 |      |      |      |      |

@@ -2,7 +2,7 @@
 
 ### Daily quicklooks
 
-The command line ***preprocess_ql*** enables to display a set of quicklooks from daily preprocessing file.
+The command line ***preprocess-ql*** enables to display a set of quicklooks from daily preprocessing file.
 
 2 panels are displayed in output :
 
@@ -22,7 +22,7 @@ Here is an example :
 
  ###  "Rain event quicklooks"
 
- The command line ***process_ql*** enables to display a set of quicklooks from daily preprocessing file.
+ The command line ***process-ql*** enables to display a set of quicklooks from daily processing file.
 
 2 panels are displayed in output :
 

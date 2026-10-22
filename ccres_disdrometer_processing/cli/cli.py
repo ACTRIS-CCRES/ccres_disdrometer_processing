@@ -367,7 +367,7 @@ def process(
     "--min-points",
     type=int,
     default=50,
-    help="minimum number of points with ",
+    help="minimum number of good timesteps an event needs to be plotted with --flag",
 )
 # TODO : put this value in conf file, and use the value given in conf.
 # Also having this value in the configuration could be a good idea for selection of
