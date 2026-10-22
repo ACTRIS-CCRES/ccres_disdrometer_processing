@@ -153,7 +153,13 @@ filterwarnings = [
 
 [tool.coverage.run]
 branch = true
-omit = ["ccres_disdrometer_processing/tests/*", "./tests/*", "setup.py"]
+omit = [
+    "ccres_disdrometer_processing/tests/*",
+    "./tests/*",
+    "setup.py",
+    # Old standalone scripts kept for reference, not part of the package
+    "scripts/*",
+]
 
 [tool.coverage.report]
 # Regexes for lines to exclude from consideration
