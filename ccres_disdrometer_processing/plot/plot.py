@@ -600,7 +600,7 @@ def plot_processed_ql_summary(
 
     if flag:
         mask_good_event = np.where(
-            (ds_pro_today.good_points_number > min_points)
+            (ds_pro_today.good_points_number >= min_points)
             & (ds_pro_today.QF_rg_dd_event != 0)
         )[0]
         plotted_events = ds_pro_today.events.isel(events=mask_good_event)
@@ -864,7 +864,7 @@ def plot_processed_ql_detailled(
 
     if flag:
         mask_good_event = np.where(
-            (ds_pro_today.good_points_number > min_points)
+            (ds_pro_today.good_points_number >= min_points)
             & (ds_pro_today.QF_rg_dd_event != 0)
         )[0]
         plotted_events = ds_pro_today.events.isel(events=mask_good_event)
