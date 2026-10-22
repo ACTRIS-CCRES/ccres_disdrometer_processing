@@ -135,17 +135,7 @@ def compute_quality_checks(ds, conf, start, end, no_meteo):
         )
         lgr.info("Compute QC dataset (case without weather)")
     else:
-        data_avail = ds.time.isel({"time": np.where(np.isfinite(ds["ta"]))[0]}).values
-        ams_time_sampling = (data_avail[1] - data_avail[0]) / np.timedelta64(1, "m")
-        lgr.info(f"AMS time sampling : {ams_time_sampling:.0f} minute(s)")
-        if ams_time_sampling < 1.5:
-            lgr.info("AMS data available at 1mn frequency")
-            qc_ds = processing.compute_quality_checks_weather(ds, conf, start, end)
-        else:
-            qc_ds = processing.compute_quality_checks_weather_low_sampling(
-                ds, conf, start, end
-            )
-            lgr.info("AMS data available at a frequency > 1mn")
+        qc_ds = processing.compute_quality_checks_weather(ds, conf, start, end)
         lgr.info("Compute QC dataset (case with weather)")
     return qc_ds
 

@@ -16,9 +16,66 @@ lgr = logging.getLogger(__name__)
 
 QC_FILL_VALUE = -9
 
+# Weather variables used by the QCs, filled to 1 mn when the AMS samples less often
+WEATHER_QC_VARS = ["ta", "ws", "wd", "hur"]
+
 
 def rmse(y, y_hat):  # rmse func to remove dependency from sklearn rmse
     return np.sqrt(((y - y_hat) ** 2).mean())
+
+
+def get_ams_time_sampling(ds):
+    """Return the AMS (weather station) time sampling, in minutes.
+
+    Taken as the median gap between the timesteps where air temperature or
+    precipitation rate is available, so that a few missing samples do not
+    change the result.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Preprocessed data on a 1-mn grid, AMS values set to NaN where not sampled
+
+    Returns
+    -------
+    float
+        AMS time sampling in minutes ; 1 when fewer than two samples are available
+
+    """
+    valid = np.isfinite(ds["ta"].values) | np.isfinite(ds["ams_pr"].values)
+    times = ds.time.values[valid]
+    if times.size < 2:
+        return 1.0
+    return float(np.median(np.diff(times) / np.timedelta64(1, "m")))
+
+
+def fill_weather_to_1min(ds, ams_time_sampling):
+    """Fill the weather variables used by the QCs on every 1-mn timestep.
+
+    Each timestep takes the nearest available AMS value, when one lies within
+    one AMS sampling period. Longer gaps stay NaN, so the QCs fail there.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Preprocessed data on a 1-mn grid, AMS values set to NaN where not sampled
+    ams_time_sampling : float
+        AMS time sampling in minutes, from get_ams_time_sampling()
+
+    Returns
+    -------
+    xr.Dataset
+        Shallow copy of ds with the WEATHER_QC_VARS filled
+
+    """
+    filled = ds.copy()
+    tolerance = np.timedelta64(int(round(ams_time_sampling)), "m")
+    for key in WEATHER_QC_VARS:
+        valid = ds[key].isel(time=np.isfinite(ds[key].values))
+        if valid.time.size == 0:
+            continue
+        filled[key] = valid.reindex(time=ds.time, method="nearest", tolerance=tolerance)
+    return filled
 
 
 def rain_event_selection_weather(ds, conf):
@@ -65,8 +122,7 @@ def rain_event_selection_weather(ds, conf):
                 end.append(t[i].values)
             start_candidate = t[i + 1]
     # constraint on rain accumulation
-    data_avail = ds.time.isel({"time": np.where(np.isfinite(ds["ta"]))[0]}).values
-    ams_time_sampling = (data_avail[1] - data_avail[0]) / np.timedelta64(1, "m")
+    ams_time_sampling = get_ams_time_sampling(ds)
     for s, e in zip(start.copy(), end.copy()):  # noqa: B905
         rain_accumulation_event = (
             ams_time_sampling / 60 * np.nansum(sel_ds.ams_pr.sel(time=slice(s, e)))
@@ -80,6 +136,21 @@ def rain_event_selection_weather(ds, conf):
 
 
 def compute_quality_checks_weather(ds, conf, start, end):
+    """Compute the 1-mn QC dataset from preprocessed data with weather data.
+
+    Works for any AMS time sampling : when the AMS samples less often than every
+    minute (e.g. 10 mn at Lindenberg), the weather variables used by the QCs are
+    first filled to 1 mn by nearest neighbour (see fill_weather_to_1min), and AMS
+    rain accumulations weigh each sample by the sampling period.
+    """
+    ams_time_sampling = get_ams_time_sampling(ds)
+    lgr.info(f"AMS time sampling : {ams_time_sampling:.0f} minute(s)")
+    if ams_time_sampling > 1.5:
+        lgr.info("AMS sampling > 1mn : weather QC variables filled to 1mn")
+        weather = fill_weather_to_1min(ds, ams_time_sampling)
+    else:
+        weather = ds
+
     qc_ds = xr.Dataset(coords=dict(time=(["time"], ds.time.data)))
 
     # flag the timesteps belonging to an event
@@ -110,14 +181,13 @@ def compute_quality_checks_weather(ds, conf, start, end):
         },
     )
     for s, e in zip(start, end):  # noqa: B905
-        # mask = (qc_ds.time >= s) & (qc_ds.time <= e)
-        # qc_ds["ams_cp_since_event_begin"] = qc_ds["ams_cp_since_event_begin"].where(
-        #     ~mask, 1
-        # )
         qc_ds["flag_event"].loc[slice(s, e)] = True
 
+        # each AMS sample stands for one sampling period of rain
         qc_ds["ams_cp_since_event_begin"].loc[slice(s, e)] = (
-            1 / 60 * np.nancumsum(ds["ams_pr"].sel(time=slice(s, e)).values)
+            ams_time_sampling
+            / 60
+            * np.nancumsum(ds["ams_pr"].sel(time=slice(s, e)).values)
         )
         qc_ds["disdro_cp_since_event_begin"].loc[slice(s, e)] = (
             1 / 60 * np.nancumsum(ds["disdro_pr"].sel(time=slice(s, e)).values)
@@ -167,31 +237,31 @@ def compute_quality_checks_weather(ds, conf, start, end):
 
     # Temperature QC
     qc_ds["QC_ta"] = xr.DataArray(
-        ds["ta"].values > conf["thresholds"]["MIN_TEMP"],
+        weather["ta"].values > conf["thresholds"]["MIN_TEMP"],
         dims="time",
         attrs={"long_name": "Quality check for air temperature"},
     )
     # Wind speed and direction QCs
     qc_ds["QC_ws"] = xr.DataArray(
-        ds["ws"].values < conf["thresholds"]["MAX_WS"],
+        weather["ws"].values < conf["thresholds"]["MAX_WS"],
         dims="time",
         attrs={"long_name": "Quality check for wind speed"},
     )
     main_wind_dir = (conf["instrument_parameters"]["DD_ORIENTATION"] + 90) % 360
     dd_angle = conf["thresholds"]["DD_ANGLE"]
     qc_ds["QC_wd"] = xr.DataArray(
-        (np.abs(ds["wd"] - main_wind_dir) < dd_angle)
-        | (np.abs(ds["wd"] - main_wind_dir) > 360 - dd_angle)
-        | (np.abs(ds["wd"] - (main_wind_dir + 180) % 360) < dd_angle)
-        | (np.abs(ds["wd"] - (main_wind_dir + 180) % 360) > 360 - dd_angle),
+        (np.abs(weather["wd"] - main_wind_dir) < dd_angle)
+        | (np.abs(weather["wd"] - main_wind_dir) > 360 - dd_angle)
+        | (np.abs(weather["wd"] - (main_wind_dir + 180) % 360) < dd_angle)
+        | (np.abs(weather["wd"] - (main_wind_dir + 180) % 360) > 360 - dd_angle),
         dims="time",
         attrs={"long_name": "Quality check for wind direction"},
     )  # data is between 0 and 360°
 
     # QC for relative humidity : avoid cases with evaporation/fog
     qc_ds["QC_hur"] = xr.DataArray(
-        (ds["hur"].values > conf["thresholds"]["MIN_HUR"])
-        & (ds["hur"].values < conf["thresholds"]["MAX_HUR"]),
+        (weather["hur"].values > conf["thresholds"]["MIN_HUR"])
+        & (weather["hur"].values < conf["thresholds"]["MAX_HUR"]),
         dims="time",
         attrs={
             "long_name": "Quality check for relative humidity, bounds specified in conf"
@@ -223,21 +293,21 @@ def compute_quality_checks_weather(ds, conf, start, end):
         qc_ds[key].attrs["unit"] = "1"
         qc_ds[key].attrs["comment"] = "not computable when no AMS data is provided"
 
-        # Overall QC : ta, ws, wd, ams_pr, v(d)
-        qc_ds["QC_overall"] = xr.DataArray(
-            data=qc_ds["QC_ta"]
-            & qc_ds["QC_ws"]
-            & qc_ds["QC_wd"]
-            & qc_ds["QC_pr"]
-            & qc_ds["QC_hur"]
-            & qc_ds["QC_vdsd_t"],
-            dims="time",
-            attrs={
-                "long_name": "Overall quality check",
-                "unit": "1",
-                "comment": "Checks combined : ta, ws, wd, hur, vdsd_t, pr",
-            },
-        )
+    # Overall QC : ta, ws, wd, ams_pr, v(d)
+    qc_ds["QC_overall"] = xr.DataArray(
+        data=qc_ds["QC_ta"]
+        & qc_ds["QC_ws"]
+        & qc_ds["QC_wd"]
+        & qc_ds["QC_pr"]
+        & qc_ds["QC_hur"]
+        & qc_ds["QC_vdsd_t"],
+        dims="time",
+        attrs={
+            "long_name": "Overall quality check",
+            "unit": "1",
+            "comment": "Checks combined : ta, ws, wd, hur, vdsd_t, pr",
+        },
+    )
 
     # Data attributes and types
     for key in [
@@ -636,250 +706,6 @@ def compute_todays_events_stats_weather(ds, Ze_ds, conf, qc_ds, start, end, day_
     )
 
     return stats_ds
-
-
-def compute_quality_checks_weather_low_sampling(
-    ds, conf, start, end
-):  # example of use : Lindenberg
-    qc_ds = xr.Dataset(coords=dict(time=(["time"], ds.time.data)))
-    # Get AMS data time sampling
-    data_avail = ds.time.isel({"time": np.where(np.isfinite(ds["ta"]))[0]}).values
-    ams_time_sampling = (data_avail[1] - data_avail[0]) / np.timedelta64(1, "m")
-
-    # Work on a copy of the preprocessed dataset to build cp/QC
-    copy = ds.copy(deep=True)
-
-    for t in copy.time.values[0 : -int(ams_time_sampling + 1)]:
-        for key in ["ta", "ws", "wd", "hur"]:
-            nearest_data = (
-                ds[key]
-                .isel({"time": np.where(np.isfinite(ds[key]))[0]})
-                .sel(time=t, method="nearest")
-            )
-            copy[key].loc[t] = nearest_data
-        try:
-            next_valid_index_pr = (
-                ds["ams_pr"]
-                .isel({"time": np.where(np.isfinite(ds["ams_pr"]))[0]})
-                .time.searchsorted(t)
-            )
-            copy["ams_pr"].loc[t] = (
-                ds["ams_pr"]
-                .isel({"time": np.where(np.isfinite(ds["ams_pr"]))[0]})
-                .isel(time=next_valid_index_pr)
-            )
-        except IndexError:
-            break
-
-    # flag the timesteps belonging to an event
-    qc_ds["flag_event"] = xr.DataArray(
-        data=np.full(ds.time.size, False, dtype=bool),
-        dims=["time"],
-        attrs={
-            "long_name": "flag to describe if a timestep belongs to a rain event",
-            "unit": "1",
-        },
-    )
-    # do a column for rain accumulation since last beginning of an event
-    qc_ds["ams_cp_since_event_begin"] = xr.DataArray(
-        np.nan * np.zeros(ds.time.size),
-        dims=["time"],
-        attrs={
-            "long_name": "pluviometer rain accumulation since last begin of an event",
-            "unit": "mm",
-            "comment": "not computable when no AMS data is provided",
-        },
-    )
-    qc_ds["disdro_cp_since_event_begin"] = xr.DataArray(
-        np.zeros(ds.time.size),
-        dims="time",
-        attrs={
-            "long_name": "disdrometer rain accumulation since last begin of an event",
-            "unit": "mm",
-        },
-    )
-    for s, e in zip(start, end):  # noqa: B905
-        qc_ds["flag_event"].loc[slice(s, e)] = True
-
-        cp_since_begin = (
-            ams_time_sampling / 60 * np.nancumsum(ds.ams_pr.sel(time=slice(s, e)))
-        )
-        qc_ds["ams_cp_since_event_begin"].loc[slice(s, e)] = cp_since_begin
-
-        # qc_ds["disdro_cp_since_event_begin"].loc[slice(s, e)] = (
-        #     1
-        #     / 60
-        #     * np.nancumsum(
-        #         ds["disdro_pr"]
-        #         .sel(time=slice(s - np.timedelta64(int(ams_time_sampling - 1), "m"), e))  # noqa
-        #         .values
-        #     )[int(ams_time_sampling - 1) :]
-        # )
-        qc_ds["disdro_cp_since_event_begin"].loc[slice(s, e)] = (
-            1 / 60 * np.nancumsum(ds["disdro_pr"].sel(time=slice(s, e)).values)
-        )
-
-    # Flag for condition (rainfall_amount > N mm)
-    qc_ds["QF_rainfall_amount"] = xr.DataArray(
-        qc_ds["ams_cp_since_event_begin"] >= conf["thresholds"]["MIN_RAINFALL_AMOUNT"],
-        dims="time",
-        attrs={
-            "long_name": "Quality flag for minimum rainfall amount",
-            "unit": "1",
-            "comment": f"Flag based on AMS data ; threshold = {conf['thresholds']['MIN_RAINFALL_AMOUNT']:.0f} mm",  # noqa E501
-        },
-    )
-
-    # QC on precipitation rate : based on DISDROMETER even though AMS precipitation is available : it provides more consistent results  # noqa E501
-    qc_ds["QC_pr"] = xr.DataArray(
-        data=(ds["disdro_pr"] < conf["thresholds"]["MAX_RR"]).astype("i2"),
-        dims=["time"],
-        attrs={
-            "long_name": "Quality check for rainfall rate (based on disdro pr data)",
-            "comment": f"threshold = {conf['thresholds']['MAX_RR']:.0f} mm/h",
-        },
-    )
-
-    # QC relationship v(dsd)
-    vth_disdro = (
-        np.nansum(ds["psd"].values, axis=2) @ ds["modV"].isel(time=0).values
-    ) / np.nansum(
-        ds["psd"].values, axis=(1, 2)
-    )  # average fall speed weighted by (num_drops_per_time_and_diameter)
-    vobs_disdro = (
-        np.nansum(ds["psd"].values, axis=1) @ ds["speed_classes"].values
-    ) / np.nansum(ds["psd"].values, axis=(1, 2))
-    ratio_vdisdro_vth = vobs_disdro / vth_disdro
-
-    qc_ds["QC_vdsd_t"] = xr.DataArray(
-        data=(np.abs(ratio_vdisdro_vth - 1) <= 0.3),
-        dims="time",
-        attrs={
-            "long_name": "Quality check for cohence between fall speed and droplet diameter",  # noqa E501
-            "unit": "1",
-            "comment": f"threshold = {conf['thresholds']['DD_FALLSPEED_RATIO']:.1f} i.e. {100 * conf['thresholds']['DD_FALLSPEED_RATIO']:.0f}% of relative error between average fall speed computed from speed distribution and average fall speed modeled from diameter distribution",  # noqa E501,
-        },
-    )
-
-    # Temperature QC
-    qc_ds["QC_ta"] = xr.DataArray(
-        copy["ta"].values > conf["thresholds"]["MIN_TEMP"],
-        dims="time",
-        attrs={"long_name": "Quality check for air temperature"},
-    )
-    # Wind speed and direction QCs
-    qc_ds["QC_ws"] = xr.DataArray(
-        copy["ws"].values < conf["thresholds"]["MAX_WS"],
-        dims="time",
-        attrs={"long_name": "Quality check for wind speed"},
-    )
-    main_wind_dir = (conf["instrument_parameters"]["DD_ORIENTATION"] + 90) % 360
-    dd_angle = conf["thresholds"]["DD_ANGLE"]
-    qc_ds["QC_wd"] = xr.DataArray(
-        (np.abs(copy["wd"] - main_wind_dir) < dd_angle)
-        | (np.abs(copy["wd"] - main_wind_dir) > 360 - dd_angle)
-        | (np.abs(copy["wd"] - (main_wind_dir + 180) % 360) < dd_angle)
-        | (np.abs(copy["wd"] - (main_wind_dir + 180) % 360) > 360 - dd_angle),
-        dims="time",
-        attrs={"long_name": "Quality check for wind direction"},
-    )  # data is between 0 and 360°
-    # QC for relative humidity : avoid cases with evaporation/fog
-    qc_ds["QC_hur"] = xr.DataArray(
-        (copy["hur"].values > conf["thresholds"]["MIN_HUR"])
-        & (copy["hur"].values < conf["thresholds"]["MAX_HUR"]),
-        dims="time",
-        attrs={
-            "long_name": "Quality check for relative humidity, bounds specified in conf"
-        },
-    )
-
-    # Check agreement between rain gauge and disdrometer rain measurements
-    # extract ds(start to end), compute relative deviation and compare to conf tolerance
-    qc_ds["QF_rg_dd"] = xr.DataArray(
-        data=np.full(ds.time.size, False, dtype=bool),
-        dims="time",
-        attrs={
-            "long_name": "Quality flag for discrepancy between rain gauge and disdrometer precipitation rate"  # noqa
-        },
-    )
-    for s, e in zip(start, end):  # noqa: B905
-        # event_mask = np.where((ds.time.values >= s) | (ds.time.values <= e))[0]
-        qc_ds["QF_rg_dd"].loc[slice(s, e)] = (
-            np.abs(
-                qc_ds["disdro_cp_since_event_begin"].loc[slice(s, e)]
-                - qc_ds["ams_cp_since_event_begin"].loc[slice(s, e)]
-            )
-            / qc_ds["ams_cp_since_event_begin"].loc[slice(s, e)]
-            < conf["thresholds"]["DD_RG_MAX_PR_ACC_RATIO"]
-        )
-
-    # attributes for weather-related QCs
-    for key in ["QC_ta", "QC_wd", "QC_ws", "QC_hur", "QF_rg_dd"]:
-        qc_ds[key].attrs["unit"] = "1"
-        qc_ds[key].attrs["comment"] = "not computable when no AMS data is provided"
-
-        # Overall QC : ta, ws, wd, ams_pr, v(d)
-        qc_ds["QC_overall"] = xr.DataArray(
-            data=qc_ds["QC_ta"]
-            & qc_ds["QC_ws"]
-            & qc_ds["QC_wd"]
-            & qc_ds["QC_pr"]
-            & qc_ds["QC_hur"]
-            & qc_ds["QC_vdsd_t"],
-            dims="time",
-            attrs={
-                "long_name": "Overall quality check",
-                "unit": "1",
-                "comment": "Checks combined : ta, ws, wd, hur, vdsd_t, pr",
-            },
-        )
-
-    # Data attributes and types
-    for key in [
-        "flag_event",
-        "QF_rainfall_amount",
-        "QC_ta",
-        "QC_ws",
-        "QC_wd",
-        "QC_hur",
-        "QF_rg_dd",
-        "QC_pr",
-        "QC_vdsd_t",
-        "QC_overall",
-    ]:
-        qc_ds[key].data.astype("i2")
-        qc_ds[key].attrs["flag_values"] = np.array([0, 1]).astype("i2")
-
-    qc_ds["flag_event"].attrs["flag_meanings"] = (
-        "timestep_part_of_an_event timestep_not_involved_in_any_avent"
-    )
-    qc_ds["QF_rainfall_amount"].attrs["flag_meanings"] = (
-        "less_rain_than_threshold_since_event_begin more_rain_than_threshold_since_event_begin"  # noqa E501
-    )
-    qc_ds["QC_ta"].attrs["flag_meanings"] = (
-        "temperature_lower_than_threshold temperature_ok"
-    )
-    qc_ds["QC_ws"].attrs["flag_meanings"] = (
-        "wind_speed_higher_than_threshold wind_speed_ok"
-    )
-    qc_ds["QC_wd"].attrs["flag_meanings"] = (
-        "wind_direction_outside_good_angle_range wind_direction_ok"
-    )
-    qc_ds["QC_hur"].attrs["flag_meanings"] = (
-        "hur_above_lower_bound hur_over_upper_bound"
-    )
-    qc_ds["QF_rg_dd"].attrs["flag_meanings"] = (
-        "relative_difference_higher_than_threshold relative_difference_ok"
-    )
-    qc_ds["QC_pr"].attrs["flag_meanings"] = (
-        "precipitation_rate_above threshold precipitation_rate_ok"
-    )
-    qc_ds["QC_vdsd_t"].attrs["flag_meanings"] = (
-        "discrepancy_between_observed_and_modeled_disdrometer_droplet_fallspeed_above_threshold discrepancy_under_threshold"  # noqa e501
-    )
-    qc_ds["QC_overall"].attrs["flag_meanings"] = "at_least_one_QC_not_OK all_QC_OK"
-
-    return qc_ds
 
 
 if __name__ == "__main__":
