@@ -44,7 +44,8 @@ def merge_preprocessed_data(yesterday, today, tomorrow):
 
     tmp_data = []
     for file in list_available_files:
-        tmp_data.append(xr.open_dataset(file))
+        # load and close: open handles break later reopenings (see plot.utils.read_nc)
+        tmp_data.append(xr.load_dataset(file))
 
     ds = xr.concat(tmp_data, dim="time", data_vars="all")
     return ds, files_provided
@@ -290,7 +291,7 @@ def process(yesterday, today, tomorrow, conf, output_file, no_meteo, verbosity):
     conf = toml.load(conf)
     ds, files_provided = merge_preprocessed_data(yesterday, today, tomorrow)
 
-    day_today = pd.to_datetime(xr.open_dataset(today)["time"].time.values[0]).day
+    day_today = pd.to_datetime(xr.load_dataset(today)["time"].time.values[0]).day
 
     if bool(ds["weather_data_avail"].values[0]) is False or no_meteo is True:
         click.echo("Downgraded mode (no weather data is used)")
@@ -304,7 +305,7 @@ def process(yesterday, today, tomorrow, conf, output_file, no_meteo, verbosity):
     lgr.info("Merging Ze data, QC dataset and event stats dataset")
     processed_ds = xr.merge([Ze_ds, qc_ds, stats_ds], combine_attrs="no_conflicts")
     # Select only timesteps from the day to process
-    today_ds = xr.open_dataset(today)
+    today_ds = xr.load_dataset(today)
     lgr.info("Extracting the data from the day to process")
     processed_ds = processed_ds.sel(
         {"time": slice(today_ds.time.values[0], today_ds.time.values[-1])}
