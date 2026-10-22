@@ -1,5 +1,3 @@
-import importlib.util
-import sys
 from importlib import resources as impresources
 from pathlib import Path
 
@@ -11,38 +9,6 @@ import scipy.stats as stats
 import xarray as xr
 
 from ccres_disdrometer_processing.assets import logo as logo_dir
-
-
-def load_module(name, path):
-    """Load python file as module.
-
-    Notes
-    -----
-    https://docs.python.org/3/library/importlib.html#importing-a-source-file-directly
-
-    Parameters
-    ----------
-    name : str
-        The name of the module.
-    path : str
-        The path to the python file to load.
-
-    Returns
-    -------
-    module
-        The loaded module.
-
-    """
-    spec = importlib.util.spec_from_file_location(name, path)
-    module = importlib.util.module_from_spec(spec)
-    try:
-        spec.loader.exec_module(module)
-    except (OSError, ImportError, FileNotFoundError) as err:
-        print(f"ERROR: impossible to load module {path}")
-        print(err)
-        sys.exit(1)
-
-    return module
 
 
 def read_nc(file_: str):
@@ -224,60 +190,6 @@ def get_y_fit_dd(data):
             0,
             0,
         )
-
-
-def get_cdf(delta_ZH, nbins=100):
-    """Calculate CDF.
-
-    Parameters
-    ----------
-    delta_ZH : numpy.ndarray
-        The difference of reflectivity between disdrometer and radar.
-    nbins : int, optional
-        Number of bins. Defaults to 100.
-
-    Returns
-    -------
-    scipy.stats._continuous_distns.cumfreq
-        The cumulative frequency.
-
-    """
-    cdf = stats.cumfreq(delta_ZH, numbins=100)
-    x_ = cdf.lowerlimit + np.linspace(
-        0, cdf.binsize * cdf.cumcount.size, cdf.cumcount.size
-    )
-    return cdf, x_
-
-
-def get_min_max_limits(zh_dd, zh_gate):
-    """Determine min and max limits for the plot.
-
-    Parameters
-    ----------
-    zh_dd : numpy.ndarray
-        Reflectivity from disdrometer.
-    zh_gate : numpy.ndarray
-        Reflectivity from radar.
-
-    Returns
-    -------
-    numpy.ndarray, numpy.ndarray
-        minimum, maximum
-
-    """
-    df = pd.DataFrame.from_dict({"dd": zh_dd, "dcr": zh_gate})
-    df = df.replace(-np.inf, np.nan)
-    df = df.dropna()
-    if df is not None:
-        # round up/down 5
-        lim_min, lim_max = (
-            np.floor((df.min().min() - 1) / 5) * 5,
-            np.ceil((df.max().max() + 1) / 5) * 5,
-        )
-
-        return lim_min, lim_max
-    else:
-        return 0, 10
 
 
 def linear_reg_scipy(x, y):

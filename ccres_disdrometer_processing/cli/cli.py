@@ -26,13 +26,6 @@ def cli(verbosity):
 
 
 @cli.command()
-@click.option("-v", "verbosity", count=True)
-def status(verbosity):
-    print(verbosity)
-    print("Good, thanks !")
-
-
-@cli.command()
 @click.option(
     "--disdro-file",
     type=click.Path(

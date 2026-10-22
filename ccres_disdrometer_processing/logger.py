@@ -49,16 +49,6 @@ def get_log_level_from_count(count: int) -> LogLevels:
     return level
 
 
-def add_stream_logging(logger: logging.Logger, level: LogLevels) -> logging.Logger:
-    log_level = logging.getLevelName(level.name)
-    stream_handler = logging.StreamHandler()
-    stream_formatter = logging.Formatter(LOG_FORMAT)
-    stream_handler.setFormatter(stream_formatter)
-    stream_handler.setLevel(log_level)
-    logger.addHandler(stream_handler)
-    return logger
-
-
 def init_logger(level: LogLevels) -> None:
     """init_logger Init the stream logger for the project.
 

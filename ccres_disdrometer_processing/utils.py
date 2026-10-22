@@ -98,21 +98,6 @@ def get_file_from_cloudnet(
     return local_file
 
 
-def build_preprocess_param(test_cases):
-    list_params = []
-    for case in test_cases:
-        site = case["site"]
-        date = case["date"]
-        radar = case["radar"]
-        disdro = case["disdro"]
-        use_ams = case["meteo-available"]
-        ams = case["meteo"]
-        config = case["config"]
-        list_params.append((site, date, radar, disdro, use_ams, ams, config))
-
-    return list_params
-
-
 def format_ql_file_prefix(prefix: str):
     """Format and check if the prefix is valid.
 
