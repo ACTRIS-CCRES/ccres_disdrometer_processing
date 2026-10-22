@@ -105,6 +105,15 @@ def test_fill_weather_to_1min_keeps_long_gaps():
     assert np.isnan(ta[45])
 
 
+def test_fill_weather_to_1min_without_a_variable():
+    # e.g. a station without hygrometer : hur stays NaN, the others are filled
+    ds = make_ds(10)
+    ds["hur"][:] = np.nan
+    filled = weather.fill_weather_to_1min(ds, 10)
+    assert np.isnan(filled["hur"].values).all()
+    assert np.isfinite(filled["ta"].values).all()
+
+
 @pytest.mark.parametrize("sampling", [1, 10])
 def test_qc_accumulation_and_fill(sampling):
     ds = make_ds(sampling)
