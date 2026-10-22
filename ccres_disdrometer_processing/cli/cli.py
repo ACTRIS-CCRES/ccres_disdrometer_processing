@@ -365,11 +365,10 @@ def process(
     required=True,
 )
 @click.option(
-    "--flag",
-    is_flag=True,
+    "--flag/--no-flag",
     show_default=True,
     default=True,
-    help="nothing is plotted if no event fulfils the flags for long-term monitoring (minimum good timesteps number, and QF on rain gauge VS disdrometer rain accumulation if weather station data is provided)",  # noqa E501
+    help="nothing is plotted if no event fulfils the flags for long-term monitoring (minimum good timesteps number, and QF on rain gauge VS disdrometer rain accumulation if weather station data is provided); --no-flag plots every event",  # noqa E501
 )
 @click.option(
     "--min-points",

@@ -150,6 +150,6 @@ metadata_link = ""
 |      |   `--prefix-output-ql-summary`   |      |   Path to save the first panel of quicklooks (summary panel)   |
 |      |   `--prefix-output-ql-detailled`   |      |   Path to save the second panel of quicklooks (panel with detaileld analysis)   |
 |      |   `--config-file`   |      |   TOML configuration file suited for the input data (site, instruments, ...)   |
-|      |   `--flag`   |      |   If True, plots only events which pass the Quality Flags specified in processing file |
+|      |   `--flag` / `--no-flag`   |   `--flag`   |   With `--flag`, plots only events which pass the Quality Flags specified in processing file; with `--no-flag`, plots every event |
 |      |   `--min-points`   |      |   Criterion for minimum number of timesteps on which events statistics are computed to plot the event  |
 |      |      |      |      |
