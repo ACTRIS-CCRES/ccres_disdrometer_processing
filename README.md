@@ -1,7 +1,7 @@
 # CCRES Disdrometer processing
 
 [![pypi](https://img.shields.io/pypi/v/ccres_disdrometer_processing.svg)](https://pypi.org/project/ccres_disdrometer_processing)
-[![documentation status](https://readthedocs.org/projects/ccres-disdrometer-processing/badge/?version=latest)](https://ccres-disdrometer-processing.readthedocs.io)
+[![documentation status](https://img.shields.io/readthedocs/ccres-disdrometer-processing/latest)](https://ccres-disdrometer-processing.readthedocs.io)
 [![license](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
