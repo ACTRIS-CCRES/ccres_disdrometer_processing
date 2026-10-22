@@ -20,3 +20,10 @@ def test_init_logger():
 
     assert logging.getLevelName(lgr.root.handlers[0].level) == "INFO"
     assert LOG_FORMAT in logging.getLevelName(lgr.root.handlers[0].formatter._fmt)
+
+
+def test_log_level_by_verbosity_count():
+    assert LogLevels.get_by_verbosity_count(0) == LogLevels.CRITICAL
+    assert LogLevels.get_by_verbosity_count(1) == LogLevels.INFO
+    assert LogLevels.get_by_verbosity_count(2) == LogLevels.DEBUG
+    assert LogLevels.get_by_verbosity_count(5) == LogLevels.DEBUG
