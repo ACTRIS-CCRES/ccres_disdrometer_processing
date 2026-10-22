@@ -312,7 +312,7 @@ def process(yesterday, today, tomorrow, conf, output_file, no_meteo, verbosity):
     processed_ds["weather_data_used"].attrs = {
         "long_name": "use of weather data for processing",
         "flag_values": np.array([0, 1]).astype("i2"),
-        "flag_meanings": "yes no ",
+        "flag_meanings": "weather_data_not_used weather_data_used",
     }
     # set attributes
     add_attributes(processed_ds, ds)
