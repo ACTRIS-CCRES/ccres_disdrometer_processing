@@ -239,6 +239,6 @@ def read_and_concatenante_preprocessed_ds(
     for file in preprocessing_files:
         tmp_ds.append(read_nc(file))
 
-    ds_prepro = xr.concat(tmp_ds, dim="time")
+    ds_prepro = xr.concat(tmp_ds, dim="time", data_vars="all")
 
     return ds_prepro

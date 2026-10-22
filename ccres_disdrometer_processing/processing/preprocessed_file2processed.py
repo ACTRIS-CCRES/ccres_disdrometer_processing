@@ -46,7 +46,7 @@ def merge_preprocessed_data(yesterday, today, tomorrow):
     for file in list_available_files:
         tmp_data.append(xr.open_dataset(file))
 
-    ds = xr.concat(tmp_data, dim="time")
+    ds = xr.concat(tmp_data, dim="time", data_vars="all")
     return ds, files_provided
 
 

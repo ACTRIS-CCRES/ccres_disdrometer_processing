@@ -401,7 +401,10 @@ def process_ql(
     ds_pro_today = utils.read_nc(process_today)
     if process_yesterday is not None:
         ds_pro_yesterday = utils.read_nc(process_yesterday)
-        ds_pro = xr.concat((ds_pro_yesterday, ds_pro_today), dim="time")
+        # the two days hold different events, so they are joined, not aligned
+        ds_pro = xr.concat(
+            (ds_pro_yesterday, ds_pro_today), dim="time", data_vars="all", join="outer"
+        )
     else:
         ds_pro = ds_pro_today
 
