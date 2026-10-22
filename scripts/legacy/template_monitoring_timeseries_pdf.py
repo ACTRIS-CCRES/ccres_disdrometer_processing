@@ -1,15 +1,12 @@
 import glob
 
+import extract_data_for_dynamic_plots as extract
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import toml
 import xarray as xr
-
-from ccres_disdrometer_processing.processing import (
-    extract_data_for_dynamic_plots as extract,
-)
 
 MIN_TIMESTEPS = 50  # minimum number of good timesteps to consider the event statistics are robust enough for being plotted in the monitoring timeseries  # noqa
 
