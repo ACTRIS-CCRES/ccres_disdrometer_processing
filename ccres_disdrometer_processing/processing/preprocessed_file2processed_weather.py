@@ -340,9 +340,7 @@ def compute_quality_checks_weather(ds, conf, start, end):
     qc_ds["QC_wd"].attrs["flag_meanings"] = (
         "wind_direction_outside_good_angle_range wind_direction_ok"
     )
-    qc_ds["QC_hur"].attrs["flag_meanings"] = (
-        "hur_above_lower_bound hur_over_upper_bound"
-    )
+    qc_ds["QC_hur"].attrs["flag_meanings"] = "hur_outside_bounds hur_within_bounds"
     qc_ds["QF_rg_dd"].attrs["flag_meanings"] = (
         "relative_difference_higher_than_threshold relative_difference_ok"
     )

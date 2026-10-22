@@ -158,9 +158,7 @@ def compute_quality_checks_noweather(ds, conf, start, end):
         "wind_direction_out_of_good_range wind_direction_within_good_range"
     )
     qc_ds["QC_ws"].attrs["flag_meanings"] = "wind_speed_over_threshold wind_speed_ok"
-    qc_ds["QC_hur"].attrs["flag_meanings"] = (
-        "hur_above_lower_bound hur_over_upper_bound"
-    )
+    qc_ds["QC_hur"].attrs["flag_meanings"] = "hur_outside_bounds hur_within_bounds"
     qc_ds["QF_rg_dd"].attrs["flag_meanings"] = (
         "discrepancy_rain_gauge_disdrometer_above_threshold discrepancy_rain_gauge_disdrometer_ok"  # noqa
     )
