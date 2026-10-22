@@ -30,6 +30,8 @@ One script is dedicated for the opening and reformatting of each of the three in
 | Precipitation Rate  | rainfall_rate     | ams_pr      |
 | Rain Accumulation   | rainfall_amount     | ams_cp      |
 
+-- If the weather file lacks any of these input variables (e.g. no wind sensor, or a rain gauge stored in a separate file), it is not used : the day is preprocessed as without weather station (`weather_data_avail` = 0, its `comment` attribute lists the missing variables) and a warning is printed.
+
 -- The variables are resampled on a perfect time vector, at a 1 minute sampling. at time T, we keep the first value found in the original dataset within the $[T-30s, T+30s]$ interval
 
 

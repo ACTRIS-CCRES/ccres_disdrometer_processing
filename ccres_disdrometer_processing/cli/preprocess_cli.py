@@ -81,6 +81,18 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file, verbo
     # read weather-station data
     # ---------------------------------------------------------------------------------
     weather_avail = ws_file is not None
+    weather_comment = None
+    if weather_avail:
+        missing = weather.missing_weather_variables(ws_file)
+        if missing:
+            # an incomplete weather file is ignored rather than making the
+            # preprocessing crash : the day is processed like stations without one
+            weather_avail = False
+            weather_comment = (
+                f"weather file provided but lacking {', '.join(missing)} : not used"
+            )
+            lgr.warning(weather_comment)
+            click.echo(f"WARNING: {weather_comment}")
     if weather_avail:
         lgr.info("Weather data provided")
         lgr.info("Open and read weather data")
@@ -107,6 +119,8 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file, verbo
     final_data["weather_data_avail"].attrs["flag_meanings"] = (
         "no_weather_file_available weather_file_provided"
     )
+    if weather_comment is not None:
+        final_data["weather_data_avail"].attrs["comment"] = weather_comment
 
     lgr.info("Add netCDF missing global attributes")
 
