@@ -151,7 +151,9 @@ The algorithm outputs two lists, containing begin and end dates of the identifie
 
         * (1) ***if weather data has a 1-minute sampling***, the computation is easy, with a direct comparison with the threshold
 
-        * (2) ***if weather data has a lower sampling*** (e.g., 10 minute @ Lindenberg), we use the closest value of the corresponding variable.
+        * (2) ***if weather data has a lower sampling*** (e.g., 10 minute @ Lindenberg), each minute takes the closest available value of the corresponding variable, if one lies within one sampling period ; over longer gaps the variable stays undefined and the check fails.
+
+        The weather station sampling is the median time gap between available samples (air temperature or rainfall rate), so that a few missing samples do not change it. Weather station rain accumulations weigh each sample by this sampling period.
 
 
     * **Global quality control to sum up all the quality checks : QC_overall**
