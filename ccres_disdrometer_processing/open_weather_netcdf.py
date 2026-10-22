@@ -2,6 +2,8 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
+from ccres_disdrometer_processing.utils import instrument_position
+
 
 def read_weather_cloudnet(filename):
     """Open weather data and reformat it in a clean dataset.
@@ -128,10 +130,10 @@ def read_weather_cloudnet(filename):
     data.attrs["ams_source"] = data_nc_resampled.attrs["source"]
     data.attrs["ams_pid"] = data_nc_resampled.attrs["instrument_pid"]
 
-    data["ams_longitude"] = data_nc["longitude"]
+    data["ams_longitude"] = instrument_position(data_nc["longitude"])
     data["ams_longitude"].attrs["Comment"] = "AMS = Atmospheric Meteorological Station"
-    data["ams_latitude"] = data_nc["latitude"]
-    data["ams_altitude"] = data_nc["altitude"]
+    data["ams_latitude"] = instrument_position(data_nc["latitude"])
+    data["ams_altitude"] = instrument_position(data_nc["altitude"])
     data["ams_altitude"].attrs["positive"] = "up"
 
     return data

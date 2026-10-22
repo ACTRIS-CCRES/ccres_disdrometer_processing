@@ -23,6 +23,7 @@ from ccres_disdrometer_processing.processing import (
 from ccres_disdrometer_processing.processing import (
     preprocessed_file2processed_weather as processing,
 )
+from ccres_disdrometer_processing.utils import scalar_positions
 
 ISO_DATE_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 TIME_UNITS = "seconds since 2000-01-01T00:00:00.0Z"
@@ -45,9 +46,9 @@ def merge_preprocessed_data(yesterday, today, tomorrow):
     tmp_data = []
     for file in list_available_files:
         # load and close: open handles break later reopenings (see plot.utils.read_nc)
-        tmp_data.append(xr.load_dataset(file))
+        tmp_data.append(scalar_positions(xr.load_dataset(file)))
 
-    ds = xr.concat(tmp_data, dim="time", data_vars="all")
+    ds = xr.concat(tmp_data, dim="time", data_vars="all", join="outer")
     return ds, files_provided
 
 
