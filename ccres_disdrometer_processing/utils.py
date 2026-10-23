@@ -154,6 +154,38 @@ def scalar_positions(ds: xr.Dataset) -> xr.Dataset:
     return ds.drop_dims("time_bins", errors="ignore")
 
 
+NETCDF_COMPLEVEL = 4
+
+
+def compressed_encoding(ds: xr.Dataset, encoding: dict | None = None) -> dict:
+    """Return a to_netcdf encoding that compresses the data variables of ds.
+
+    Lossless zlib compression, built into netCDF-4 : any netCDF-4 reader
+    decompresses on the fly, nothing has to be done before reading. It divides
+    preprocessed files by about 6 to 8 (their DSD matrix is mostly zeros), but is
+    not worth it for small files such as the processed ones. Scalar and string
+    variables are left as they are (they cannot or need not be compressed).
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        The dataset to write
+    encoding : dict, optional
+        Encoding already set for some variables (units, _FillValue...), kept
+
+    Returns
+    -------
+    dict
+        The encoding to pass to ds.to_netcdf()
+
+    """
+    encoding = {name: dict(enc) for name, enc in (encoding or {}).items()}
+    for name, var in ds.data_vars.items():
+        if var.ndim and var.dtype.kind in "biufcM":
+            encoding.setdefault(name, {}).update(zlib=True, complevel=NETCDF_COMPLEVEL)
+    return encoding
+
+
 def format_ql_file_prefix(prefix: str):
     """Format and check if the prefix is valid.
 

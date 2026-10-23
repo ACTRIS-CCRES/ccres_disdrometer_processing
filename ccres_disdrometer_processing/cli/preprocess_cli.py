@@ -14,6 +14,7 @@ import ccres_disdrometer_processing.open_weather_netcdf as weather
 import ccres_disdrometer_processing.scattering as scattering
 from ccres_disdrometer_processing.__init__ import __version__, script_name
 from ccres_disdrometer_processing.logger import LogLevels, init_logger
+from ccres_disdrometer_processing.utils import compressed_encoding
 
 ISO_DATE_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 TIME_UNITS = "seconds since 2000-01-01T00:00:00.0Z"
@@ -358,7 +359,10 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file, verbo
     lgr.info("Convert Dataset to netCDF file")
 
     final_data.to_netcdf(
-        output_file, encoding={"time": {"units": TIME_UNITS, "calendar": "standard"}}
+        output_file,
+        encoding=compressed_encoding(
+            final_data, {"time": {"units": TIME_UNITS, "calendar": "standard"}}
+        ),
     )
 
     click.echo("Preprocessing : SUCCESS")

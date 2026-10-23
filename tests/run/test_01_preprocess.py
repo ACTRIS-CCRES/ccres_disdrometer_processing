@@ -1,5 +1,6 @@
 """Tests preprocessing."""
 
+import netCDF4
 from click.testing import CliRunner
 
 from ccres_disdrometer_processing import utils
@@ -75,3 +76,6 @@ def test_run(
     )
 
     assert result.exit_code == 0
+    # preprocessed files are written compressed (see utils.compressed_encoding)
+    with netCDF4.Dataset(output_file) as nc:
+        assert nc.variables["psd"].filters()["zlib"]
