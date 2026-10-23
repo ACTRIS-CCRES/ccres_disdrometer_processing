@@ -28,11 +28,6 @@ jobs:
         with:
           lfs: true
 
-      - name: install build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get -y install gfortran
-
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
@@ -47,8 +42,6 @@ jobs:
           key: ${{ runner.os }}-python-3.13-venv-${{ hashFiles('pyproject.toml') }}
 
       - name: Install dependencies
-        # pytmatrix-lte (meson-python build) needs no build-isolation
-        # workaround, unlike the legacy pytmatrix package it replaced.
         run: |
           python -m pip install -U .[dev]
 
@@ -86,11 +79,6 @@ jobs:
         uses: actions/checkout@v7
         with:
           lfs: true
-
-      - name: install build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get -y install gfortran
 
       - name: Set up Python ${{ matrix.python }}
         uses: actions/setup-python@v7
@@ -135,11 +123,6 @@ jobs:
         uses: actions/checkout@v7
         with:
           lfs: true
-
-      - name: install ubuntu dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get -y install gfortran
 
       - name: Set up Python 3.13
         uses: actions/setup-python@v7
@@ -195,11 +178,7 @@ jobs:
 
   test-pypi:
     name: Deploy Package to Test PyPI
-    # Disabled while pytmatrix-lte is not on PyPI: the package depends on it
-    # through a git URL, which PyPI rejects. Restore the condition below once
-    # the dependency points to a PyPI release:
-    #   if: startsWith(github.ref, 'refs/tags/')
-    if: false
+    if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     needs: [pre-commit]
     environment:
@@ -235,10 +214,7 @@ jobs:
   pypi:
     name: Deploy Package to PyPI
     # Deploy only tagged commit and if tests have succeeded.
-    # Disabled while pytmatrix-lte is not on PyPI (see test-pypi above).
-    # Restore once the dependency points to a PyPI release:
-    #   if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
-    if: false
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
     runs-on: ubuntu-latest
     needs: linux-tests
     steps:
