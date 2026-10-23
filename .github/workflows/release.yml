@@ -9,6 +9,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+      # Only this version's section of the changelog, hand-written notes included
+      # (cz changelog would regenerate it from the commits and drop them)
+      - name: Extract the notes of this version from the changelog
+        run: |
+          awk -v tag="## ${GITHUB_REF_NAME} " '
+            index($0, tag) == 1 {p = 1; next}
+            /^## / {p = 0}
+            p' CHANGELOG.md > release_notes.md
+          test -s release_notes.md
       - uses: softprops/action-gh-release@v3
         with:
-          body_path: CHANGELOG.md
+          body_path: release_notes.md
