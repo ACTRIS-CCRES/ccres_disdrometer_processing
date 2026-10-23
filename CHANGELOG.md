@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.0.2 (2026-10-23)
+
+### Fix
+
+- preprocess without weather data when the weather file is incomplete
+- plot events that have exactly --min-points good timesteps
+- correct the other flag meanings of the processed files
+- give QC_hur flag meanings that match its values
+- store instrument positions as scalars and read older files lightly
+- robust AMS sampling detection and a single weather QC path
+- close netCDF files after reading them
+- pin xarray concat defaults that are about to change
+- let process-ql --no-flag turn the quality flag off
+
+### Refactor
+
+- move the remaining standalone processing scripts to scripts/legacy
+- remove functions nothing calls
+- move unused standalone scripts out of the package
+
 ## v1.0.1 (2026-10-20)
 
 ### Fix
