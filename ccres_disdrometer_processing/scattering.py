@@ -1,16 +1,96 @@
+import contextlib
+import functools
 import logging
+import os
+import sys
 
 import numpy as np
-from pytmatrix import radar, tmatrix_aux
-from pytmatrix.tmatrix import Scatterer
+from rustmatrix import Scatterer, radar, tmatrix_aux
 from scipy import constants
 
 lgr = logging.getLogger(__name__)
+
+# T-matrix quadrature setting (number of division points per expansion order) :
+# NDGS is the default of rustmatrix and pytmatrix, NDGS_FALLBACK is used when the
+# solver fails with it (giant oblate drops at 94 GHz exceed its quadrature limit)
+NDGS = 2
+NDGS_FALLBACK = 1
 
 
 class DATA:
     def __init__(self):
         self.time = []
+
+
+@contextlib.contextmanager
+def _stderr_hidden():
+    """Hide what is written to the process stderr (file descriptor 2).
+
+    A rustmatrix solver failure is a Rust panic, which prints its message on
+    stderr even when Python catches it.
+    """
+    sys.stderr.flush()
+    saved = os.dup(2)
+    devnull = os.open(os.devnull, os.O_WRONLY)
+    try:
+        os.dup2(devnull, 2)
+        yield
+    finally:
+        os.dup2(saved, 2)
+        os.close(saved)
+        os.close(devnull)
+
+
+@functools.cache
+def _scatterer(Diam, lambda_m, e, axis_ratio):
+    """Return a drop Scatterer whose T-matrix is computed, cached in the process.
+
+    The T-matrix only depends on the drop and the wavelength, not on the beam
+    geometry : both beam orientations, backscattering and attenuation reuse it.
+    When the solver fails with NDGS (giant oblate drops at 94 GHz exceed its
+    quadrature limit), the T-matrix is computed again with NDGS_FALLBACK.
+
+    Parameters
+    ----------
+    Diam : float
+        Diameter of the droplet (m)
+    lambda_m : float
+        wavelength of the radar wave (m)
+    e : complex
+        Complex refractive index of water
+    axis_ratio : float
+        droplet axis ratio (horizontal / vertical)
+
+    Returns
+    -------
+    rustmatrix.Scatterer
+        The scatterer, its geometry being set by the caller before each use
+
+    """
+
+    def build(ndgs):
+        scatterer = Scatterer(
+            radius=(0.5 * Diam * 1e3),
+            wavelength=lambda_m * 1e3,
+            m=e,
+            axis_ratio=axis_ratio,
+            ndgs=ndgs,
+        )
+        scatterer.get_S()  # computes the T-matrix
+        return scatterer
+
+    try:
+        with _stderr_hidden():
+            return build(NDGS)
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except BaseException as err:  # a solver failure is a Rust panic, not an Exception
+        lgr.warning(
+            f"T-matrix failed for D = {Diam * 1e3:.3f} mm, wavelength = "
+            f"{lambda_m * 1e3:.2f} mm, axis ratio = {axis_ratio:.2f} ({err}) : "
+            f"computed again with ndgs = {NDGS_FALLBACK}"
+        )
+        return build(NDGS_FALLBACK)
 
 
 def compute_fallspeed(d, strMethod="GunAndKinzer"):
@@ -102,9 +182,7 @@ def compute_bscat_tmatrix(Diam, lambda_m, e, axis_ratio, beam_orientation):
         backscattering coefficient and attenuation.
 
     """
-    scatterer_tm = Scatterer(
-        radius=(0.5 * Diam * 1e3), wavelength=lambda_m * 1e3, m=e, axis_ratio=axis_ratio
-    )
+    scatterer_tm = _scatterer(float(Diam), float(lambda_m), e, float(axis_ratio))
 
     # Backscattering coef
     if beam_orientation == 0:
@@ -149,12 +227,7 @@ def compute_bscat_mie(Diam, lambda_m, e, beam_orientation):
         backscattering coefficient and attenuation.
 
     """
-    scatterer_mie = Scatterer(
-        radius=(0.5 * Diam * 1e3),
-        wavelength=lambda_m * 1e3,
-        m=e,
-        axis_ratio=1,
-    )
+    scatterer_mie = _scatterer(float(Diam), float(lambda_m), e, 1.0)
     if beam_orientation == 0:
         scatterer_mie.set_geometry(tmatrix_aux.geom_horiz_back)
     else:
@@ -219,9 +292,7 @@ def scattering_prop(
         scatt.bscat_tmatrix[i] = bscat_tmat
         scatt.att_tmatrix[i] = att_tmat
 
-        bscat_m = compute_bscat_mie(Diam, lambda_m, e, beam_orientation)
-        bscat_m = compute_bscat_tmatrix(Diam, lambda_m, e, 1, beam_orientation)[0]
-        scatt.bscat_mie[i] = bscat_m
-        # lgr.debug(bscat_tmat, bscat_m)
+        # sphere (axis ratio 1) : same scatterer as a T-matrix call with axis ratio 1
+        scatt.bscat_mie[i] = compute_bscat_mie(Diam, lambda_m, e, beam_orientation)
 
     return scatt
