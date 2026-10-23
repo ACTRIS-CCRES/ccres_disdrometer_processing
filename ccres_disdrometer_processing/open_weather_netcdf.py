@@ -2,6 +2,40 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
+from ccres_disdrometer_processing.utils import instrument_position
+
+# Variables of the Cloudnet weather-station file that the processing needs
+WEATHER_VARIABLES = [
+    "wind_speed",
+    "wind_direction",
+    "air_temperature",
+    "relative_humidity",
+    "air_pressure",
+    "rainfall_rate",
+    "rainfall_amount",
+]
+
+
+def missing_weather_variables(filename) -> list[str]:
+    """Return the WEATHER_VARIABLES that a weather-station file lacks.
+
+    Some stations do not measure everything (no wind at Galați from June to
+    October 2024, rain gauge in a separate file at Jülich).
+
+    Parameters
+    ----------
+    filename : Union[str, Path]
+        The considered daily weather-station file from CLU
+
+    Returns
+    -------
+    list[str]
+        The missing variables, empty if the file is complete
+
+    """
+    with xr.open_dataset(filename) as data_nc:
+        return [var for var in WEATHER_VARIABLES if var not in data_nc]
+
 
 def read_weather_cloudnet(filename):
     """Open weather data and reformat it in a clean dataset.
@@ -34,18 +68,8 @@ def read_weather_cloudnet(filename):
     )
     time_index_offset = time_index - pd.Timedelta(30, "sec")
 
-    vars_timedep = [
-        "wind_speed",
-        "wind_direction",
-        "air_temperature",
-        "relative_humidity",
-        "air_pressure",
-        "rainfall_rate",
-        "rainfall_amount",
-    ]
-
     data_nc_resampled = (
-        data_nc[vars_timedep]
+        data_nc[WEATHER_VARIABLES]
         .groupby_bins("time", time_index_offset, labels=time_index[:-1])
         .first()
     )
@@ -128,10 +152,10 @@ def read_weather_cloudnet(filename):
     data.attrs["ams_source"] = data_nc_resampled.attrs["source"]
     data.attrs["ams_pid"] = data_nc_resampled.attrs["instrument_pid"]
 
-    data["ams_longitude"] = data_nc["longitude"]
+    data["ams_longitude"] = instrument_position(data_nc["longitude"])
     data["ams_longitude"].attrs["Comment"] = "AMS = Atmospheric Meteorological Station"
-    data["ams_latitude"] = data_nc["latitude"]
-    data["ams_altitude"] = data_nc["altitude"]
+    data["ams_latitude"] = instrument_position(data_nc["latitude"])
+    data["ams_altitude"] = instrument_position(data_nc["altitude"])
     data["ams_altitude"].attrs["positive"] = "up"
 
     return data

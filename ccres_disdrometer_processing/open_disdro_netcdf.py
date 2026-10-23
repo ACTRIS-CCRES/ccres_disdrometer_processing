@@ -5,6 +5,7 @@ import pandas as pd
 import xarray as xr
 
 from ccres_disdrometer_processing.scattering import DATA, compute_fallspeed
+from ccres_disdrometer_processing.utils import instrument_position
 
 KEYS = [
     # "visibility",
@@ -352,7 +353,8 @@ def read_parsivel_cloudnet_choice(
             ["longitude", "latitude", "altitude"],
             ["disdro_longitude", "disdro_latitude", "disdro_altitude"],
         ):
-            data[latlon] = data_nc[latlon_nc]
+            # a time-dependent position would otherwise stay on "time_bins"
+            data[latlon] = instrument_position(data_nc[latlon_nc])
             data[latlon].attrs["long_name"] = f"{latlon_nc} of disdrometer set-up"
         data["disdro_altitude"].attrs["positive"] = "up"
 

@@ -9,6 +9,7 @@ import scipy.stats as stats
 import xarray as xr
 
 from ccres_disdrometer_processing.assets import logo as logo_dir
+from ccres_disdrometer_processing.utils import scalar_positions
 
 
 def read_nc(file_: str):
@@ -241,8 +242,8 @@ def read_and_concatenante_preprocessed_ds(
     """
     tmp_ds = []
     for file in preprocessing_files:
-        tmp_ds.append(read_nc(file))
+        tmp_ds.append(scalar_positions(read_nc(file)))
 
-    ds_prepro = xr.concat(tmp_ds, dim="time", data_vars="all")
+    ds_prepro = xr.concat(tmp_ds, dim="time", data_vars="all", join="outer")
 
     return ds_prepro

@@ -158,9 +158,7 @@ def compute_quality_checks_noweather(ds, conf, start, end):
         "wind_direction_out_of_good_range wind_direction_within_good_range"
     )
     qc_ds["QC_ws"].attrs["flag_meanings"] = "wind_speed_over_threshold wind_speed_ok"
-    qc_ds["QC_hur"].attrs["flag_meanings"] = (
-        "hur_above_lower_bound hur_over_upper_bound"
-    )
+    qc_ds["QC_hur"].attrs["flag_meanings"] = "hur_outside_bounds hur_within_bounds"
     qc_ds["QF_rg_dd"].attrs["flag_meanings"] = (
         "discrepancy_rain_gauge_disdrometer_above_threshold discrepancy_rain_gauge_disdrometer_ok"  # noqa
     )
@@ -192,7 +190,7 @@ def compute_quality_checks_noweather(ds, conf, start, end):
         "less_rain_than_threshold_since_event_begin more_rain_than_threshold_since_event_begin"  # noqa E501
     )
     qc_ds["QC_pr"].attrs["flag_meanings"] = (
-        "precipitation_rate_above threshold precipitation_rate_ok"
+        "precipitation_rate_above_threshold precipitation_rate_ok"
     )
     qc_ds["QC_vdsd_t"].attrs["flag_meanings"] = (
         "discrepancy_between_observed_and_modeled_disdrometer_droplet_fallspeed_above_threshold discrepancy_under_threshold"  # noqa e501
@@ -340,7 +338,7 @@ def compute_todays_events_stats_noweather(
         attrs={
             "long_name": "Flag on event rain accumulation",
             "flag_values": np.array([0, 1]).astype("i2"),
-            "flag_meanings": "accumulation_above_threshold accumulation_over_threshold",
+            "flag_meanings": "accumulation_under_threshold accumulation_over_threshold",
         },
     )
 
@@ -350,7 +348,7 @@ def compute_todays_events_stats_noweather(
         attrs={
             "long_name": "Flag on deviation between rain gauge and disdrometer precipitation rate at the end of an event",  # noqa
             "flag_values": np.array([0, 1]).astype("i2"),
-            "flag_meanings": "accumulation_above_threshold accumulation_over_threshold",  # noqa
+            "flag_meanings": "discrepancy_rain_gauge_disdrometer_above_threshold discrepancy_rain_gauge_disdrometer_ok",  # noqa
             "comment": "not computable when no AMS data is provided",
         },
     )

@@ -326,7 +326,7 @@ def compute_quality_checks_weather(ds, conf, start, end):
         qc_ds[key].attrs["flag_values"] = np.array([0, 1]).astype("i2")
 
     qc_ds["flag_event"].attrs["flag_meanings"] = (
-        "timestep_part_of_an_event timestep_not_involved_in_any_avent"
+        "timestep_not_involved_in_any_event timestep_part_of_an_event"
     )
     qc_ds["QF_rainfall_amount"].attrs["flag_meanings"] = (
         "less_rain_than_threshold_since_event_begin more_rain_than_threshold_since_event_begin"  # noqa E501
@@ -340,14 +340,12 @@ def compute_quality_checks_weather(ds, conf, start, end):
     qc_ds["QC_wd"].attrs["flag_meanings"] = (
         "wind_direction_outside_good_angle_range wind_direction_ok"
     )
-    qc_ds["QC_hur"].attrs["flag_meanings"] = (
-        "hur_above_lower_bound hur_over_upper_bound"
-    )
+    qc_ds["QC_hur"].attrs["flag_meanings"] = "hur_outside_bounds hur_within_bounds"
     qc_ds["QF_rg_dd"].attrs["flag_meanings"] = (
         "relative_difference_higher_than_threshold relative_difference_ok"
     )
     qc_ds["QC_pr"].attrs["flag_meanings"] = (
-        "precipitation_rate_above threshold precipitation_rate_ok"
+        "precipitation_rate_above_threshold precipitation_rate_ok"
     )
     qc_ds["QC_vdsd_t"].attrs["flag_meanings"] = (
         "discrepancy_between_observed_and_modeled_disdrometer_droplet_fallspeed_above_threshold discrepancy_under_threshold"  # noqa e501
@@ -521,7 +519,7 @@ def compute_todays_events_stats_weather(ds, Ze_ds, conf, qc_ds, start, end, day_
             "long_name": "Flag on event rain accumulation",
             "unit": "1",
             "flag_values": np.array([0, 1]).astype("i2"),
-            "flag_meanings": "accumulation_above_threshold accumulation_over_threshold",
+            "flag_meanings": "accumulation_under_threshold accumulation_over_threshold",
         },
     )
 
@@ -531,7 +529,7 @@ def compute_todays_events_stats_weather(ds, Ze_ds, conf, qc_ds, start, end, day_
         attrs={
             "long_name": "Flag on deviation between rain gauge and disdrometer precipitation rate at the end of an event",  # noqa
             "flag_values": np.array([0, 1]).astype("i2"),
-            "flag_meanings": "accumulation_above_threshold accumulation_over_threshold",  # noqa
+            "flag_meanings": "relative_difference_higher_than_threshold relative_difference_ok",  # noqa
             "comment": "not computable when no AMS data is provided",
         },
     )
