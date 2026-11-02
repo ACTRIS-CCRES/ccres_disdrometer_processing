@@ -30,7 +30,10 @@ def read_radar_cloudnet(filename, max_radar_alt=2500):
     start_time = pd.Timestamp(data_nc.time.values[0]).replace(
         hour=0, minute=0, second=0, microsecond=0, nanosecond=0
     )
-    end_time = pd.Timestamp(data_nc.time.values[-1]).replace(
+    # the day of the file, from its first sample as for the disdrometer and
+    # weather station : some radar files end with a sample at 00:00 the next
+    # day, which would otherwise add a whole second day to the time grid
+    end_time = pd.Timestamp(data_nc.time.values[0]).replace(
         hour=23, minute=59, second=0, microsecond=0, nanosecond=0
     )
     time_index = pd.date_range(
