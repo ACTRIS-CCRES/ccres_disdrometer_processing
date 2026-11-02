@@ -6,6 +6,7 @@ import pytest
 import xarray as xr
 
 from ccres_disdrometer_processing.utils import (
+    compressed_encoding,
     format_ql_file_prefix,
     instrument_position,
     scalar_positions,
@@ -56,3 +57,20 @@ def test_scalar_positions_drops_time_bins() -> None:
     assert result["ams_latitude"].ndim == 0
     assert float(result["disdro_altitude"]) == 10.0
     assert result["Zdd"].dims == ("time",)
+
+
+def test_compressed_encoding_keeps_existing_settings() -> None:
+    ds = xr.Dataset(
+        {
+            "psd": (("time", "size"), np.zeros((2, 3))),
+            "flag": ("time", np.array([True, False])),
+            "F": ((), 0.0054),
+            "model": ("time", np.array(["a", "b"], dtype=object)),
+        },
+        coords={"time": pd.date_range("2024-01-01", periods=2, freq="1min")},
+    )
+    enc = compressed_encoding(ds, {"psd": {"_FillValue": -9.0}, "time": {"units": "s"}})
+    assert enc["psd"] == {"_FillValue": -9.0, "zlib": True, "complevel": 4}
+    assert enc["flag"]["zlib"]
+    assert "F" not in enc and "model" not in enc  # scalar and strings left as they are
+    assert enc["time"] == {"units": "s"}
