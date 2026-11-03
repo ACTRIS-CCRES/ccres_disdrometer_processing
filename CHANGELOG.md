@@ -1,5 +1,24 @@
 # Changelog
 
+## v1.1.0 (2026-11-03)
+
+### Impact on output files
+
+- Preprocessed files are written compressed (lossless zlib compression of netCDF-4), about 6 to 10 times smaller; any netCDF-4 reader decompresses them on the fly, and values are unchanged.
+- Radar files ending with a sample at 00:00 the next day no longer give two-day preprocessed files, which made processing fail for that day and the next.
+- Scattering is computed with rustmatrix: disdrometer reflectivity within 0.03 dB of v1.0.2 and ΔZ within 0.02 dB, except minutes holding a 13 mm drop at 94 GHz, whose non-converging T-matrix is now computed with ndgs = 1.
+- Installation no longer needs a Fortran compiler, and the package is published on PyPI again.
+- Reprocessing needed: no (the days affected by the radar time grid issue have already been reprocessed).
+
+### Feat
+
+- compute the scattering with rustmatrix instead of pytmatrix-lte
+- write the preprocessed files compressed
+
+### Fix
+
+- keep the radar time grid to the day of the file
+
 ## v1.0.2 (2026-10-23)
 
 ### Fix
