@@ -22,7 +22,7 @@ pip install ccres_disdrometer_processing
 ```
 
 > [!NOTE]
-> Python 3.13 or later is required. Installing [pytmatrix-lte](https://github.com/ltelab/pytmatrix-lte) compiles its Fortran extension, so a Fortran compiler (e.g. `gfortran`) must be available.
+> Python 3.13 or later is required. The T-matrix computations use [rustmatrix](https://github.com/swnesbitt/rustmatrix), installed from prebuilt wheels on Linux (glibc 2.28 or later), macOS and Windows; other platforms need a Rust toolchain to build it.
 
 ## Usage
 
@@ -45,7 +45,6 @@ STATION = "JOYCE" # useful for plots
 [methods]
 FALL_SPEED_METHOD = "GunAndKinzer"
 AXIS_RATIO_METHOD = "BeardChuang_PolynomialFit"
-COMPUTE_MIE_METHOD = "pytmatrix"
 REFRACTION_INDEX = [2.99645,1.54866] # complex index
 RADAR_FREQUENCIES = [10.0e9, 24.0e9, 35.0e9, 94.0e9] # Hz
 MAX_ALTITUDE_RADAR_DATA = 2500

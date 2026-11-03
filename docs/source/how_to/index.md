@@ -39,7 +39,6 @@ STATION = "SIRTA" # useful for plots
 [methods]
 FALL_SPEED_METHOD = "GunAndKinzer"
 AXIS_RATIO_METHOD = "BeardChuang_PolynomialFit"
-COMPUTE_MIE_METHOD = "pytmatrix"
 REFRACTION_INDEX = [[2.99645,1.54866], [2.99645,1.54866], [2.99645,1.54866], [2.99645,1.54866]] # complex index
 RADAR_FREQUENCIES = [10.0e9, 24.0e9, 35.0e9, 94.0e9] # Hz
 MAX_ALTITUDE_RADAR_DATA = 2500

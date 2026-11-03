@@ -34,7 +34,7 @@ dependencies = [
     "matplotlib",
     "scipy",
     "pyarrow",
-    "pytmatrix @ git+https://github.com/ltelab/pytmatrix-lte.git@v0.4.5",
+    "rustmatrix>=2.2,<3",
     "toml",
 ]
 # Dynamic for setuptools

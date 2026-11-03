@@ -85,7 +85,7 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file, verbo
 
     Input the daily files available on Cloudnet for the three instruments involved in the dcrcc method : disdrometer, DCR and weather station.
     Given a configuration file specific to each station and instruments : resample, rename vars and merge all the data sources into a single dataset.
-    Use the disdrometer data to forward-model reflectivity data using the pytmatrix library, which will be compared to DCR observation in the next processing step.
+    Use the disdrometer data to forward-model reflectivity data using the rustmatrix T-matrix library, which will be compared to DCR observation in the next processing step.
     Fill metadata and store the result a new netCDF.
 
     Parameters
