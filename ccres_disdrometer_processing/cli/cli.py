@@ -8,12 +8,13 @@ import click
 import toml
 import xarray as xr
 
-import ccres_disdrometer_processing.cli.preprocess_cli as preprocess_cli
-import ccres_disdrometer_processing.processing.preprocessed_file2processed as processing
 from ccres_disdrometer_processing.__init__ import __version__
 from ccres_disdrometer_processing.logger import LogLevels, init_logger
-from ccres_disdrometer_processing.plot import plot, utils
 from ccres_disdrometer_processing.utils import format_ql_file_prefix
+
+# Each command imports the modules it uses when it runs: the scattering
+# (rustmatrix) and plotting (matplotlib) stacks take about a second to load,
+# which every preprocess and process call of a day would otherwise pay.
 
 lgr = logging.getLogger(__name__)
 
@@ -108,6 +109,8 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file, verbo
     None
 
     """  # noqa
+    import ccres_disdrometer_processing.cli.preprocess_cli as preprocess_cli
+
     return preprocess_cli.preprocess(
         disdro_file, ws_file, radar_file, config_file, output_file, verbosity
     )
@@ -146,6 +149,8 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file, verbo
 )
 def preprocess_ql(file, output_ql_overview, output_ql_overview_zh, config_file):
     """Create quicklooks from preprocess netCDF files."""
+    from ccres_disdrometer_processing.plot import plot, utils
+
     # 1 - check config and import configuration file if ok
     config = toml.load(config_file)
 
@@ -265,6 +270,10 @@ def process(
     None
 
     """  # noqa
+    from ccres_disdrometer_processing.processing import (
+        preprocessed_file2processed as processing,
+    )
+
     processing.process(
         yesterday, today, tomorrow, config_file, output_file, no_meteo, verbosity
     )
@@ -386,6 +395,8 @@ def process_ql(
     min_points,
 ):
     """Create quicklooks from process netCDF files."""
+    from ccres_disdrometer_processing.plot import plot, utils
+
     # create list of input preprocess files
     preprocess_files = [preprocess_yesterday, preprocess_today, preprocess_tomorrow]
     preprocess_files = [f for f in preprocess_files if f is not None]

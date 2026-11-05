@@ -7,8 +7,10 @@ from pathlib import Path
 
 import numpy as np
 import xarray as xr
-from rustmatrix import Scatterer, radar, tmatrix_aux
 from scipy import constants
+
+# rustmatrix is imported where a T-matrix is computed : with the precomputed
+# tables, most runs never need it, and loading it takes about half a second.
 
 lgr = logging.getLogger(__name__)
 
@@ -124,6 +126,7 @@ def _scatterer(Diam, lambda_m, e, axis_ratio):
         The scatterer, its geometry being set by the caller before each use
 
     """
+    from rustmatrix import Scatterer
 
     def build(ndgs):
         scatterer = Scatterer(
@@ -239,6 +242,8 @@ def compute_bscat_tmatrix(Diam, lambda_m, e, axis_ratio, beam_orientation):
         backscattering coefficient and attenuation.
 
     """
+    from rustmatrix import radar, tmatrix_aux
+
     scatterer_tm = _scatterer(float(Diam), float(lambda_m), e, float(axis_ratio))
 
     # Backscattering coef
@@ -284,6 +289,8 @@ def compute_bscat_mie(Diam, lambda_m, e, beam_orientation):
         backscattering coefficient and attenuation.
 
     """
+    from rustmatrix import radar, tmatrix_aux
+
     scatterer_mie = _scatterer(float(Diam), float(lambda_m), e, 1.0)
     if beam_orientation == 0:
         scatterer_mie.set_geometry(tmatrix_aux.geom_horiz_back)

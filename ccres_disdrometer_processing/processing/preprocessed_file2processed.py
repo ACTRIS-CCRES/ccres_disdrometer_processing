@@ -9,7 +9,6 @@ import datetime
 import logging
 
 import click
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import toml
@@ -23,7 +22,29 @@ from ccres_disdrometer_processing.processing import (
 from ccres_disdrometer_processing.processing import (
     preprocessed_file2processed_weather as processing,
 )
-from ccres_disdrometer_processing.utils import scalar_positions
+from ccres_disdrometer_processing.utils import POSITION_VARS, scalar_positions
+
+# Variables of the preprocessed files the processing reads. The others (the other
+# reflectivity variants, DSD moments, attenuation...) are not loaded.
+PROCESSING_VARS = (
+    "Zdcr",
+    "DVdcr",
+    "Zdlog_vfov_modv_tm",
+    "radar_frequency",
+    "psd",
+    "measV",
+    "modV",
+    "disdro_pr",
+    "disdro_interval",
+    "QF_disdro_interval",
+    "weather_data_avail",
+    "ams_pr",
+    "ta",
+    "ws",
+    "wd",
+    "hur",
+    *POSITION_VARS,
+)
 
 ISO_DATE_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 TIME_UNITS = "seconds since 2000-01-01T00:00:00.0Z"
@@ -46,7 +67,9 @@ def merge_preprocessed_data(yesterday, today, tomorrow):
     tmp_data = []
     for file in list_available_files:
         # load and close: open handles break later reopenings (see plot.utils.read_nc)
-        tmp_data.append(scalar_positions(xr.load_dataset(file)))
+        with xr.open_dataset(file) as raw:
+            used = raw[[v for v in PROCESSING_VARS if v in raw]].load()
+        tmp_data.append(scalar_positions(used))
 
     ds = xr.concat(tmp_data, dim="time", data_vars="all", join="outer")
     return ds, files_provided
@@ -286,7 +309,10 @@ def process(yesterday, today, tomorrow, conf, output_file, no_meteo, verbosity):
     conf = toml.load(conf)
     ds, files_provided = merge_preprocessed_data(yesterday, today, tomorrow)
 
-    day_today = pd.to_datetime(xr.load_dataset(today)["time"].time.values[0]).day
+    # only the time axis of the day to process is needed here, not the whole file
+    with xr.open_dataset(today) as today_file:
+        today_time = today_file["time"].values
+    day_today = pd.to_datetime(today_time[0]).day
 
     if bool(ds["weather_data_avail"].values[0]) is False or no_meteo is True:
         click.echo("Downgraded mode (no weather data is used)")
@@ -300,11 +326,8 @@ def process(yesterday, today, tomorrow, conf, output_file, no_meteo, verbosity):
     lgr.info("Merging Ze data, QC dataset and event stats dataset")
     processed_ds = xr.merge([Ze_ds, qc_ds, stats_ds], combine_attrs="no_conflicts")
     # Select only timesteps from the day to process
-    today_ds = xr.load_dataset(today)
     lgr.info("Extracting the data from the day to process")
-    processed_ds = processed_ds.sel(
-        {"time": slice(today_ds.time.values[0], today_ds.time.values[-1])}
-    )
+    processed_ds = processed_ds.sel({"time": slice(today_time[0], today_time[-1])})
     lgr.info("Filling attributes")
     # get variable for weather data availability from prepro file
     if not no_meteo:
@@ -364,6 +387,8 @@ def process(yesterday, today, tomorrow, conf, output_file, no_meteo, verbosity):
 
 
 if __name__ == "__main__":
+    import matplotlib.pyplot as plt
+
     test_weather = False
     test_weather_downgraded = False
     test_noweather = False
