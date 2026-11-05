@@ -45,15 +45,15 @@ STATION = "JOYCE" # useful for plots
 [methods]
 FALL_SPEED_METHOD = "GunAndKinzer"
 AXIS_RATIO_METHOD = "BeardChuang_PolynomialFit"
-REFRACTION_INDEX = [2.99645,1.54866] # complex index
-RADAR_FREQUENCIES = [10.0e9, 24.0e9, 35.0e9, 94.0e9] # Hz
 MAX_ALTITUDE_RADAR_DATA = 2500
+# FALL_TIME_FACTOR = 0.55 # optional ; share of the drop fall time for the radar alignment
 
 [instrument_parameters]
 DD_SAMPLING_AREA = 0.0054 # m^2 ; Parsivel2 sampling surface
 DCR_DZ_RANGE = 150 # m ; height at which to compute Delta Z ; fill with the real value
 RAIN_GAUGE_SAMPLING = 0 # mm ; default value ; no weather available at Juelich but this value is used by the code only if weather is available
 DD_ORIENTATION = 0 # degree, from North ; fill with the real value
+# DD_TIMESTAMP_CONVENTION = "end" # optional ; "start" if the disdrometer time marks the start of its interval
 
 [plot_parameters]
 DCR_PLOTTED_RANGES = [150, 200, 300] # fill with the good values

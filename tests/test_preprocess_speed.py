@@ -3,17 +3,14 @@
 import numpy as np
 import pytest
 import toml
-import xarray as xr
 
-from ccres_disdrometer_processing import scattering, utils
-from ccres_disdrometer_processing.cli.preprocess_cli import frequency_to_compute
+from ccres_disdrometer_processing import dielectric, scattering, utils
 from ccres_disdrometer_processing.open_disdro_netcdf import (
     read_parsivel_cloudnet_choice,
     reflectivity_model_multilambda_measmodV_hvfov,
 )
 
-FREQUENCIES = [10.0e9, 24.0e9, 35.0e9, 94.0e9]
-E = 2.99645 + 1.54866j
+E = 2.99645 + 1.54866j  # former refractive index of the configurations
 AXR = "BeardChuang_PolynomialFit"
 
 
@@ -39,19 +36,12 @@ def computed(monkeypatch):
     scattering._tables.cache_clear()
 
 
-@pytest.mark.parametrize(
-    ("radar", "expected"),
-    [(35.5e9, [35.0e9]), (9.6e9, [10.0e9]), (95.0e9, [94.0e9]), (np.nan, FREQUENCIES)],
-)
-def test_frequency_to_compute(radar, expected):
-    assert frequency_to_compute(FREQUENCIES, xr.DataArray(radar)) == expected
-
-
 def test_tables_hold_the_computed_values(juelich, monkeypatch):
     D = juelich.size_classes[0:-5]
     scattering._tables.cache_clear()
+    water = {f: dielectric.water_dielectric(f).refractive_index for f in (35e9, 94e9)}
     from_table = {
-        (f, o): scattering._from_table(D, o, f, E, AXR)
+        (f, o): scattering._from_table(D, o, f, water[f], AXR)
         for f in (35e9, 94e9)
         for o in (0, 1)
     }
@@ -60,7 +50,7 @@ def test_tables_hold_the_computed_values(juelich, monkeypatch):
     monkeypatch.setenv(scattering.NO_TABLE_ENV, "1")
     scattering._tables.cache_clear()
     for (f, o), table in from_table.items():
-        fresh = scattering.scattering_prop(D, o, f, e=E, axrMethod=AXR)
+        fresh = scattering.scattering_prop(D, o, f, e=water[f], axrMethod=AXR)
         for v in scattering.TABLE_VARS:
             # equal to the last bit on the machine that built the tables ; the
             # T-matrix rounds differently on other processors (up to 1.2e-6
@@ -72,12 +62,23 @@ def test_tables_hold_the_computed_values(juelich, monkeypatch):
     scattering._tables.cache_clear()
 
 
-def test_a_case_absent_from_the_tables_is_computed(juelich):
+def test_every_network_frequency_is_in_the_tables(juelich):
     D = juelich.size_classes[0:-5]
     scattering._tables.cache_clear()
-    assert scattering._from_table(D, 1, 77e9, E, AXR) is None
-    assert scattering._from_table(D[:-1], 1, 35e9, E, AXR) is None
-    assert scattering._from_table(D.astype(float), 1, 35e9, E, AXR) is None
+    for w in dielectric._table().values():
+        for o in (0, 1):
+            assert scattering._from_table(D, o, w.frequency, w.refractive_index, AXR)
+
+
+def test_a_case_absent_from_the_tables_is_computed(juelich):
+    D = juelich.size_classes[0:-5]
+    e = dielectric.water_dielectric(35e9).refractive_index
+    scattering._tables.cache_clear()
+    assert scattering._from_table(D, 1, 35e9, e, AXR) is not None
+    assert scattering._from_table(D, 1, 77e9, e, AXR) is None
+    assert scattering._from_table(D, 1, 35e9, E, AXR) is None  # former index
+    assert scattering._from_table(D[:-1], 1, 35e9, e, AXR) is None
+    assert scattering._from_table(D.astype(float), 1, 35e9, e, AXR) is None
     s = scattering.scattering_prop(D[:3], 1, 77e9, e=E, axrMethod=AXR)
     assert np.all(s.bscat_tmatrix > 0)
 

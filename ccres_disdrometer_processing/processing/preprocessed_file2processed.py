@@ -29,8 +29,10 @@ from ccres_disdrometer_processing.utils import POSITION_VARS, scalar_positions
 # reflectivity variants, DSD moments, attenuation...) are not loaded.
 PROCESSING_VARS = (
     "Zdcr",
+    "Zdcr_aligned",
     "DVdcr",
     "Zdlog_vfov_modv_tm",
+    "attd_vfov_modv",
     "radar_frequency",
     "psd",
     "measV",
@@ -100,13 +102,45 @@ def extract_dcr_data(ds, conf):
         )
     )
 
-    # DCR data extract
+    # DCR data extract : aligned on the disdrometer telegrams when the
+    # preprocessed file has it, then corrected for the two-way rain attenuation
+    # between the radar and the gate, from the disdrometer DSD (homogeneous rain)
+    aligned = "Zdcr_aligned" in ds
+    zdcr = ds["Zdcr_aligned" if aligned else "Zdcr"].sel(
+        {"range": ranges_to_keep}, method="nearest"
+    )
+    gate_range = zdcr["range"].values.astype(float)
+    if "attd_vfov_modv" in ds:
+        k = (
+            ds["attd_vfov_modv"]
+            .sel(radar_frequencies=ds.radar_frequency, method="nearest")
+            .values.astype(float)
+        )  # dB/km
+        attenuation = 2 * np.nan_to_num(k)[:, None] * gate_range[None, :] / 1000
+    else:
+        attenuation = np.zeros(zdcr.shape)
+    Ze_ds["dcr_attenuation"] = xr.DataArray(
+        data=attenuation.astype(np.single),
+        dims=["time", "range"],
+        attrs={
+            "long_name": "Two-way rain attenuation between the DCR and the gate",
+            "units": "dB",
+            "comment": "2 k r, k the specific attenuation from the disdrometer DSD at the radar frequency, rain assumed homogeneous up to the gate ; added to Zdcr",  # noqa E501
+        },
+    )
     Ze_ds["Zdcr"] = xr.DataArray(
-        data=ds["Zdcr"].sel({"range": ranges_to_keep}, method="nearest").data,
+        data=(zdcr.values + attenuation).astype(np.single),
         dims=["time", "range"],
         attrs={
             "long_name": "DCR reflectivity at the ranges closest to those defined in the station configuration file",  # noqa E501
             "units": "dBZ",
+            "comment": (
+                "Aligned on the disdrometer telegrams (Zdcr_aligned of the "
+                "preprocessed file), "
+                if aligned
+                else "Median over each minute (Zdcr of the preprocessed file), "
+            )
+            + "corrected for the rain attenuation (dcr_attenuation)",
         },
     )
     Ze_ds["DVdcr"] = xr.DataArray(

@@ -1,0 +1,47 @@
+# Water properties for the scattering at each radar frequency of the
+# network, written by scripts/build_dielectric_table.py : do not edit.
+# refractive_index : Ellison (2007), J. Phys. Chem. Ref. Data 36, 1,
+# at the temperature below. kw_sqr : |K|^2 the radars of the band use
+# to compute Ze (X 0.93, Ka 0.88, W 0.74).
+date_created = "2026-11-05"
+temperature = 10.0
+
+[[entry]]
+frequency_ghz = 9.6
+refractive_index = [7.760917, 2.412574]
+kw_sqr = 0.93
+
+[[entry]]
+frequency_ghz = 35.0
+refractive_index = [4.723039, 2.616483]
+kw_sqr = 0.88
+
+[[entry]]
+frequency_ghz = 35.1
+refractive_index = [4.717240, 2.614400]
+kw_sqr = 0.88
+
+[[entry]]
+frequency_ghz = 35.15
+refractive_index = [4.714350, 2.613358]
+kw_sqr = 0.88
+
+[[entry]]
+frequency_ghz = 35.46
+refractive_index = [4.696573, 2.606904]
+kw_sqr = 0.88
+
+[[entry]]
+frequency_ghz = 35.5
+refractive_index = [4.694297, 2.606071]
+kw_sqr = 0.88
+
+[[entry]]
+frequency_ghz = 94.0
+refractive_index = [3.206077, 1.766176]
+kw_sqr = 0.74
+
+[[entry]]
+frequency_ghz = 95.0
+refractive_index = [3.194351, 1.756890]
+kw_sqr = 0.74

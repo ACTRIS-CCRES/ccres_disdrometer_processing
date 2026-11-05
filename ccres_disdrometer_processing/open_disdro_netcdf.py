@@ -49,6 +49,7 @@ RESAMPLED_VARS = (
     "data_raw",
     "rainfall_rate",
     "interval",
+    "telegram_time",
     "latitude",
     "longitude",
     "altitude",
@@ -116,6 +117,20 @@ def add_interval_and_accumulation(data: xr.Dataset, data_nc: xr.Dataset) -> None
             ),
         },
     )
+    if "telegram_time" in data_nc:
+        data["disdro_telegram_time"] = xr.DataArray(
+            data_nc["telegram_time"].values.astype("datetime64[ns]"),
+            dims=["time"],
+            attrs={
+                "long_name": "Time written for the disdrometer telegram of the minute",
+                "comment": (
+                    "Time of the telegram kept in each minute, as written in the "
+                    "Cloudnet file (end of its measurement interval for most "
+                    "loggers). The radar reflectivity is aligned on it "
+                    "(Zdcr_aligned). Missing for a minute without telegram."
+                ),
+            },
+        )
     keep = xr.DataArray(~gap, dims=["time"])
     for var in ("psd", "disdro_pr", "particles_count"):
         if var in data:
@@ -153,6 +168,8 @@ def resample_data_perfect_timesteps(filename: str | Path, config) -> xr.Dataset:
     """
     # in memory first : grouping a lazily read file reads it piece by piece, slowly
     data_nc = xr.load_dataset(filename)
+    # the real time of the telegram kept in each minute, for the radar alignment
+    data_nc["telegram_time"] = ("time", data_nc.time.values)
     start_time = pd.Timestamp(data_nc.time.values[0]).replace(
         hour=0, minute=0, second=0, microsecond=0, nanosecond=0
     )
