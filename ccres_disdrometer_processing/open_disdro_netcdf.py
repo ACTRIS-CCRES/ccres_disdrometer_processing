@@ -41,6 +41,18 @@ NEW_KEYS = [
 ]
 
 
+# time-dependent variables of the Cloudnet disdrometer files read after resampling
+RESAMPLED_VARS = (
+    "data_raw",
+    "rainfall_rate",
+    "interval",
+    "latitude",
+    "longitude",
+    "altitude",
+    *KEYS,
+)
+
+
 def add_interval_and_accumulation(data: xr.Dataset, data_nc: xr.Dataset) -> None:
     """Add the measurement interval of each timestep and the rain accumulation.
 
@@ -151,7 +163,10 @@ def resample_data_perfect_timesteps(filename: str | Path, config) -> xr.Dataset:
     time_var, notime_var = [], []
     for var in data_nc.keys():  # noqa SIM118
         if "time" in data_nc[var].coords.dims:
-            time_var.append(var)
+            # only the variables the readers use are resampled : each one costs
+            # (Thies files hold dozens of others)
+            if var in RESAMPLED_VARS:
+                time_var.append(var)
         else:
             notime_var.append(var)
     data_time_resampled = (
