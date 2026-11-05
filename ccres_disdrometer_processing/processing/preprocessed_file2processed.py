@@ -104,6 +104,10 @@ def extract_dcr_data(ds, conf):
             "units": "dBZ",
         },
     )
+    # interval the Zdd counts were normalised by (absent from older files)
+    for var in ("disdro_interval", "QF_disdro_interval"):
+        if var in ds:
+            Ze_ds[var] = ds[var]
     # with Zdlog_vfov_measV_tm, results match with "Heraklion" codes
     Ze_ds["fallspeed_dd"] = xr.DataArray(
         data=np.nansum(
@@ -341,6 +345,11 @@ def process(yesterday, today, tomorrow, conf, output_file, no_meteo, verbosity):
             "QC_pr": {"_FillValue": QC_FILL_VALUE},
             "QC_vdsd_t": {"_FillValue": QC_FILL_VALUE},
             "QF_rainfall_amount": {"_FillValue": QC_FILL_VALUE},
+            **(
+                {"QF_disdro_interval": {"_FillValue": QC_FILL_VALUE}}
+                if "QF_disdro_interval" in processed_ds
+                else {}
+            ),
             "QC_ws": {"_FillValue": QC_FILL_VALUE},
             "QC_wd": {"_FillValue": QC_FILL_VALUE},
             "QF_rg_dd": {"_FillValue": QC_FILL_VALUE},

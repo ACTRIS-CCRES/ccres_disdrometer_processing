@@ -12,6 +12,8 @@ import pandas as pd
 import xarray as xr
 from scipy.stats import linregress
 
+from ccres_disdrometer_processing.utils import disdro_minutes
+
 lgr = logging.getLogger(__name__)
 
 QC_FILL_VALUE = -9
@@ -180,6 +182,8 @@ def compute_quality_checks_weather(ds, conf, start, end):
             "unit": "mm",
         },
     )
+    # disdrometer rain per timestep (mm/h x mn), see utils.disdro_minutes
+    disdro_rain = ds["disdro_pr"] * xr.DataArray(disdro_minutes(ds), dims=["time"])
     for s, e in zip(start, end):  # noqa: B905
         qc_ds["flag_event"].loc[slice(s, e)] = True
 
@@ -190,7 +194,7 @@ def compute_quality_checks_weather(ds, conf, start, end):
             * np.nancumsum(ds["ams_pr"].sel(time=slice(s, e)).values)
         )
         qc_ds["disdro_cp_since_event_begin"].loc[slice(s, e)] = (
-            1 / 60 * np.nancumsum(ds["disdro_pr"].sel(time=slice(s, e)).values)
+            1 / 60 * np.nancumsum(disdro_rain.sel(time=slice(s, e)).values)
         )
 
     # Flag for condition (rainfall_amount > N mm)

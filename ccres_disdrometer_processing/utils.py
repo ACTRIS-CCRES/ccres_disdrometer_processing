@@ -123,6 +123,44 @@ def instrument_position(position: xr.DataArray) -> xr.DataArray:
     return xr.DataArray(value, attrs=position.attrs)
 
 
+# Disdrometer measurement interval (s). Cloudnet files give it per telegram in
+# "interval"; without it, a telegram is taken to integrate the nominal minute.
+NOMINAL_INTERVAL = 60.0
+# Some loggers report the time since the previous telegram: after a data gap
+# the interval spans hours (30050 s at Munich), so longer telegrams are dropped.
+MAX_INTERVAL = 90.0
+# Shorter telegrams sample only part of the minute (5 s at Bucharest). They are
+# normalised by their own interval, kept and flagged.
+MIN_FULL_INTERVAL = 30.0
+
+
+def disdro_minutes(ds: xr.Dataset) -> np.ndarray:
+    """Return the duration, in minutes, of rain each 1-mn disdrometer step stands for.
+
+    A step holds one telegram. A telegram longer than the minute (63 s at Munich,
+    where some minutes get no telegram) stands for its own interval; a shorter one
+    stands for the whole minute, as its rate is the only sample of that minute.
+    Files preprocessed before "disdro_interval" existed weigh every step 1 mn.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Preprocessed data
+
+    Returns
+    -------
+    np.ndarray
+        Minutes per timestep, to weigh the disdrometer rain rates (mm/h) with
+
+    """
+    if "disdro_interval" not in ds:
+        return np.ones(ds.time.size)
+    interval = ds["disdro_interval"].values.astype(float)
+    return np.where(
+        np.isfinite(interval), np.maximum(interval, NOMINAL_INTERVAL) / 60, 1.0
+    )
+
+
 POSITION_VARS = [
     f"{instrument}_{coord}"
     for instrument in ("disdro", "ams")

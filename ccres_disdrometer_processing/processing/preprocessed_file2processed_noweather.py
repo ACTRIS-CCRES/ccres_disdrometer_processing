@@ -12,6 +12,8 @@ import pandas as pd
 import xarray as xr
 from scipy.stats import linregress
 
+from ccres_disdrometer_processing.utils import disdro_minutes
+
 lgr = logging.getLogger(__name__)
 
 QC_FILL_VALUE = -9
@@ -48,10 +50,9 @@ def rain_event_selection_noweather(ds, conf):
                 start.append(start_candidate.values)
                 end.append(t[i].values)
             start_candidate = t[i + 1]
+    sel_rain = sel_ds.disdro_pr * xr.DataArray(disdro_minutes(sel_ds), dims=["time"])
     for s, e in zip(start.copy(), end.copy()):  # noqa: B905
-        rain_accumulation_event = (
-            1 / 60 * np.nansum(sel_ds.disdro_pr.sel(time=slice(s, e)))
-        )
+        rain_accumulation_event = 1 / 60 * np.nansum(sel_rain.sel(time=slice(s, e)))
         if rain_accumulation_event < min_rainfall_amount:
             start.remove(s)
             end.remove(e)
@@ -87,10 +88,12 @@ def compute_quality_checks_noweather(ds, conf, start, end):
             "units": "mm",
         },
     )
+    # disdrometer rain per timestep (mm/h x mn), see utils.disdro_minutes
+    disdro_rain = ds["disdro_pr"] * xr.DataArray(disdro_minutes(ds), dims=["time"])
     for s, e in zip(start, end):  # noqa: B905
         qc_ds["flag_event"].loc[slice(s, e)] = 1
         qc_ds["disdro_cp_since_event_begin"].loc[slice(s, e)] = (
-            1 / 60 * np.nancumsum(ds["disdro_pr"].sel(time=slice(s, e)).values)
+            1 / 60 * np.nancumsum(disdro_rain.sel(time=slice(s, e)).values)
         )
 
     # Flag for condition (rainfall_amount > N mm)
