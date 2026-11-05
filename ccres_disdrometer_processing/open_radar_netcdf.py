@@ -23,9 +23,13 @@ def read_radar_cloudnet(filename, max_radar_alt=2500):
 
     """
     range_bounds = [0, max_radar_alt]
-    data_nc = xr.open_dataset(filename)[LIST_VARIABLES].sel(
-        range=slice(range_bounds[0], range_bounds[1])
-    )
+    # in memory first : grouping a lazily read file reads it piece by piece, slowly
+    with xr.open_dataset(filename) as raw:
+        data_nc = (
+            raw[LIST_VARIABLES]
+            .sel(range=slice(range_bounds[0], range_bounds[1]))
+            .load()
+        )
 
     start_time = pd.Timestamp(data_nc.time.values[0]).replace(
         hour=0, minute=0, second=0, microsecond=0, nanosecond=0

@@ -136,7 +136,8 @@ def resample_data_perfect_timesteps(filename: str | Path, config) -> xr.Dataset:
         A dataset with a 1-minute regular sampling
 
     """
-    data_nc = xr.open_dataset(filename)
+    # in memory first : grouping a lazily read file reads it piece by piece, slowly
+    data_nc = xr.load_dataset(filename)
     start_time = pd.Timestamp(data_nc.time.values[0]).replace(
         hour=0, minute=0, second=0, microsecond=0, nanosecond=0
     )
@@ -532,123 +533,59 @@ def reflectivity_model_multilambda_measmodV_hvfov(
     # parameterisation for the velocity (Gun and Kinzer)
     VDmodel = compute_fallspeed(mparsivel.size_classes.values, strMethod=strMethod)
 
-    for ii in range(len(mparsivel.time)):
-        t = t_all[ii]
-        # sum over speed axis -> number of drops per time and size
-        # psd is (time, size_classes, speed_classes): axis 1 here is speed
-        Ni = np.nansum(mparsivel.psd.values[ii, :, :], 1)
+    # Every timestep at once : the same operations as the former loop over time,
+    # in the same order, so the results are unchanged.
+    # (time, size_classes, speed_classes), contiguous so that the sums run over
+    # each row in the same order as the former per-timestep ones
+    psd = np.ascontiguousarray(mparsivel.psd.values)
+    D = mparsivel.size_classes.values
+    t = t_all[:, None]  # integration time of each timestep, for (time, x) arrays
 
-        model.RR[ii] = (
-            (np.pi / 6.0)
-            * (1.0 / (F * t))
-            * np.nansum(Ni * (mparsivel.size_classes.values**3))
-            * (3.6 * 1e-3)  # get mm/h from m/s : k = 1e-9 * 3.6 * 1e6
-        )
-        # we need to derive V(D)
-        for i in range(len(mparsivel.size_classes)):
-            model.VD[ii, i] = np.nansum(
-                mparsivel.psd.values[ii, i, :] * mparsivel.speed_classes.values
-            ) / np.nansum(mparsivel.psd.values[ii, i, :])
+    # sum over speed axis -> number of drops per time and size
+    Ni = np.nansum(psd, axis=2)
 
-        VDD = np.vstack(
-            (model.VD[ii, :], VDmodel)
-        ).T  # 1st col : VD measured, 2nd col : VD from model law
+    model.RR = (
+        (np.pi / 6.0)
+        * (1.0 / (F * t_all))
+        * np.nansum(Ni * (D**3), axis=1)
+        * (3.6 * 1e-3)  # get mm/h from m/s : k = 1e-9 * 3.6 * 1e6
+    )
+    # we need to derive V(D)
+    model.VD[:] = np.nansum(psd * mparsivel.speed_classes.values, axis=2) / np.nansum(
+        psd, axis=2
+    )
+    # (time, 2, size) : VD measured, then VD from model law. The sizes come last
+    # so that the sums over them run in the same (pairwise) order as in the former
+    # per-timestep code, which keeps the results identical to the last bit.
+    VDD = np.stack((model.VD, np.broadcast_to(VDmodel, model.VD.shape)), axis=1)
 
-        model.M2[ii, :] = (
-            (
-                np.nansum(
-                    np.tile(
-                        Ni * ((mparsivel.size_classes.values * 1.0e-3) ** 2), (2, 1)
-                    ).T
-                    / VDD,
-                    axis=0,
-                )
-            )
-            / F
-            / t
-        )
-        model.M3[ii, :] = (
-            (
-                np.nansum(
-                    np.tile(
-                        Ni * ((mparsivel.size_classes.values * 1.0e-3) ** 4), (2, 1)
-                    ).T
-                    / VDD,
-                    axis=0,
-                )
-            )
-            / F
-            / t
-        )
-        model.M4[ii, :] = (
-            (
-                np.nansum(
-                    np.tile(
-                        Ni * ((mparsivel.size_classes.values * 1.0e-3) ** 4), (2, 1)
-                    ).T
-                    / VDD,
-                    axis=0,
-                )
-            )
-            / F
-            / t
-        )
-        model.Ze_ray[ii, :] = (
-            (
-                np.nansum(
-                    np.tile(Ni * (mparsivel.size_classes.values**6), (2, 1)).T / VDD,
-                    axis=0,
-                )
-            )
-            / F
-            / t
-        )
+    def per_volume(x, vdd=VDD):
+        """Sum over the sizes of x / V(D), for both fall speeds, per m3 and second."""
+        return np.nansum(x[:, None, :] / vdd, axis=2) / F / t
 
-        # # dsd with velocity from parsivel
-        # model.dsd[ii, :] = (nul
-        #     Ni / model.VD[ii, :] / F / t / (model.diameter_bin_width_mm * 1.0e-3)
-        # )  # particles/m3 #normalised per diameter bin width
+    model.M2 = per_volume(Ni * ((D * 1.0e-3) ** 2))
+    model.M3 = per_volume(Ni * ((D * 1.0e-3) ** 4))
+    model.M4 = per_volume(Ni * ((D * 1.0e-3) ** 4))
+    model.Ze_ray = per_volume(Ni * (D**6))
 
-        ## Here begins the multilambda specific part
-        for k, scatt in enumerate(scatt_list):
-            model.Ze_mie[ii, k % fr, k // fr, :] = (
-                np.nansum(
-                    np.tile(Ni[0:n] * scatt.bscat_mie, (2, 1)).T / VDD[0:n, :],
-                    axis=0,
-                )
-                / F
-                / t
-            )  # mm6/m3
+    # # dsd with velocity from parsivel
+    # model.dsd[ii, :] = (nul
+    #     Ni / model.VD[ii, :] / F / t / (model.diameter_bin_width_mm * 1.0e-3)
+    # )  # particles/m3 #normalised per diameter bin width
 
-            model.Ze_tm[ii, k % fr, k // fr, :] = (
-                np.nansum(
-                    np.tile(Ni[0:n] * scatt.bscat_tmatrix, (2, 1)).T / VDD[0:n, :],
-                    axis=0,
-                )
-                / F
-                / t
-            )  # mm6/m3
-            model.Ze_tm[np.where(model.Ze_tm == 0)] = np.nan
-
-            model.attenuation[ii, k % fr, k // fr, :] = (
-                np.nansum(
-                    np.tile(Ni[0:n] * scatt.att_tmatrix, (2, 1)).T / VDD[0:n, :], axis=0
-                )
-                / F
-                / t
-            )  # dB/km
-
-            model.V_mie[ii, k % fr, k // fr, :] = np.nansum(
-                Ni[0:n] * scatt.bscat_mie
-            ) / np.nansum(
-                np.tile(Ni[0:n] * scatt.bscat_mie, (2, 1)).T / VDD[0:n, :], axis=0
+    ## Here begins the multilambda specific part
+    Nn, VDDn = Ni[:, 0:n], VDD[:, :, 0:n]
+    for k, scatt in enumerate(scatt_list):
+        f, o = k % fr, k // fr
+        model.Ze_mie[:, f, o, :] = per_volume(Nn * scatt.bscat_mie, VDDn)  # mm6/m3
+        model.Ze_tm[:, f, o, :] = per_volume(Nn * scatt.bscat_tmatrix, VDDn)  # mm6/m3
+        # attenuation in dB/km
+        model.attenuation[:, f, o, :] = per_volume(Nn * scatt.att_tmatrix, VDDn)
+        for V, b in ((model.V_mie, scatt.bscat_mie), (model.V_tm, scatt.bscat_tmatrix)):
+            V[:, f, o, :] = np.nansum(Nn * b, axis=1)[:, None] / np.nansum(
+                (Nn * b)[:, None, :] / VDDn, axis=2
             )  # m/s
-
-            model.V_tm[ii, k % fr, k // fr, :] = np.nansum(
-                Ni[0:n] * scatt.bscat_tmatrix
-            ) / np.nansum(
-                np.tile(Ni[0:n] * scatt.bscat_tmatrix, (2, 1)).T / VDD[0:n, :], axis=0
-            )  # m/s
+    model.Ze_tm[np.where(model.Ze_tm == 0)] = np.nan
 
     # time-integrated psd, each timestep normalised by its own interval
     model.psd_sum = (
