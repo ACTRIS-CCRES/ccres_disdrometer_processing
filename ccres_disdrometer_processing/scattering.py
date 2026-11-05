@@ -9,6 +9,8 @@ import numpy as np
 import xarray as xr
 from scipy import constants
 
+from ccres_disdrometer_processing.dielectric import RUSTMATRIX_KW_SQR
+
 # rustmatrix is imported where a T-matrix is computed : with the precomputed
 # tables, most runs never need it, and loading it takes about half a second.
 
@@ -22,7 +24,8 @@ NDGS_FALLBACK = 1
 
 
 # Scattering properties precomputed by scripts/build_scattering_tables.py for the
-# diameter grids, frequencies, refractive indices and axis ratio method in use. A
+# diameter grids, frequencies, refractive indices and axis ratio method in use
+# (normalised with the |K|^2 of rustmatrix, the radar's is applied afterwards). A
 # combination absent from the file is computed as before ; setting the environment
 # variable below ignores the file.
 TABLE_FILE = Path(__file__).parent / "assets" / "scattering_tables.nc"
@@ -306,6 +309,7 @@ def scattering_prop(
     freq,
     e=2.99645 + 1.54866 * 1j,
     axrMethod="BeardChuang_PolynomialFit",
+    kw_sqr=RUSTMATRIX_KW_SQR,
 ):
     """Compute attenuation, backscattering coeffs for different diameters.
 
@@ -326,16 +330,29 @@ def scattering_prop(
     axrMethod : str, optional
         formula to be used for axis ratio computation,
         by default "BeardChuang_PolynomialFit"
+    kw_sqr : float, optional
+        |K|^2 the backscattering coefficients are normalised with (that of the
+        radar, see dielectric.py), by default the 0.93 of rustmatrix
 
     Returns
     -------
     DATA
         an object containing three arrays of length (D,) :
         - one for t-matrix attenuation,
-        - one for t-matrix backscattering coefficients,
-        - one for Mie backscattering coefficients.
+        - one for t-matrix backscattering coefficients (mm6),
+        - one for Mie backscattering coefficients (mm6).
 
     """
+    scatt = _scattering_prop(D, beam_orientation, freq, e, axrMethod)
+    if kw_sqr != RUSTMATRIX_KW_SQR:
+        # rustmatrix returns lambda^4 / (pi^5 Kw_sqr) sigma with its own Kw_sqr
+        for v in ("bscat_mie", "bscat_tmatrix"):
+            setattr(scatt, v, getattr(scatt, v) * (RUSTMATRIX_KW_SQR / kw_sqr))
+    return scatt
+
+
+def _scattering_prop(D, beam_orientation, freq, e, axrMethod):
+    """Return the scattering normalised with the |K|^2 of rustmatrix."""
     scatt = _from_table(D, beam_orientation, freq, e, axrMethod)
     if scatt is not None:
         return scatt

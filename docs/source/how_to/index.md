@@ -26,6 +26,8 @@ General diagram of the DCR calibration constant monitoring code
 
 ## Content of the config file that drives the data processing
 
+`REFRACTION_INDEX` and `RADAR_FREQUENCIES`, found in older configuration files, are no longer used : the scattering is computed at the radar's own frequency, read in the radar file, with the water properties of `ccres_disdrometer_processing/assets/water_dielectric.toml` (see the preprocessing page).
+
 Here is an example of a configuration file (Palaiseau, with a *BASTA* radar and a *Thies* disdrometer)
 
 ```
@@ -39,9 +41,8 @@ STATION = "SIRTA" # useful for plots
 [methods]
 FALL_SPEED_METHOD = "GunAndKinzer"
 AXIS_RATIO_METHOD = "BeardChuang_PolynomialFit"
-REFRACTION_INDEX = [[2.99645,1.54866], [2.99645,1.54866], [2.99645,1.54866], [2.99645,1.54866]] # complex index
-RADAR_FREQUENCIES = [10.0e9, 24.0e9, 35.0e9, 94.0e9] # Hz
 MAX_ALTITUDE_RADAR_DATA = 2500
+# FALL_TIME_FACTOR = 0.55 # optional ; share of the drop fall time for the radar alignment
 
 [instrument_parameters]
 AU = 965
@@ -49,6 +50,7 @@ DD_SAMPLING_AREA_DEFAULT = 0.0046
 DD_SAMPLING_AREA = 0.004439 # m^2 ; = SAMPLING_AREA_DEFAULT*AU/1000
 DCR_DZ_RANGE = 300 # m ; height at which to compute Delta Z
 DD_ORIENTATION = 0 # degree, from North
+# DD_TIMESTAMP_CONVENTION = "end" # optional ; "start" if the disdrometer time marks the start of its interval (MeteoSwiss files, Payerne)
 
 [plot_parameters]
 
