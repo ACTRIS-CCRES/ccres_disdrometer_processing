@@ -102,6 +102,20 @@ def test_telegram_after_a_gap_is_dropped(juelich_day, tmp_path):
     )
 
 
+def test_interval_given_once_for_the_file(juelich_day, tmp_path):
+    ds, config = juelich_day
+    per_telegram = read_parsivel_cloudnet_choice(
+        with_interval(ds, 5.0, tmp_path / "i5.nc"), [FREQUENCY], config
+    )
+    once = ds.copy()
+    once["interval"] = 5.0  # no time dimension, as in Cabauw files
+    once.to_netcdf(tmp_path / "once.nc")
+    scalar = read_parsivel_cloudnet_choice(tmp_path / "once.nc", [FREQUENCY], config)
+    np.testing.assert_array_equal(
+        scalar.disdro_interval.values, per_telegram.disdro_interval.values
+    )
+
+
 def test_disdro_minutes():
     ds = xr.Dataset(
         {"disdro_interval": ("time", [60.0, 63.0, 5.0, np.nan])},

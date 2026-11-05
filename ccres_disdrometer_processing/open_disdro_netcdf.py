@@ -60,7 +60,10 @@ def add_interval_and_accumulation(data: xr.Dataset, data_nc: xr.Dataset) -> None
 
     """
     if "interval" in data_nc:
-        interval = data_nc["interval"].values.astype(float)
+        # per telegram, or a single value for the whole file (Cabauw)
+        interval = np.broadcast_to(
+            data_nc["interval"].values.astype(float), data.time.shape
+        )
         interval = np.where(np.isfinite(interval), interval, NOMINAL_INTERVAL)
     else:
         interval = np.full(data.time.size, NOMINAL_INTERVAL)
