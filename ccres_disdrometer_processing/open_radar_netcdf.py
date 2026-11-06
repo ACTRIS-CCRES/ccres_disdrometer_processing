@@ -22,7 +22,7 @@ FALL_TIME_FACTOR = 0.55
 TIMESTAMP_CONVENTIONS = ("end", "start")
 RADAR_WINDOW = NOMINAL_INTERVAL  # s, duration of the radar window
 MIN_FALL_SPEED = 0.5  # m/s, slower gates (no rain) are not used for |v|
-MIN_WINDOW_COVERAGE = 0.6  # share of the radar profiles expected in a window
+MIN_WINDOW_COVERAGE = 0.6  # share of the typical number of profiles in a window
 
 
 def read_radar_frequency(filename):
@@ -166,8 +166,13 @@ def aligned_reflectivity(
 
     rng = data_nc.range.values.astype(float)
     lag = fall_time_lag(rng, dv, rain, factor)
-    dt = float(np.median(np.diff(rt))) if rt.size > 1 else RADAR_WINDOW
-    nmin = max(1, int(MIN_WINDOW_COVERAGE * RADAR_WINDOW / dt))
+    # profiles expected in a window : the typical count of the day, not
+    # RADAR_WINDOW / median gap (some radars send their profiles in bursts)
+    count = np.searchsorted(rt, hi, side="right") - np.searchsorted(
+        rt, lo, side="right"
+    )
+    typical = np.median(count[count > 0]) if np.any(count > 0) else 1
+    nmin = max(1, int(MIN_WINDOW_COVERAGE * typical))
     zh = data_nc.Zh.transpose("time", "range").values.astype(float)
     out = np.full((lab.size, rng.size), np.nan)
     for j in range(rng.size):

@@ -293,3 +293,26 @@ def test_zdcr_gets_the_aligned_and_attenuation_corrected_value():
     # a preprocessed file without the alignment uses its 1-minute Zdcr
     out = extract_dcr_data(ds.drop_vars("Zdcr_aligned"), conf)
     np.testing.assert_allclose(out.Zdcr.values, 20.0 + att, rtol=1e-6)
+
+
+def test_alignment_accepts_radars_sending_profiles_in_bursts():
+    # 4 profiles 3 s apart at the start of each minute : median gap 3 s, but
+    # only 4 profiles per window, all of them to be used
+    day = pd.Timestamp("2024-12-06")
+    t = pd.DatetimeIndex(
+        [
+            day + pd.Timedelta(minutes=m, seconds=s)
+            for m in range(1440)
+            for s in (0, 3, 6, 9)
+        ]
+    )
+    radar = xr.Dataset(
+        {"Zh": (("time", "range"), np.full((t.size, 1), 10.0))},
+        coords={"time": t, "range": [100.0]},
+    )
+    labels = pd.date_range(day, periods=1440, freq="1min")
+    telegram = (labels + pd.Timedelta(seconds=56)).values
+    z, _ = aligned_reflectivity(
+        radar, labels, telegram, np.zeros(1440, bool), np.full((1440, 1), -5.0)
+    )
+    assert np.isfinite(z[5:-5]).all()
