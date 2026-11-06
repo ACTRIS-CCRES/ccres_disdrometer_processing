@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 import numpy as np
@@ -12,6 +13,8 @@ from ccres_disdrometer_processing.utils import (
     disdro_minutes,
     instrument_position,
 )
+
+lgr = logging.getLogger(__name__)
 
 KEYS = [
     # "visibility",
@@ -210,6 +213,94 @@ def cloudnetpy_version(data_nc: xr.Dataset) -> tuple[int, int] | None:
         return None
 
 
+# Check of the Parsivel2 data_raw axis order from the data themselves
+MIN_DROPS_AXIS_CHECK = 2000  # drops of 0.5-4 mm over the day for the check
+AXIS_CHECK_RATIO = 0.5  # the order kept must fit at least twice as well
+
+
+def fallspeed_misfit(counts, size_classes, speed_classes):
+    """Return the misfit of the measured fall speeds to Gunn and Kinzer (1949).
+
+    Count-weighted mean relative error of the mean fall speed of each diameter
+    class between 0.5 and 4 mm.
+
+    Parameters
+    ----------
+    counts : np.ndarray
+        Drops of the day, (diameter, velocity)
+    size_classes, speed_classes : np.ndarray
+        Centres of the diameter (mm) and velocity (m/s) classes
+
+    Returns
+    -------
+    float, int
+        The misfit, and the number of drops it is computed on
+
+    """
+    k = (size_classes > 0.5) & (size_classes < 4)
+    w = counts[k].sum(axis=1)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        v = (counts[k] * speed_classes[None, :]).sum(axis=1) / w
+    ok = w > 0
+    model = compute_fallspeed(size_classes[k][ok])
+    n = int(w[ok].sum())
+    if n == 0:
+        return np.nan, 0
+    return float(np.sum(w[ok] * np.abs(v[ok] / model - 1)) / n), n
+
+
+def psd_axis_order(psd, size_classes, speed_classes, version):
+    """Return data_raw as (time, diameter, velocity), and how its order was set.
+
+    The order follows the cloudnetpy version : < 1.94 stored (time, velocity,
+    diameter) despite its dimension names ; 1.94 and later, and files not written
+    by cloudnetpy, (time, diameter, velocity). Neither the version nor the names
+    can be trusted : the files of Cabauw harmonized by CLU, without version, hold
+    (time, velocity, diameter), and a few files with an old version already hold
+    (time, diameter, velocity). The order is therefore checked on the data : the
+    one whose fall speeds fit Gunn and Kinzer is kept, when the day has enough
+    drops and one order fits at least twice as well as the other.
+
+    Parameters
+    ----------
+    psd : np.ndarray
+        data_raw as stored, (time, n, n)
+    size_classes, speed_classes : np.ndarray
+        Centres of the diameter (mm) and velocity (m/s) classes
+    version : tuple or None
+        (major, minor) cloudnetpy version, None if not written by cloudnetpy
+
+    Returns
+    -------
+    np.ndarray, str
+        data_raw as (time, diameter, velocity), and "data" or "version"
+
+    """
+    by_version = version is not None and version < (1, 94)
+    if psd.shape[1] != psd.shape[2]:  # the order is then given by the shape
+        swap = psd.shape[1] != size_classes.size
+        return (np.transpose(psd, (0, 2, 1)) if swap else psd), "shape"
+    counts = np.nansum(psd, axis=0)
+    e_stored, n = fallspeed_misfit(counts, size_classes, speed_classes)
+    e_swapped, _ = fallspeed_misfit(counts.T, size_classes, speed_classes)
+    how = "version"
+    swap = by_version
+    clear = (
+        n >= MIN_DROPS_AXIS_CHECK
+        and np.isfinite(e_stored)
+        and np.isfinite(e_swapped)
+        and min(e_stored, e_swapped) < AXIS_CHECK_RATIO * max(e_stored, e_swapped)
+    )
+    if clear:
+        swap, how = bool(e_swapped < e_stored), "data"
+        if swap != by_version:
+            lgr.warning(
+                "Parsivel data_raw axis order differs from the one of its "
+                f"cloudnetpy version ({version}) : set from the fall speeds"
+            )
+    return (np.transpose(psd, (0, 2, 1)) if swap else psd), how
+
+
 def read_parsivel_cloudnet(
     data_nc: xr.Dataset,
 ) -> xr.Dataset:  # Read Parsivel file from CLU resampled file
@@ -260,15 +351,13 @@ def read_parsivel_cloudnet(
                 "comment": "Calculated with disdrometer, from rainfall rate data",
             },
         )
-        # cloudnetpy < 1.94 stored Parsivel2 data_raw as (time, velocity, diameter)
-        # despite its (time, diameter, velocity) dimension names; fixed in 1.94,
-        # so only the older files must be transposed. Files not written by
-        # cloudnetpy (no version, e.g. Munich) already hold (time, diameter,
-        # velocity), whatever their dimension names say.
-        psd = data_nc["data_raw"].values
-        version = cloudnetpy_version(data_nc)
-        if version is not None and version < (1, 94):
-            psd = np.transpose(psd, axes=(0, 2, 1))
+        # data_raw axis order : from the cloudnetpy version, checked on the data
+        psd, how = psd_axis_order(
+            data_nc["data_raw"].values,
+            data.size_classes.values,
+            data.speed_classes.values,
+            cloudnetpy_version(data_nc),
+        )
         data["psd"] = xr.DataArray(
             psd,
             dims=["time", "size_classes", "speed_classes"],
@@ -276,6 +365,7 @@ def read_parsivel_cloudnet(
                 "units": "#/bin/mn",
                 "long_name": "Number of droplets per diameter and fall speed bins",
                 "comment": "Unit not recognized by UDUNITS ; does not account for the size of the bins",  # noqa E501
+                "axis_order": f"(diameter, velocity) order of data_raw set from the {how}",  # noqa E501
             },
         )
 

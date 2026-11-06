@@ -62,7 +62,12 @@ def test_tables_hold_the_computed_values(juelich, monkeypatch):
     for (f, o), table in from_table.items():
         fresh = scattering.scattering_prop(D, o, f, e=E, axrMethod=AXR)
         for v in scattering.TABLE_VARS:
-            np.testing.assert_array_equal(getattr(table, v), getattr(fresh, v))
+            # equal to the last bit on the machine that built the tables ; the
+            # T-matrix rounds differently on other processors (2.7e-7 relative
+            # on the GitHub runners, 1e-6 dB on Zdd)
+            np.testing.assert_allclose(
+                getattr(table, v), getattr(fresh, v), rtol=1e-6, atol=0
+            )
     scattering._tables.cache_clear()
 
 

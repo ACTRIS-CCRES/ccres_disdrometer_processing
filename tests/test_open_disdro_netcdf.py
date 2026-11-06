@@ -94,3 +94,36 @@ def test_psd_axis_order_follows_cloudnetpy_version(parsivel_files):
         old.psd.values, old.size_classes.values, old.speed_classes.values, 1, 2
     )
     assert 3 < v < 7
+
+
+def test_psd_axis_order_is_checked_on_the_data(parsivel_files, tmp_path):
+    old_file, new_file, unversioned_file, config = parsivel_files
+    reference = read_parsivel_cloudnet_choice(new_file, RADAR_FREQUENCIES, config)
+    with xr.open_dataset(new_file) as ds:
+        ds = ds.load()
+    raw = ds["data_raw"].values  # (time, diameter, velocity)
+
+    # Cabauw : no version, but (time, velocity, diameter)
+    cabauw = write_layout(ds, np.swapaxes(raw, 1, 2), None, tmp_path / "cabauw.nc")
+    # an old version whose data_raw is already (time, diameter, velocity)
+    odd = write_layout(ds, raw, "1.90.5", tmp_path / "odd.nc")
+    for f in (cabauw, odd):
+        out = read_parsivel_cloudnet_choice(f, RADAR_FREQUENCIES, config)
+        np.testing.assert_array_equal(out.psd.values, reference.psd.values)
+        assert out.psd.attrs["axis_order"].endswith("data")
+
+
+def test_psd_axis_order_falls_back_on_the_version_with_few_drops(
+    parsivel_files, tmp_path
+):
+    old_file, new_file, unversioned_file, config = parsivel_files
+    with xr.open_dataset(old_file) as ds:
+        ds = ds.load()
+    raw = ds["data_raw"].values.copy()
+    raw[:] = 0
+    raw[100, 5, 10] = 3  # a handful of drops : no check possible
+    few = write_layout(ds, raw, "1.93.0", tmp_path / "few.nc")
+    out = read_parsivel_cloudnet_choice(few, RADAR_FREQUENCIES, config)
+    assert out.psd.attrs["axis_order"].endswith("version")
+    # transposed, as cloudnetpy < 1.94
+    assert np.nansum(out.psd.values, axis=0)[10, 5] == 3
