@@ -23,6 +23,35 @@ TIME_CALENDAR = "standard"
 lgr = logging.getLogger(__name__)
 
 
+def frequency_to_compute(frequencies, radar_frequency):
+    """Return the configured frequencies the processing will use.
+
+    The processing reads the disdrometer reflectivity at the configured frequency
+    nearest to the radar's (see preprocessed_file2processed.extract_dcr_data) :
+    computing the scattering at the other ones is wasted time. Without a finite
+    radar frequency, every configured frequency is kept.
+
+    Parameters
+    ----------
+    frequencies : list
+        RADAR_FREQUENCIES of the station configuration (Hz)
+    radar_frequency : xr.DataArray
+        Frequency of the radar (Hz), from read_radar_cloudnet()
+
+    Returns
+    -------
+    list
+        The configured frequency nearest to the radar's, or all of them
+
+    """
+    f = np.asarray(radar_frequency, dtype=float).ravel()
+    f = f[np.isfinite(f)]
+    if not f.size:
+        return list(frequencies)
+    i = int(np.argmin(np.abs(np.asarray(frequencies, dtype=float) - np.median(f))))
+    return [frequencies[i]]
+
+
 def preprocess(disdro_file, ws_file, radar_file, config_file, output_file, verbosity):
     """Command line interface for ccres_disdrometer_processing."""
     log_level = LogLevels.get_by_verbosity_count(verbosity)
@@ -50,6 +79,10 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file, verbo
     lgr.info("Open and read radar data")
     radar_xr = radar.read_radar_cloudnet(radar_file, max_radar_alt=max_radar_altitude)
     lgr.info("Radar data : OK")
+    computed_frequencies = frequency_to_compute(
+        computed_frequencies, radar_xr["radar_frequency"]
+    )
+    lgr.info(f"Scattering computed at {computed_frequencies} Hz")
 
     # read and preprocess disdrometer data
     # ---------------------------------------------------------------------------------

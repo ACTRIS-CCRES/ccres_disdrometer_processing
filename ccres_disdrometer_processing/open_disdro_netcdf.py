@@ -5,7 +5,13 @@ import pandas as pd
 import xarray as xr
 
 from ccres_disdrometer_processing.scattering import DATA, compute_fallspeed
-from ccres_disdrometer_processing.utils import instrument_position
+from ccres_disdrometer_processing.utils import (
+    MAX_INTERVAL,
+    MIN_FULL_INTERVAL,
+    NOMINAL_INTERVAL,
+    disdro_minutes,
+    instrument_position,
+)
 
 KEYS = [
     # "visibility",
@@ -35,6 +41,93 @@ NEW_KEYS = [
 ]
 
 
+# time-dependent variables of the Cloudnet disdrometer files read after resampling
+RESAMPLED_VARS = (
+    "data_raw",
+    "rainfall_rate",
+    "interval",
+    "latitude",
+    "longitude",
+    "altitude",
+    *KEYS,
+)
+
+
+def add_interval_and_accumulation(data: xr.Dataset, data_nc: xr.Dataset) -> None:
+    """Add the measurement interval of each timestep and the rain accumulation.
+
+    The counts are normalised by this interval, not by a fixed minute (see
+    reflectivity_model_multilambda_measmodV_hvfov). A missing interval means the
+    nominal minute. A timestep integrating more than MAX_INTERVAL covers a data
+    gap: its counts and rate are dropped. The accumulation weighs each rate by the
+    duration its timestep stands for (utils.disdro_minutes).
+
+    Parameters
+    ----------
+    data : xr.Dataset
+        Dataset built by read_parsivel_cloudnet() or read_thies_cloudnet(),
+        modified in place
+    data_nc : xr.Dataset
+        output from resample_data_perfect_timesteps()
+
+    """
+    if "interval" in data_nc:
+        # per telegram, or a single value for the whole file (Cabauw)
+        interval = np.broadcast_to(
+            data_nc["interval"].values.astype(float), data.time.shape
+        )
+        interval = np.where(np.isfinite(interval), interval, NOMINAL_INTERVAL)
+    else:
+        interval = np.full(data.time.size, NOMINAL_INTERVAL)
+    gap = (interval <= 0) | (interval > MAX_INTERVAL)
+    # minutes left without a telegram by resample_data_perfect_timesteps()
+    no_telegram = np.all(np.isnan(data["psd"].values), axis=(1, 2))
+    interval[gap | no_telegram] = np.nan
+    data["disdro_interval"] = xr.DataArray(
+        interval,
+        dims=["time"],
+        attrs={
+            "units": "s",
+            "long_name": "Measurement interval of the disdrometer timestep",
+            "comment": (
+                f"From the Cloudnet 'interval' variable, {NOMINAL_INTERVAL:.0f} s "
+                f"when missing; NaN for a minute without telegram, or longer than "
+                f"{MAX_INTERVAL:.0f} s (data gap: the timestep is dropped). "
+                "Counts are normalised by it."
+            ),
+        },
+    )
+    data["QF_disdro_interval"] = xr.DataArray(
+        np.where(
+            np.isnan(interval), -9, (interval >= MIN_FULL_INTERVAL).astype(int)
+        ).astype("i2"),
+        dims=["time"],
+        attrs={
+            "long_name": "Quality flag for the disdrometer measurement interval",
+            "flag_values": np.array([0, 1], dtype="i2"),
+            "flag_meanings": "short_sampling full_sampling",
+            "comment": (
+                f"short_sampling: interval below {MIN_FULL_INTERVAL:.0f} s, only part"
+                " of the minute was sampled; -9 (fill value): no telegram kept"
+                " (empty minute or data gap)"
+            ),
+        },
+    )
+    keep = xr.DataArray(~gap, dims=["time"])
+    for var in ("psd", "disdro_pr", "particles_count"):
+        if var in data:
+            data[var] = data[var].where(keep)
+    data["disdro_cp"] = xr.DataArray(
+        np.nancumsum(data["disdro_pr"].values / 60 * disdro_minutes(data)),
+        dims=["time"],
+        attrs={
+            "units": "mm",
+            "long_name": "Disdrometer-based cumulated precipitation since 00:00 UTC",
+            "comment": "Calculated with disdrometer",
+        },
+    )
+
+
 def resample_data_perfect_timesteps(filename: str | Path, config) -> xr.Dataset:
     """Open and resample CLU daily disdrometer files.
 
@@ -55,7 +148,8 @@ def resample_data_perfect_timesteps(filename: str | Path, config) -> xr.Dataset:
         A dataset with a 1-minute regular sampling
 
     """
-    data_nc = xr.open_dataset(filename)
+    # in memory first : grouping a lazily read file reads it piece by piece, slowly
+    data_nc = xr.load_dataset(filename)
     start_time = pd.Timestamp(data_nc.time.values[0]).replace(
         hour=0, minute=0, second=0, microsecond=0, nanosecond=0
     )
@@ -69,7 +163,10 @@ def resample_data_perfect_timesteps(filename: str | Path, config) -> xr.Dataset:
     time_var, notime_var = [], []
     for var in data_nc.keys():  # noqa SIM118
         if "time" in data_nc[var].coords.dims:
-            time_var.append(var)
+            # only the variables the readers use are resampled : each one costs
+            # (Thies files hold dozens of others)
+            if var in RESAMPLED_VARS:
+                time_var.append(var)
         else:
             notime_var.append(var)
     data_time_resampled = (
@@ -163,16 +260,6 @@ def read_parsivel_cloudnet(
                 "comment": "Calculated with disdrometer, from rainfall rate data",
             },
         )
-        data["disdro_cp"] = xr.DataArray(
-            np.nancumsum(data_nc["rainfall_rate"].values * 60 * 1000),
-            dims=["time"],
-            attrs={
-                "units": "mm",
-                "long_name": "Disdrometer-based cumulated precipitation since 00:00 UTC",  # noqa E501
-                "comment": "Calculated with disdrometer",
-            },
-        )
-
         # cloudnetpy < 1.94 stored Parsivel2 data_raw as (time, velocity, diameter)
         # despite its (time, diameter, velocity) dimension names; fixed in 1.94,
         # so only the older files must be transposed. Files not written by
@@ -208,6 +295,7 @@ def read_parsivel_cloudnet(
             dims=["speed_classes"],
             attrs={"units": "m/s", "long_name": "Width of the speed bins"},
         )
+        add_interval_and_accumulation(data, data_nc)
     return data
 
 
@@ -263,15 +351,6 @@ def read_thies_cloudnet(
             "comment": "Calculated with disdrometer, from rainfall rate data",
         },
     )
-    data["disdro_cp"] = xr.DataArray(
-        np.cumsum(data_nc["rainfall_rate"].values * 60 * 1000),
-        dims=["time"],
-        attrs={
-            "units": "mm",
-            "long_name": "Disdrometer-based cumulated precipitation since 00:00 UTC",
-            "comment": "Calculated with disdrometer",
-        },
-    )
     # data["Z"] = xr.DataArray(
     #     data_nc["radar_reflectivity"].values, dims=["time"], attrs={"units": "dBZ"}
     # )
@@ -310,6 +389,7 @@ def read_thies_cloudnet(
         dims=["speed_classes"],
         attrs={"units": "m/s", "long_name": "Width of the speed bins"},
     )
+    add_interval_and_accumulation(data, data_nc)
     return data
 
 
@@ -420,8 +500,11 @@ def reflectivity_model_multilambda_measmodV_hvfov(
     # scatt_list : list of scattering_prop() objects :
     # [(lambda1, vert), (lambda2, vert), ...(lambda1, hori), ...] -> 4 lambdas = 8 scatt objects # noqa E501
 
-    # integration time
-    t = mparsivel.time_resolution.values  # s
+    # integration time of each timestep (s): the counts are normalised by it
+    if "disdro_interval" in mparsivel:
+        t_all = mparsivel.disdro_interval.values.astype(float)
+    else:
+        t_all = np.full(mparsivel.time.size, float(mparsivel.time_resolution.values))
 
     F = mparsivel.F.data
 
@@ -465,133 +548,71 @@ def reflectivity_model_multilambda_measmodV_hvfov(
     # parameterisation for the velocity (Gun and Kinzer)
     VDmodel = compute_fallspeed(mparsivel.size_classes.values, strMethod=strMethod)
 
-    for ii in range(len(mparsivel.time)):
-        # sum over speed axis -> number of drops per time and size
-        # psd is (time, size_classes, speed_classes): axis 1 here is speed
-        Ni = np.nansum(mparsivel.psd.values[ii, :, :], 1)
+    # Every timestep at once : the same operations as the former loop over time,
+    # in the same order, so the results are unchanged.
+    # (time, size_classes, speed_classes), contiguous so that the sums run over
+    # each row in the same order as the former per-timestep ones
+    psd = np.ascontiguousarray(mparsivel.psd.values)
+    D = mparsivel.size_classes.values
+    t = t_all[:, None]  # integration time of each timestep, for (time, x) arrays
 
-        model.RR[ii] = (
-            (np.pi / 6.0)
-            * (1.0 / (F * t))
-            * np.nansum(Ni * (mparsivel.size_classes.values**3))
-            * (3.6 * 1e-3)  # get mm/h from m/s : k = 1e-9 * 3.6 * 1e6
-        )
-        # we need to derive V(D)
-        for i in range(len(mparsivel.size_classes)):
-            model.VD[ii, i] = np.nansum(
-                mparsivel.psd.values[ii, i, :] * mparsivel.speed_classes.values
-            ) / np.nansum(mparsivel.psd.values[ii, i, :])
+    # sum over speed axis -> number of drops per time and size
+    Ni = np.nansum(psd, axis=2)
 
-        VDD = np.vstack(
-            (model.VD[ii, :], VDmodel)
-        ).T  # 1st col : VD measured, 2nd col : VD from model law
+    model.RR = (
+        (np.pi / 6.0)
+        * (1.0 / (F * t_all))
+        * np.nansum(Ni * (D**3), axis=1)
+        * (3.6 * 1e-3)  # get mm/h from m/s : k = 1e-9 * 3.6 * 1e6
+    )
+    # we need to derive V(D)
+    model.VD[:] = np.nansum(psd * mparsivel.speed_classes.values, axis=2) / np.nansum(
+        psd, axis=2
+    )
+    # (time, 2, size) : VD measured, then VD from model law. The sizes come last
+    # so that the sums over them run in the same (pairwise) order as in the former
+    # per-timestep code, which keeps the results identical to the last bit.
+    VDD = np.stack((model.VD, np.broadcast_to(VDmodel, model.VD.shape)), axis=1)
 
-        model.M2[ii, :] = (
-            (
-                np.nansum(
-                    np.tile(
-                        Ni * ((mparsivel.size_classes.values * 1.0e-3) ** 2), (2, 1)
-                    ).T
-                    / VDD,
-                    axis=0,
-                )
-            )
-            / F
-            / t
-        )
-        model.M3[ii, :] = (
-            (
-                np.nansum(
-                    np.tile(
-                        Ni * ((mparsivel.size_classes.values * 1.0e-3) ** 4), (2, 1)
-                    ).T
-                    / VDD,
-                    axis=0,
-                )
-            )
-            / F
-            / t
-        )
-        model.M4[ii, :] = (
-            (
-                np.nansum(
-                    np.tile(
-                        Ni * ((mparsivel.size_classes.values * 1.0e-3) ** 4), (2, 1)
-                    ).T
-                    / VDD,
-                    axis=0,
-                )
-            )
-            / F
-            / t
-        )
-        model.Ze_ray[ii, :] = (
-            (
-                np.nansum(
-                    np.tile(Ni * (mparsivel.size_classes.values**6), (2, 1)).T / VDD,
-                    axis=0,
-                )
-            )
-            / F
-            / t
-        )
+    def per_volume(x, vdd=VDD):
+        """Sum over the sizes of x / V(D), for both fall speeds, per m3 and second."""
+        return np.nansum(x[:, None, :] / vdd, axis=2) / F / t
 
-        model.psd_sum = (
-            mparsivel.psd.sum(dim="time").values
-            / F
-            / t
-            / np.tile(VDmodel.flatten(), (len(mparsivel.speed_classes), 1)).T
-            / 1e6
-        )  # / ) ? Particles/cm3
-        model.psd_sum_n = (
-            model.psd_sum
-            / np.tile(model.diameter_bin_width_mm, (len(mparsivel.speed_classes), 1)).T
-        )
-        # # dsd with velocity from parsivel
-        # model.dsd[ii, :] = (nul
-        #     Ni / model.VD[ii, :] / F / t / (model.diameter_bin_width_mm * 1.0e-3)
-        # )  # particles/m3 #normalised per diameter bin width
+    model.M2 = per_volume(Ni * ((D * 1.0e-3) ** 2))
+    model.M3 = per_volume(Ni * ((D * 1.0e-3) ** 4))
+    model.M4 = per_volume(Ni * ((D * 1.0e-3) ** 4))
+    model.Ze_ray = per_volume(Ni * (D**6))
 
-        ## Here begins the multilambda specific part
-        for k, scatt in enumerate(scatt_list):
-            model.Ze_mie[ii, k % fr, k // fr, :] = (
-                np.nansum(
-                    np.tile(Ni[0:n] * scatt.bscat_mie, (2, 1)).T / VDD[0:n, :],
-                    axis=0,
-                )
-                / F
-                / t
-            )  # mm6/m3
+    # # dsd with velocity from parsivel
+    # model.dsd[ii, :] = (nul
+    #     Ni / model.VD[ii, :] / F / t / (model.diameter_bin_width_mm * 1.0e-3)
+    # )  # particles/m3 #normalised per diameter bin width
 
-            model.Ze_tm[ii, k % fr, k // fr, :] = (
-                np.nansum(
-                    np.tile(Ni[0:n] * scatt.bscat_tmatrix, (2, 1)).T / VDD[0:n, :],
-                    axis=0,
-                )
-                / F
-                / t
-            )  # mm6/m3
-            model.Ze_tm[np.where(model.Ze_tm == 0)] = np.nan
-
-            model.attenuation[ii, k % fr, k // fr, :] = (
-                np.nansum(
-                    np.tile(Ni[0:n] * scatt.att_tmatrix, (2, 1)).T / VDD[0:n, :], axis=0
-                )
-                / F
-                / t
-            )  # dB/km
-
-            model.V_mie[ii, k % fr, k // fr, :] = np.nansum(
-                Ni[0:n] * scatt.bscat_mie
-            ) / np.nansum(
-                np.tile(Ni[0:n] * scatt.bscat_mie, (2, 1)).T / VDD[0:n, :], axis=0
+    ## Here begins the multilambda specific part
+    Nn, VDDn = Ni[:, 0:n], VDD[:, :, 0:n]
+    for k, scatt in enumerate(scatt_list):
+        f, o = k % fr, k // fr
+        model.Ze_mie[:, f, o, :] = per_volume(Nn * scatt.bscat_mie, VDDn)  # mm6/m3
+        model.Ze_tm[:, f, o, :] = per_volume(Nn * scatt.bscat_tmatrix, VDDn)  # mm6/m3
+        # attenuation in dB/km
+        model.attenuation[:, f, o, :] = per_volume(Nn * scatt.att_tmatrix, VDDn)
+        for V, b in ((model.V_mie, scatt.bscat_mie), (model.V_tm, scatt.bscat_tmatrix)):
+            V[:, f, o, :] = np.nansum(Nn * b, axis=1)[:, None] / np.nansum(
+                (Nn * b)[:, None, :] / VDDn, axis=2
             )  # m/s
+    model.Ze_tm[np.where(model.Ze_tm == 0)] = np.nan
 
-            model.V_tm[ii, k % fr, k // fr, :] = np.nansum(
-                Ni[0:n] * scatt.bscat_tmatrix
-            ) / np.nansum(
-                np.tile(Ni[0:n] * scatt.bscat_tmatrix, (2, 1)).T / VDD[0:n, :], axis=0
-            )  # m/s
+    # time-integrated psd, each timestep normalised by its own interval
+    model.psd_sum = (
+        np.nansum(mparsivel.psd.values / t_all[:, None, None], axis=0)
+        / F
+        / np.tile(VDmodel.flatten(), (len(mparsivel.speed_classes), 1)).T
+        / 1e6
+    )  # / ) ? Particles/cm3
+    model.psd_sum_n = (
+        model.psd_sum
+        / np.tile(model.diameter_bin_width_mm, (len(mparsivel.speed_classes), 1)).T
+    )
 
     DensityLiquidWater = 1000.0e3  # g/m3
 

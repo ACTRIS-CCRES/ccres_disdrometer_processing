@@ -10,7 +10,11 @@ import logging
 import numpy as np
 import pandas as pd
 import xarray as xr
-from scipy.stats import linregress
+
+from ccres_disdrometer_processing.processing.preprocessed_file2processed_noweather import (  # noqa: E501
+    event_bounds,
+)
+from ccres_disdrometer_processing.utils import disdro_minutes
 
 lgr = logging.getLogger(__name__)
 
@@ -102,25 +106,10 @@ def rain_event_selection_weather(ds, conf):
         conf["thresholds"]["MIN_RAINFALL_AMOUNT"],
     )
 
-    t = sel_ds.time
-    start, end = [], []
+    t = sel_ds.time.values
     if t.size <= 1:
-        return start, end
-    start_candidate = t[0]
-    for i in range(t.size - 1):
-        if i + 1 == t.size - 1:
-            if t[i + 1] - t[i] > np.timedelta64(max_interval, "m"):
-                if t[i] - start_candidate >= np.timedelta64(min_duration, "m"):
-                    start.append(start_candidate.values)
-                    end.append(t[i].values)
-            elif t[i + 1] - start_candidate >= np.timedelta64(min_duration, "m"):
-                start.append(start_candidate.values)
-                end.append(t[i + 1].values)
-        elif t[i + 1] - t[i] > np.timedelta64(max_interval, "m"):
-            if t[i] - start_candidate >= np.timedelta64(min_duration, "m"):
-                start.append(start_candidate.values)
-                end.append(t[i].values)
-            start_candidate = t[i + 1]
+        return [], []
+    start, end = event_bounds(t, min_duration, max_interval)
     # constraint on rain accumulation
     ams_time_sampling = get_ams_time_sampling(ds)
     for s, e in zip(start.copy(), end.copy()):  # noqa: B905
@@ -180,6 +169,8 @@ def compute_quality_checks_weather(ds, conf, start, end):
             "unit": "mm",
         },
     )
+    # disdrometer rain per timestep (mm/h x mn), see utils.disdro_minutes
+    disdro_rain = ds["disdro_pr"] * xr.DataArray(disdro_minutes(ds), dims=["time"])
     for s, e in zip(start, end):  # noqa: B905
         qc_ds["flag_event"].loc[slice(s, e)] = True
 
@@ -190,7 +181,7 @@ def compute_quality_checks_weather(ds, conf, start, end):
             * np.nancumsum(ds["ams_pr"].sel(time=slice(s, e)).values)
         )
         qc_ds["disdro_cp_since_event_begin"].loc[slice(s, e)] = (
-            1 / 60 * np.nancumsum(ds["disdro_pr"].sel(time=slice(s, e)).values)
+            1 / 60 * np.nancumsum(disdro_rain.sel(time=slice(s, e)).values)
         )
 
     # Flag for condition (rainfall_amount > N mm)
@@ -483,6 +474,9 @@ def compute_todays_events_stats_weather(ds, Ze_ds, conf, qc_ds, start, end, day_
                 ).values.reshape(
                     (-1, 1)
                 )  # keep only QC passed timesteps for regression
+
+                # scipy.stats takes a while to load : only events need it
+                from scipy.stats import linregress
 
                 slope_event, intercept_event, r_event, p, se = linregress(
                     z_dd_nonan.flatten(), z_dcr_nonan.flatten()

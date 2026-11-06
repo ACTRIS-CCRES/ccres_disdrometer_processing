@@ -3,10 +3,14 @@ import functools
 import logging
 import os
 import sys
+from pathlib import Path
 
 import numpy as np
-from rustmatrix import Scatterer, radar, tmatrix_aux
+import xarray as xr
 from scipy import constants
+
+# rustmatrix is imported where a T-matrix is computed : with the precomputed
+# tables, most runs never need it, and loading it takes about half a second.
 
 lgr = logging.getLogger(__name__)
 
@@ -17,9 +21,64 @@ NDGS = 2
 NDGS_FALLBACK = 1
 
 
+# Scattering properties precomputed by scripts/build_scattering_tables.py for the
+# diameter grids, frequencies, refractive indices and axis ratio method in use. A
+# combination absent from the file is computed as before ; setting the environment
+# variable below ignores the file.
+TABLE_FILE = Path(__file__).parent / "assets" / "scattering_tables.nc"
+NO_TABLE_ENV = "CCRES_NO_SCATTERING_TABLES"
+TABLE_VARS = ("bscat_mie", "bscat_tmatrix", "att_tmatrix")
+
+
 class DATA:
     def __init__(self):
         self.time = []
+
+
+@functools.cache
+def _tables():
+    """Return the precomputed scattering tables, as a list of dicts (cached)."""
+    if os.environ.get(NO_TABLE_ENV) or not TABLE_FILE.exists():
+        return []
+    with xr.open_dataset(TABLE_FILE) as ds:
+        out = []
+        for k in range(ds.sizes["entry"]):
+            n = int(ds["n_diameters"].values[k])
+            out.append(
+                {
+                    "freq": float(ds["frequency"].values[k]),
+                    "e": complex(ds["e_real"].values[k], ds["e_imag"].values[k]),
+                    "axr": str(ds["axis_ratio_method"].values[k]),
+                    "fov": int(ds["beam_orientation"].values[k]),
+                    "D": ds["diameter"].values[k, :n].copy(),
+                    **{v: ds[v].values[k, :n].copy() for v in TABLE_VARS},
+                }
+            )
+    return out
+
+
+def _from_table(D, beam_orientation, freq, e, axrMethod):
+    """Return the precomputed scattering of this exact case, or None if absent.
+
+    Every key must match exactly, the diameters to the last bit and with their
+    dtype (the axis ratio is computed in it), so a table entry is the very result
+    the computation would give.
+    """
+    D = np.asarray(D)
+    for t in _tables():
+        if (
+            t["freq"] == float(freq)
+            and t["e"] == complex(e)
+            and t["axr"] == axrMethod
+            and t["fov"] == int(beam_orientation)
+            and t["D"].dtype == D.dtype
+            and np.array_equal(t["D"], D)
+        ):
+            scatt = DATA()
+            for v in TABLE_VARS:
+                setattr(scatt, v, t[v].copy())
+            return scatt
+    return None
 
 
 @contextlib.contextmanager
@@ -67,6 +126,7 @@ def _scatterer(Diam, lambda_m, e, axis_ratio):
         The scatterer, its geometry being set by the caller before each use
 
     """
+    from rustmatrix import Scatterer
 
     def build(ndgs):
         scatterer = Scatterer(
@@ -182,6 +242,8 @@ def compute_bscat_tmatrix(Diam, lambda_m, e, axis_ratio, beam_orientation):
         backscattering coefficient and attenuation.
 
     """
+    from rustmatrix import radar, tmatrix_aux
+
     scatterer_tm = _scatterer(float(Diam), float(lambda_m), e, float(axis_ratio))
 
     # Backscattering coef
@@ -227,6 +289,8 @@ def compute_bscat_mie(Diam, lambda_m, e, beam_orientation):
         backscattering coefficient and attenuation.
 
     """
+    from rustmatrix import radar, tmatrix_aux
+
     scatterer_mie = _scatterer(float(Diam), float(lambda_m), e, 1.0)
     if beam_orientation == 0:
         scatterer_mie.set_geometry(tmatrix_aux.geom_horiz_back)
@@ -272,6 +336,13 @@ def scattering_prop(
         - one for Mie backscattering coefficients.
 
     """
+    scatt = _from_table(D, beam_orientation, freq, e, axrMethod)
+    if scatt is not None:
+        return scatt
+    lgr.info(
+        f"Scattering not in {TABLE_FILE.name} for {freq / 1e9:.1f} GHz, "
+        f"orientation {beam_orientation}, {len(D)} diameters : computed"
+    )
     scatt = DATA()
 
     scatt.bscat_mie = np.zeros(np.shape(D))
