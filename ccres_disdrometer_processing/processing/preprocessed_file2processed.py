@@ -23,7 +23,11 @@ from ccres_disdrometer_processing.processing import (
     preprocessed_file2processed_weather as processing,
 )
 from ccres_disdrometer_processing.saturation import saturation_qc
-from ccres_disdrometer_processing.utils import POSITION_VARS, scalar_positions
+from ccres_disdrometer_processing.utils import (
+    POSITION_VARS,
+    rain_attenuation,
+    scalar_positions,
+)
 
 # Variables of the preprocessed files the processing reads. The others (the other
 # reflectivity variants, DSD moments, attenuation...) are not loaded.
@@ -111,12 +115,7 @@ def extract_dcr_data(ds, conf):
     )
     gate_range = zdcr["range"].values.astype(float)
     if "attd_vfov_modv" in ds:
-        k = (
-            ds["attd_vfov_modv"]
-            .sel(radar_frequencies=ds.radar_frequency, method="nearest")
-            .values.astype(float)
-        )  # dB/km
-        attenuation = 2 * np.nan_to_num(k)[:, None] * gate_range[None, :] / 1000
+        attenuation = rain_attenuation(ds, gate_range)
     else:
         attenuation = np.zeros(zdcr.shape)
     Ze_ds["dcr_attenuation"] = xr.DataArray(

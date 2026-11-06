@@ -168,6 +168,35 @@ POSITION_VARS = [
 ]
 
 
+def rain_attenuation(ds: xr.Dataset, gate_range) -> np.ndarray:
+    """Return the two-way rain attenuation between the radar and each gate (dB).
+
+    2 k r, k the specific attenuation computed from the disdrometer DSD at the
+    radar frequency (attd_vfov_modv, dB/km), the rain being assumed homogeneous up
+    to the gate ; 0 where k is missing (no rain).
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Preprocessed data, with attd_vfov_modv and radar_frequency
+    gate_range : array-like
+        Range of the gates (m)
+
+    Returns
+    -------
+    np.ndarray
+        Attenuation, (time, gate)
+
+    """
+    k = (
+        ds["attd_vfov_modv"]
+        .sel(radar_frequencies=ds.radar_frequency, method="nearest")
+        .values.astype(float)
+    )
+    r = np.asarray(gate_range, dtype=float)
+    return 2 * np.nan_to_num(k)[:, None] * r[None, :] / 1000
+
+
 def scalar_positions(ds: xr.Dataset) -> xr.Dataset:
     """Make the instrument positions of a preprocessed dataset scalar.
 
