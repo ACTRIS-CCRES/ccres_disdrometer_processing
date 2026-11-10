@@ -237,6 +237,20 @@ def preprocess_ql(file, output_ql_overview, output_ql_overview_zh, config_file):
     default=False,
     help="if specified, if weather data is available in preprocessing files, this data is not used for processing",  # noqa E501
 )
+@click.option(
+    "--yesterday-processed",
+    type=click.Path(
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        path_type=Path,
+        resolve_path=True,
+        readable=True,
+    ),
+    required=False,
+    default=None,
+    help="processed file of day N-1 : an event in progress at the start of day N-1 keeps its begin and accumulation from it",  # noqa E501
+)
 @click.option("-v", "verbosity", count=True)
 def process(
     yesterday,
@@ -245,6 +259,7 @@ def process(
     config_file,
     output_file,
     no_meteo,
+    yesterday_processed,
     verbosity,
 ):
     """Create a daily processed netCDF file from daily preprocessed files.
@@ -263,6 +278,8 @@ def process(
         Path where the output data will be stored
     no_meteo : bool, optional
         if True, applies a downgraded version of the processing which does not take into account weather data, even when it is provided.
+    yesterday_processed : click.Path, optional
+        Processed file of day N-1, to carry over an event in progress at the start of day N-1
     verbosity : int
         verbose level
     Returns
@@ -275,7 +292,14 @@ def process(
     )
 
     processing.process(
-        yesterday, today, tomorrow, config_file, output_file, no_meteo, verbosity
+        yesterday,
+        today,
+        tomorrow,
+        config_file,
+        output_file,
+        no_meteo,
+        verbosity,
+        yesterday_processed=yesterday_processed,
     )
     click.echo("Processing : SUCCESS")
     sys.exit(0)

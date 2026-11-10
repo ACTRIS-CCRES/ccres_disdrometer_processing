@@ -878,6 +878,12 @@ def plot_processed_ql_detailled(
             date_start = npdt64_to_datetime(
                 ds_pro_today["start_event"].isel({"events": mask_good_event})[n].values
             ) - dt.timedelta(hours=1)
+            # an event carried over from the day before can begin before the
+            # loaded data: start the axis at the first loaded time
+            first_loaded = npdt64_to_datetime(
+                min(ds_pro.time.values[0], ds_prepro.time.values[0])
+            )
+            date_start = max(date_start, first_loaded)
             date_end = npdt64_to_datetime(
                 ds_pro_today["end_event"].isel({"events": mask_good_event})[n].values
             ) + dt.timedelta(hours=1)
