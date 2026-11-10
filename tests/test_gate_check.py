@@ -64,3 +64,24 @@ def test_selection_level_takes_the_most_demanding_with_enough_events():
     assert passes["large"].sum() == 26
     _, level = gate_check.selection_level(f.iloc[10:], min_events=15)
     assert level == "large"
+
+
+def test_bistatic_radars_take_the_gate_above_the_first_one_within_tolerance():
+    gates, devs = profiles(excess_top=250.0)
+    mono, _ = gate_check.summarise(gates, -devs, conf_gate=150.0, label="mono")
+    bi, _ = gate_check.summarise(
+        gates, -devs, conf_gate=150.0, label="bi", bistatic=True
+    )
+    assert mono["gate_recommended"] == 250.0
+    assert np.isnan(mono["gate_composite_plus_one"])
+    assert bi["gate_composite"] == 250.0
+    assert bi["gate_composite_plus_one"] == 275.0
+    assert bi["gate_recommended"] == 275.0
+    assert gate_check.antenna_layout("juelich_mira-35_0366fa69_parsivel_2a1ca46e") == (
+        "monostatique"
+    )
+    for combo in (
+        "juelich_rpg-fmcw-94_f7e00266_parsivel_2a1ca46e",
+        "palaiseau_basta_643b7b5b_parsivel_7e13f3f2",
+    ):
+        assert gate_check.antenna_layout(combo) == "bistatique"

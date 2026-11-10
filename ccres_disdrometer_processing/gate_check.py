@@ -27,7 +27,12 @@ Method (reference line) :
    a deficit (incomplete overlap) as well as an excess ;
 5. N_BOOT bootstrap draws of the events : the recommended gate is the
    BOOT_QUANTILE quantile of the drawn gates (between two gates, the higher one :
-   a systematic excess costs more than a little precision) ;
+   a systematic excess costs more than a little precision). Bistatic radars
+   (separate transmit and receive antennas : RPG-FMCW, BASTA) have a near-range
+   deficit that fades slowly, still about -0.2 dB at the first gate within TOL :
+   their recommended gate is at least the gate above it. Monostatic radars (MIRA)
+   have an excess that fades within one gate, and their farther gates saturate
+   first : no extra gate ;
 6. by period (year, or instrument log epochs) : the deviation at the recommended
    gate tells whether a single gate holds within TOL over the whole history.
 
@@ -60,6 +65,9 @@ MIN_EVENTS_PERIOD = 8  # events for a period to be assessed (looser level if nee
 N_BOOT = 200
 BOOT_QUANTILE = 0.8
 DV_RATIO = 0.7  # gates slower than this share of the lowest ones (melting layer)
+# antenna layout from the radar type of the combination name
+MONOSTATIC = ("mira",)
+BISTATIC = ("rpg", "basta")
 
 # Stratiform selection, nested levels ; thresholds of the Juelich study
 # (n_qc : QC-passed minutes ; rain_frac, qc_frac : share of the event minutes
@@ -363,14 +371,42 @@ def bootstrap_gates(gates, devs, n_boot=N_BOOT, seed=0):
     )
 
 
-def summarise(gates, devs, conf_gate, label, gate_ref=None):
-    """Optimal gate, bootstrap and deviation at given gates, for one event set."""
+def antenna_layout(combo):
+    """Return "monostatique", "bistatique" or None from the radar type of a combo."""
+    rtype = combo.split("_")[1].lower()
+    if rtype.startswith(MONOSTATIC):
+        return "monostatique"
+    if rtype.startswith(BISTATIC):
+        return "bistatique"
+    return None
+
+
+def gate_above(gates, comp, g):
+    """Return the first gate above g with a composite deviation (NaN if none)."""
+    if not np.isfinite(g):
+        return np.nan
+    up = np.where((gates > g) & np.isfinite(comp))[0]
+    return float(gates[up[0]]) if up.size else np.nan
+
+
+def summarise(gates, devs, conf_gate, label, gate_ref=None, bistatic=False):
+    """Optimal gate, bootstrap and deviation at given gates, for one event set.
+
+    The recommended gate is the bootstrap quantile, and for a bistatic radar at
+    least the gate above the composite optimal gate.
+    """
     g_opt, comp = optimal_gate(gates, devs)
     boot = bootstrap_gates(gates, devs) if devs.shape[0] >= 5 else np.array([g_opt])
     boot = boot[np.isfinite(boot)]
-    rec_gate = (
+    g_boot = (
         float(np.quantile(boot, BOOT_QUANTILE, method="higher"))
         if boot.size
+        else np.nan
+    )
+    g_plus = gate_above(gates, comp, g_opt) if bistatic else np.nan
+    rec_gate = (
+        float(np.nanmax([g_boot, g_plus]))
+        if np.isfinite([g_boot, g_plus]).any()
         else np.nan
     )
     counts = pd.Series(boot).round().value_counts(normalize=True).sort_index()
@@ -384,6 +420,8 @@ def summarise(gates, devs, conf_gate, label, gate_ref=None):
         set=label,
         n_events=int(devs.shape[0]),
         gate_composite=g_opt,
+        gate_bootstrap=g_boot,
+        gate_composite_plus_one=g_plus,
         gate_recommended=rec_gate,
         bootstrap=" ".join(f"{g:.0f}:{p:.0%}" for g, p in counts.items() if p >= 0.05),
         dev_at_conf_gate=dev_at(conf_gate),
@@ -428,6 +466,10 @@ def evaluate(
     combo, preprocessed_dir, processed_dir, conf_gate, period="year", breaks=()
 ):
     """Return the per-event table, the summary rows and the composite profiles."""
+    layout = antenna_layout(combo)
+    if layout is None:
+        lgr.warning("antenna layout unknown for %s : no extra gate", combo)
+    bistatic = layout == "bistatique"
     ev, qc = read_processed(_day_files(processed_dir, combo, "processed"))
     if ev.empty:
         raise ValueError(f"no good event for {combo} in {processed_dir}")
@@ -477,7 +519,9 @@ def evaluate(
 
     use = sel & features.fit_ok.to_numpy()
     summary, comps = [], {}
-    row, comp = summarise(gates, devs[use], conf_gate, f"{level} (toute la période)")
+    row, comp = summarise(
+        gates, devs[use], conf_gate, f"{level} (toute la période)", bistatic=bistatic
+    )
     row["level"] = level
     summary.append(row)
     comps[row["set"]] = comp
@@ -488,6 +532,7 @@ def evaluate(
         conf_gate,
         "tous les événements",
         g_ref,
+        bistatic=bistatic,
     )
     row_all["level"] = "tous"
     summary.append(row_all)
@@ -504,11 +549,14 @@ def evaluate(
             if m.sum() < MIN_EVENTS_PERIOD:
                 summary.append(dict(set=lab, level="-", n_events=int(in_p.sum())))
                 continue
-            r, c = summarise(gates, devs[m], conf_gate, f"{lab} ({lev})", g_ref)
+            r, c = summarise(
+                gates, devs[m], conf_gate, f"{lab} ({lev})", g_ref, bistatic=bistatic
+            )
             r["level"] = lev
             summary.append(r)
             comps[r["set"]] = c
     summary = pd.DataFrame(summary)
+    summary.insert(0, "antenna", layout)
     if "dev_at_reference" in summary:
         ref = summary["dev_at_reference"]
         summary["single_gate_ok"] = (ref.abs() <= TOL).where(ref.notna())
