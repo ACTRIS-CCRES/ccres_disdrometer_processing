@@ -2,6 +2,7 @@
 
 import numpy as np
 import pandas as pd
+import xarray as xr
 
 from ccres_disdrometer_processing import gate_check
 
@@ -85,3 +86,15 @@ def test_bistatic_radars_take_the_gate_above_the_first_one_within_tolerance():
         "palaiseau_basta_643b7b5b_parsivel_7e13f3f2",
     ):
         assert gate_check.antenna_layout(combo) == "bistatique"
+
+
+def test_a_minute_saturated_at_any_gate_up_to_the_reference_layer_is_dropped():
+    r = np.arange(150.0, 1001.0, 50.0)
+    qf = np.zeros((4, r.size), dtype="i1")
+    qf[1, r == 400.0] = 1  # radar at its ceiling in the reference layer
+    qf[2, r == 200.0] = 2  # Zdd near the ceiling below it
+    qf[3, r == 900.0] = 1  # above R_SEARCH : kept
+    ds = xr.Dataset({"QF_saturation": (("time", "range"), qf)}, coords={"range": r})
+    sat = gate_check.saturated_minutes(ds)
+    assert sat.tolist() == [False, True, True, False]
+    assert gate_check.saturated_minutes(ds.drop_vars("QF_saturation")) is None
