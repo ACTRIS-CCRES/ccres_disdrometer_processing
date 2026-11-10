@@ -810,7 +810,7 @@ def plot_processed_ql_summary(
             event_number = n + 1
             suptitle = (
                 f"CCRES PROCESSING @ {ds_pro.station_name}\n"
-                f"File processing on {np.datetime_as_string(ds_pro.time[0].values, unit='D')}\n"  # noqa
+                f"File processing on {np.datetime_as_string(ds_pro_today.time[0].values, unit='D')}\n"  # noqa
                 f"Event {event_number} from {start_event} to {end_event}"
             )
             fig.suptitle(
@@ -1040,7 +1040,7 @@ def plot_processed_ql_detailled(
             event_number = n + 1
             suptitle = (
                 f"CCRES PROCESSING @ {ds_pro.station_name}\n"
-                f"File processing on {np.datetime_as_string(ds_pro.time[0].values, unit='D')}\n"  # noqa
+                f"File processing on {np.datetime_as_string(ds_pro_today.time[0].values, unit='D')}\n"  # noqa
                 f"Event {event_number} from {start_event} to {end_event}"
             )
             fig.suptitle(
