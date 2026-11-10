@@ -26,6 +26,7 @@ Recap of the inputs for the processing :
 - configuration file for the station to process
 - Path where to save the output file
 - option *no_meteo* to downgrade the processing (i.e. not to use weather station data for some reason, even when it is available and used for preprocessing)
+- optionally, the processing output of day D-1 (option *yesterday_processed*), to carry over an event in progress at the start of the 3-day window (see step 1)
 
 The output is a netCDF file, with three dimensions :
 - *range*, the vector of altitudes at which DCR data and Delta between DCR and disdrometer-modeled reflectivity data are provided
@@ -47,6 +48,7 @@ The following variables can be found in the output processing file :
 | fallspeed_dd                      | time           | Average droplet fall speed seen by the disdrometer |
 | Delta_Z                           | time, range    | Difference between DCR and disdrometer-modeled reflectivity (dBZ) |
 | flag_event                        | time           | Flag to describe if a timestep belongs to a detected rainfall event |
+| event_begin                       | time           | Begin of the rain event the timestep belongs to (NaT outside events) |
 | ams_cp_since_event_begin          | time           | Pluviometer rain accumulation (in mm) since last event start |
 | disdro_cp_since_event_begin       | time           | Disdrometer rain accumulation (in mm) since last event start |
 | QF_rainfall_amount                | time           | Quality flag for minimum rainfall amount |
@@ -115,6 +117,8 @@ The criteria for rain event selection are the following :
 The efficiency of the algorithm as it is implemented now is probablu low. The implementation could be reviewed to enhance the efficiency, hopefully this step is not very time-consuming so this problem is not critical.
 
 The algorithm outputs two lists, containing begin and end dates of the identified events. It outputs empty lists if no events satisfying the criteria are identified.
+
+An event that began before D-1 00:00 is cut at the start of the window. When the processing output of day D-1 is given (*yesterday_processed*) and has that event in progress at the first rainy time of the window, the event takes its begin from the variable **event_begin** of that file, and its accumulations (**disdro_cp_since_event_begin**, **ams_cp_since_event_begin**) continue from D-1, so that **QF_rainfall_amount** and **QF_rg_dd** are computed on the whole event. The Delta Z statistics and the selection criteria above still only use the 3-day window. In a day-by-day run, each day can thus carry over an event of any length.
 
 
 ***Step 2 :*** computation of output variables
