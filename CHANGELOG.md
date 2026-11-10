@@ -1,5 +1,27 @@
 # Changelog
 
+## v1.2.0 (2026-11-10)
+
+### Feat
+
+- flag the radar receiver saturation and add QC_sat to QC_overall (#132)
+- carry an event in progress at the window start over from the day before (#131)
+
+### Fix
+
+- date the event quicklook titles with the processed day
+- check the Parsivel data_raw axis order on the fall speeds
+- ship the scattering tables in the source distribution
+- accept a disdrometer interval given once for the whole file
+- normalise disdrometer counts by their measurement interval
+
+### Perf
+
+- speed up the processing step without changing its results
+- resample only the disdrometer variables the readers use
+- compute the scattering only at the radar frequency, from precomputed tables
+- vectorise the reflectivity model and read the inputs in memory
+
 ## v1.1.0 (2026-11-03)
 
 ### Impact on output files
