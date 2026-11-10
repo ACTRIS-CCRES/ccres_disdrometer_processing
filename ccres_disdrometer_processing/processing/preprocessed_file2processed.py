@@ -168,6 +168,120 @@ def compute_quality_checks(ds, conf, start, end, no_meteo):
     return qc_ds
 
 
+def carry_over_events(ds, conf, start, yesterday_processed):
+    """Give the events in progress at the start of the window their true start.
+
+    The window holds days J-1 to J+1 : an event that began before J-1 would start
+    at J-1 00:00. When the processed file of J-1 shows an event in progress at the
+    first rainy time of such an event, its begin (event_begin) is taken from there.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Preprocessed data of the window
+    conf : dict
+        Station configuration
+    start : list
+        Event starts found in the window
+    yesterday_processed : Path or None
+        Processed file of day J-1
+
+    Returns
+    -------
+    list, dict
+        The starts, and {event index: (begin, first time in the window)} for the
+        events carried over
+
+    """
+    if yesterday_processed is None or len(start) == 0:
+        return start, {}
+    with xr.open_dataset(yesterday_processed) as raw:
+        if "event_begin" not in raw:
+            lgr.info(
+                "Processed file of J-1 without event_begin : no event carried over"
+            )
+            return start, {}
+        prev = raw[["flag_event", "event_begin"]].load()
+    window_start = ds.time.values[0]
+    max_interval = np.timedelta64(conf["thresholds"]["MAX_INTERVAL"], "m")
+    new_start, carried = list(start), {}
+    for i, s in enumerate(start):
+        s = np.datetime64(s)
+        if s - window_start > max_interval or s not in prev.time.values:
+            continue
+        if prev["flag_event"].sel(time=s).values != 1:
+            continue
+        begin = prev["event_begin"].sel(time=s).values
+        if np.isnat(begin) or begin >= s:
+            continue
+        new_start[i] = np.asarray(begin)
+        carried[i] = (np.datetime64(begin), s)
+    return new_start, carried
+
+
+def add_carried_accumulation(qc_ds, conf, carried, yesterday_processed, end):
+    """Add to the events carried over the rain they had before the window.
+
+    The accumulations since the event begin are shifted by their value in the
+    processed file of J-1 at the first time of the event in the window, and the
+    flags built on them (QF_rainfall_amount, QF_rg_dd) are computed again.
+    """
+    if not carried:
+        return qc_ds
+    with xr.open_dataset(yesterday_processed) as raw:
+        prev = raw[
+            [
+                v
+                for v in ("disdro_cp_since_event_begin", "ams_cp_since_event_begin")
+                if v in raw
+            ]
+        ].load()
+    for i, (begin, s0) in carried.items():
+        sl = slice(begin, np.datetime64(end[i]))
+        for var in ("disdro_cp_since_event_begin", "ams_cp_since_event_begin"):
+            if var not in prev or var not in qc_ds:
+                continue
+            before = float(prev[var].sel(time=s0).values) - float(
+                qc_ds[var].sel(time=s0).values
+            )
+            if np.isfinite(before):
+                qc_ds[var].loc[sl] = qc_ds[var].loc[sl] + before
+        qc_ds["QF_rainfall_amount"].loc[sl] = (
+            qc_ds["disdro_cp_since_event_begin"].loc[sl]
+            >= conf["thresholds"]["MIN_RAINFALL_AMOUNT"]
+        ).astype("i2")
+        if (
+            "QF_rg_dd" in qc_ds
+            and np.isfinite(qc_ds["ams_cp_since_event_begin"].loc[sl]).any()
+        ):
+            dd, ams = (
+                qc_ds["disdro_cp_since_event_begin"].loc[sl],
+                qc_ds["ams_cp_since_event_begin"].loc[sl],
+            )
+            qc_ds["QF_rg_dd"].loc[sl] = (
+                np.abs(dd - ams) / ams < conf["thresholds"]["DD_RG_MAX_PR_ACC_RATIO"]
+            ).astype(qc_ds["QF_rg_dd"].dtype)
+    return qc_ds
+
+
+def event_begin(qc_ds, start, end):
+    """Begin of the event each timestep belongs to (NaT outside events)."""
+    begin = np.full(qc_ds.time.size, np.datetime64("NaT", "ns"))
+    times = qc_ds.time.values
+    for s, e in zip(start, end):  # noqa: B905
+        begin[(times >= np.datetime64(s)) & (times <= np.datetime64(e))] = (
+            np.datetime64(s)
+        )
+    return xr.DataArray(
+        begin,
+        dims=["time"],
+        attrs={
+            "long_name": "Begin of the rain event the timestep belongs to",
+            "comment": "taken from the processed file of the day before for an event in progress at the start of the 3-day window",  # noqa E501
+        },
+    )
+
+
 def compute_todays_events_stats(
     ds, Ze_ds, conf, qc_ds, start, end, no_meteo, day_today
 ):
@@ -300,7 +414,16 @@ def add_attributes(processed_ds, preprocessed_ds):
     return
 
 
-def process(yesterday, today, tomorrow, conf, output_file, no_meteo, verbosity):
+def process(
+    yesterday,
+    today,
+    tomorrow,
+    conf,
+    output_file,
+    no_meteo,
+    verbosity,
+    yesterday_processed=None,
+):
     """Use to build command line interface for processing step."""
     log_level = LogLevels.get_by_verbosity_count(verbosity)
     init_logger(log_level)
@@ -318,8 +441,12 @@ def process(yesterday, today, tomorrow, conf, output_file, no_meteo, verbosity):
         click.echo("Downgraded mode (no weather data is used)")
 
     start, end = rain_event_selection(ds, conf, no_meteo)
+    # events in progress at the start of the window keep their true begin
+    start, carried = carry_over_events(ds, conf, start, yesterday_processed)
     Ze_ds = extract_dcr_data(ds, conf)
     qc_ds = compute_quality_checks(ds, conf, start, end, no_meteo)
+    qc_ds = add_carried_accumulation(qc_ds, conf, carried, yesterday_processed, end)
+    qc_ds["event_begin"] = event_begin(qc_ds, start, end)
     stats_ds = compute_todays_events_stats(
         ds, Ze_ds, conf, qc_ds, start, end, no_meteo, day_today
     )
@@ -362,6 +489,9 @@ def process(yesterday, today, tomorrow, conf, output_file, no_meteo, verbosity):
             "time": {"units": TIME_UNITS, "calendar": TIME_CALENDAR},
             "start_event": {"units": TIME_UNITS, "calendar": TIME_CALENDAR},
             "end_event": {"units": TIME_UNITS, "calendar": TIME_CALENDAR},
+            # same dates as the standard calendar after 1582; xarray cannot encode
+            # an all-NaT variable (day without event) with the standard calendar
+            "event_begin": {"units": TIME_UNITS, "calendar": "proleptic_gregorian"},
             "ams_cp_since_event_begin": {"_FillValue": np.nan},
             "disdro_cp_since_event_begin": {"_FillValue": np.nan},
             "QC_ta": {"_FillValue": QC_FILL_VALUE},
