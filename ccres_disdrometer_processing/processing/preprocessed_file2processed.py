@@ -22,6 +22,7 @@ from ccres_disdrometer_processing.processing import (
 from ccres_disdrometer_processing.processing import (
     preprocessed_file2processed_weather as processing,
 )
+from ccres_disdrometer_processing.saturation import saturation_qc
 from ccres_disdrometer_processing.utils import POSITION_VARS, scalar_positions
 
 # Variables of the preprocessed files the processing reads. The others (the other
@@ -37,6 +38,7 @@ PROCESSING_VARS = (
     "disdro_pr",
     "disdro_interval",
     "QF_disdro_interval",
+    "QF_saturation",
     "weather_data_avail",
     "ams_pr",
     "ta",
@@ -165,6 +167,14 @@ def compute_quality_checks(ds, conf, start, end, no_meteo):
     else:
         qc_ds = processing.compute_quality_checks_weather(ds, conf, start, end)
         lgr.info("Compute QC dataset (case with weather)")
+    # radar receiver saturation at the Delta Z gate, part of the overall check
+    qc_ds["QC_sat"] = saturation_qc(ds, conf)
+    overall_attrs = qc_ds["QC_overall"].attrs
+    qc_ds["QC_overall"] = (qc_ds["QC_overall"] & qc_ds["QC_sat"]).astype("i2")
+    qc_ds["QC_overall"].attrs = overall_attrs
+    qc_ds["QC_overall"].attrs["comment"] = (
+        overall_attrs.get("comment", "Checks combined") + ", saturation"
+    )
     return qc_ds
 
 
@@ -497,6 +507,7 @@ def process(
             "QC_ta": {"_FillValue": QC_FILL_VALUE},
             "QC_pr": {"_FillValue": QC_FILL_VALUE},
             "QC_vdsd_t": {"_FillValue": QC_FILL_VALUE},
+            "QC_sat": {"_FillValue": QC_FILL_VALUE},
             "QF_rainfall_amount": {"_FillValue": QC_FILL_VALUE},
             **(
                 {"QF_disdro_interval": {"_FillValue": QC_FILL_VALUE}}

@@ -11,6 +11,7 @@ import xarray as xr
 import ccres_disdrometer_processing.open_disdro_netcdf as disdro
 import ccres_disdrometer_processing.open_radar_netcdf as radar
 import ccres_disdrometer_processing.open_weather_netcdf as weather
+import ccres_disdrometer_processing.saturation as saturation
 import ccres_disdrometer_processing.scattering as scattering
 from ccres_disdrometer_processing.__init__ import __version__, script_name
 from ccres_disdrometer_processing.logger import LogLevels, init_logger
@@ -142,6 +143,9 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file, verbo
         lgr.info("Merge disdrometer and radar data")
         final_data = xr.merge([disdro_xr, radar_xr], combine_attrs="drop_conflicts")
         lgr.info("Merge : OK")
+
+    # minutes whose disdrometer reflectivity the saturated radar could not reach
+    final_data = saturation.flag_disdrometer_near_ceiling(final_data)
 
     final_data["weather_data_avail"] = np.array(weather_avail).astype("i2")
     final_data["weather_data_avail"].attrs["long_name"] = (
