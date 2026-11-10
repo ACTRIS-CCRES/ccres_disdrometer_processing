@@ -2,6 +2,8 @@ import pandas as pd
 import xarray as xr
 from scipy import constants
 
+from ccres_disdrometer_processing.saturation import radar_saturation
+
 LIST_VARIABLES = ["Zh", "v", "radar_frequency", "latitude", "longitude", "altitude"]
 
 
@@ -25,10 +27,10 @@ def read_radar_cloudnet(filename, max_radar_alt=2500):
     range_bounds = [0, max_radar_alt]
     # in memory first : grouping a lazily read file reads it piece by piece, slowly
     with xr.open_dataset(filename) as raw:
+        # the SNR, when the file has it (MIRA), reveals the receiver saturation
+        variables = LIST_VARIABLES + (["SNR"] if "SNR" in raw else [])
         data_nc = (
-            raw[LIST_VARIABLES]
-            .sel(range=slice(range_bounds[0], range_bounds[1]))
-            .load()
+            raw[variables].sel(range=slice(range_bounds[0], range_bounds[1])).load()
         )
 
     start_time = pd.Timestamp(data_nc.time.values[0]).replace(
@@ -119,6 +121,11 @@ def read_radar_cloudnet(filename, max_radar_alt=2500):
         attrs=data_nc["v"].attrs,
     )
     radar_ds["DVdcr"].attrs["Comment"] = "Negative downward"
+
+    for name, var in radar_saturation(
+        data_nc, time_index_offset, time_index[:-1]
+    ).items():
+        radar_ds[name] = var
 
     radar_ds.attrs["radar_source"] = data_nc.attrs["source"]
     radar_ds.attrs["radar_pid"] = data_nc.attrs["instrument_pid"]

@@ -984,6 +984,8 @@ def plot_processed_ql_detailled(
                 ]
             else:
                 qc_list = ["QC_pr", "QC_vdsd_t", "QC_overall"]
+            if "QC_sat" in subdata_pro.data_vars:  # absent from older files
+                qc_list.insert(-1, "QC_sat")
             for j, qc in enumerate(qc_list):
                 if j != len(qc_list) - 1:
                     for level in [0, 1]:
