@@ -13,7 +13,11 @@ preprocessed and processed files of one combination :
 Method (reference line) :
 
 1. good events of the processed files (rain accumulation and rain gauge checks
-   passed, at least MIN_POINTS QC-passed minutes) ;
+   passed, at least MIN_POINTS QC-passed minutes). QC_overall only checks the
+   saturation at DCR_DZ_RANGE : a minute flagged by QF_saturation at any gate up
+   to R_SEARCH is dropped as well, the MIRA reference layer being the first to
+   saturate. The whole minute is dropped, not only its saturated gates : that
+   would take the strongest minutes out of the farther gates alone ;
 2. a selection of steady stratiform rain, from criteria that never use Delta Z
    (LEVELS, nested from "large" to "strict") : the most demanding level holding
    at least MIN_EVENTS events is used. Convective events have a near-radar excess
@@ -131,6 +135,7 @@ PRE_VARS = (
     "DVdcr",
     "disdro_pr",
     "radar_frequency",
+    "QF_saturation",
 )
 
 
@@ -226,6 +231,14 @@ class Preprocessed:
 
 
 # per-event quantities ------------------------------------------------------------
+
+
+def saturated_minutes(ds, r_top=R_SEARCH):
+    """Minutes flagged by QF_saturation at any gate up to r_top (None without it)."""
+    if "QF_saturation" not in ds:
+        return None
+    qf = ds["QF_saturation"].sel(range=slice(0, r_top))
+    return (qf.fillna(0) > 0).any("range").to_numpy()
 
 
 def event_profile(ds, qc):
@@ -474,18 +487,32 @@ def evaluate(
     if ev.empty:
         raise ValueError(f"no good event for {combo} in {processed_dir}")
     pre = Preprocessed(_day_files(preprocessed_dir, combo, "preprocessed"))
-    profs = []
+    profs, no_flag = [], 0
     for _, e in ev.sort_values("start_event").iterrows():
         ds = pre.event(e.start_event, e.end_event)
         if ds is None:
             continue
         q = qc.reindex(ds.time.values).fillna(False).to_numpy(dtype=bool)
+        sat = saturated_minutes(ds)
+        if sat is None:
+            no_flag += 1
+            sat = np.zeros(q.size, bool)
+        n_sat = int((q & sat).sum())
+        q = q & ~sat
         if q.sum() < MIN_POINTS:
             continue
         p = event_profile(ds, q)
+        p["n_sat"] = n_sat
         p["dev"], p["line"] = deviation(p["range"], p["medc"], p["n"], p["dv"])
         p["start"], p["end"] = pd.Timestamp(e.start_event), pd.Timestamp(e.end_event)
         profs.append(p)
+    if no_flag:
+        lgr.warning(
+            "%s : %d events without QF_saturation (preprocessed files before the "
+            "saturation check) : saturation above DCR_DZ_RANGE not removed",
+            combo,
+            no_flag,
+        )
     if not profs:
         raise ValueError(f"no event with preprocessed data for {combo}")
 
@@ -506,7 +533,7 @@ def evaluate(
     devs, meds = np.array(devs), np.array(meds)
 
     features = pd.DataFrame(
-        [{k: p[k] for k in (*LEVELS["large"], "start", "end")} for p in profs]
+        [{k: p[k] for k in (*LEVELS["large"], "n_sat", "start", "end")} for p in profs]
     )
     passes, level = selection_level(features)
     sel = passes[level].to_numpy() if level != "tous" else np.ones(len(profs), bool)
