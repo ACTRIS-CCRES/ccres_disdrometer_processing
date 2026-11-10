@@ -46,6 +46,13 @@ One script is dedicated for the opening and reformatting of each of the three in
 
     $DVdcr(T, r) = mean(v([T-30s, T+30s], r)$
 
+  -- Receiver saturation (module **_ccres_disdrometer_processing.saturation_**). In heavy rain the receiver of some radars (MIRA-35) saturates : the SNR stops growing and piles up just below a fixed value, so the reflectivity is capped. The ceiling is found day by day and gate by gate from the SNR of the Cloudnet radar file, at full resolution :
+
+    - the day's cap of a gate is its 20th largest SNR ;
+    - the gate saturates that day when the cap is at least 50 dB and many profiles lie within 1 dB of it : at least 300, or at least 100 with 1.5 times more profiles there than 2 to 4 dB below the cap. Without saturation only a few profiles reach the top of the distribution.
+
+    **QF_saturation** (time, range) is then 1 for the minutes where at least 10 % of the profiles are at the ceiling, and 2 for the minutes where the radar is not at the ceiling but the disdrometer reflectivity is within 4 dB of it : the radar could not have measured those minutes fully, and keeping them would bias Delta Z low. The ceiling of each gate is stored in SNR (**saturation_snr_cap**) and in reflectivity (**Zdcr_saturation_ceiling**), NaN when the gate does not saturate that day. Radars without SNR in their file (RPG, BASTA) are not assessed : **QF_saturation** is 0.
+
 
 
 - The script **_ccres_disdrometer_processing.open_disdro_netcdf_** is used to open and reformat input daily disdrometer netCDF files from CloudNet ant to compute forward-modeled reflectivity that will be compared to radar measurement, plus additional scattering-related variables and metrics characterizing the droplet size distribution at each timestep.
@@ -238,6 +245,9 @@ The command line *ccres_disdrometer_processing preprocess*, enables to launch th
 | alt                  | Range from instrument                                                                                        | m            |
 | Zdcr                 | Radar reflectivity factor                                                                                    | dBZ          |
 | DVdcr                | Doppler velocity                                                                                             | m s-1        |
+| QF_saturation        | Quality flag for radar receiver saturation (0 none, 1 radar at its ceiling, 2 Zdd within 4 dB of it)         | 1            |
+| saturation_snr_cap   | SNR ceiling of the radar receiver detected for the day, per gate (NaN : no saturation)                       | dB           |
+| Zdcr_saturation_ceiling | Reflectivity ceiling of the radar receiver detected for the day, per gate (NaN : no saturation)           | dBZ          |
 | weather_data_avail   | Availability of weather data at the station                                                                  | N/A          |
 
 Global attributes in the output file :

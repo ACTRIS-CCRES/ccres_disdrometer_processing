@@ -59,6 +59,7 @@ The following variables can be found in the output processing file :
 | QC_wd                             | time           | Quality check for wind direction |
 | QC_hur                            | time           | Quality check for relative humidity |
 | QF_rg_dd                          | time           | Quality flag for discrepancy between rain gauge and disdrometer |
+| QC_sat                     | time           | Quality check for radar receiver saturation at DCR_DZ_RANGE |
 | QC_overall                        | time           | Overall quality check |
 | events                            | events         | Dimension for the storage of identified events       |
 | start_event                       | events         | Event start epoch |
@@ -135,13 +136,15 @@ An event that began before D-1 00:00 is cut at the start of the window. When the
 
     These variables are filters that we used to determine at which time steps it is relevant to keep **Delta_Z** values for the monitoring of the calibration. They have a 1-minute sampling.
 
-    * **QC_pr** : Control on the rainfall rate. Aim is to remove time periods with heavy rain to limit the risk or DCR saturation or wet radome. Whether pluviometer data is provided or not, the computation is the same and is based on disdrometer rainfall rate, which is available at 1-minute sampling. The threshold is given in configuration file, by default 3mm/h.
+    * **QC_pr** : Control on the rainfall rate. Aim is to remove time periods with heavy rain to limit the risk of wet radome. It does not protect from the DCR receiver saturation : 3 mm/h is about 30 dBZ, at or above the ceilings found on MIRA-35 (about 18 to 30 dBZ according to the radar and the gate), which **QC_sat** handles. Whether pluviometer data is provided or not, the computation is the same and is based on disdrometer rainfall rate, which is available at 1-minute sampling. The threshold is given in configuration file, by default 3mm/h.
 
 
     * **QC_vdsd_t** : Control on the precipitation size distribution (*PSD*) given by the disdrometer. Aim is to check the consistency between droplets fall speed and drop size distribution, to remove snow situations.
     The values compared are :
     - on one hand, the weighted average of droplet fall speed seen by the disdrometer @ 1-minute, computed from drop size distribution and a fall speed model (Gun and Kinzer) ;
     - on the other hand, the average droplet fall speed computed from the disdrometer speed distribution.
+
+    * **QC_sat** : Control on the receiver saturation of the DCR at the comparison range (**DCR_DZ_RANGE**), from **QF_saturation** of the preprocessed file (see the preprocessing page) : 0 when the radar is at its ceiling or when the disdrometer reflectivity is within 4 dB of it. Files preprocessed before this flag existed get **QC_sat** = 1 (not assessed).
 
     * ***If weather data is provided***, further quality control can be performed on weather variables :
     **QC_ta**, **QC_hur**, **QC_ws**, **QC_wd** : checks based on air temperature, relative humidity, wind speed and wind direction.
@@ -162,8 +165,8 @@ An event that began before D-1 00:00 is cut at the start of the window. When the
 
     * **Global quality control to sum up all the quality checks : QC_overall**
 
-        with weather data : **QC_overall** = **QC_pr** & **QC_vdsd_t** & **QC_ta** & **QC_ws** & **QC_wd** & **QC_hur**
-        without weather data : **QC_overall** = **QC_pr** & **QC_vdsd_t**
+        with weather data : **QC_overall** = **QC_pr** & **QC_vdsd_t** & **QC_ta** & **QC_ws** & **QC_wd** & **QC_hur** & **QC_sat**
+        without weather data : **QC_overall** = **QC_pr** & **QC_vdsd_t** & **QC_sat**
 
 The above table sums up the quality controls and thresholds implemented :
 
@@ -175,6 +178,7 @@ The above table sums up the quality controls and thresholds implemented :
 | Wind direction                | < 30%                | ✅             | ❌           | Quality control on disdrometer measurement |
 | Relationship fall speed/drop size | < 30% vs Gun and Kinzer | ✅          | ✅           | Ensure robustness of Delta Z statistics  |
 | Precipitation rate            | < 3 mm/h             | ✅             | ❌           | Remove heavy rain cases                  |
+| Radar receiver saturation     | Zdd < ceiling − 4 dB and radar not at its ceiling | ✅ | ✅ | Avoid Delta Z biased low by a capped radar |
 
 
 
