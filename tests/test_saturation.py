@@ -130,3 +130,21 @@ def test_qc_at_the_delta_z_gate():
     assert saturation.saturation_qc(ds, conf).values.tolist() == [1, 1, 1]
     qc = saturation.saturation_qc(ds.drop_vars("QF_saturation"), conf)
     assert qc.values.tolist() == [1, 1, 1] and "not assessed" in qc.attrs["comment"]
+
+
+def test_gate_with_too_few_profiles_is_not_assessed():
+    n = saturation.MIN_PROFILES - 1
+    snr = np.column_stack([heavy_rain_snr(n, cap=70.0), heavy_rain_snr(n, cap=70.0)])
+    snr[:, 1] = np.nan  # no profile at all at the second gate
+    snr_cap, zh_ceiling, at_ceiling = saturation.detect_ceiling(snr, snr - 45.0)
+    assert np.isnan(snr_cap).all() and np.isnan(zh_ceiling).all()
+    assert not at_ceiling.any()
+
+
+def test_file_without_flag_or_zdd_is_left_unchanged():
+    ds = preprocessed(qf=[[0, 0], [0, 1]], ceiling=[np.nan, 22.0], zdd=[25.0, 25.0])
+    no_flag = ds.drop_vars("QF_saturation")
+    assert saturation.flag_disdrometer_near_ceiling(no_flag).identical(no_flag)
+    no_zdd = ds.drop_vars("Zdlog_vfov_modv_tm")
+    out = saturation.flag_disdrometer_near_ceiling(no_zdd)
+    assert out["QF_saturation"].values.tolist() == [[0, 0], [0, 1]]
