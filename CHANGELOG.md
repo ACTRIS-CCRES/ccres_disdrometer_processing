@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.3.0 (2026-11-19)
+
+### Feat
+
+- check the gate_check gate with the normalised radar reflectivity
+- read every processing parameter from the station configuration
+- take the gate above the first one within tolerance for bistatic radars
+- add gate_check to estimate the optimal Delta Z gate of each instrument
+- compute Zdd at the radar frequency with Ellison water and align the radar on the disdrometer
+
+### Fix
+
+- cut the gate_check periods at the instrument log entries
+- drop the minutes saturated at any gate up to the reference layer in gate_check
+- base the radar window coverage on the profiles a window really holds
+
 ## v1.2.0 (2026-11-10)
 
 ### Feat
