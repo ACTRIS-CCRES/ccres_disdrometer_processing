@@ -38,7 +38,15 @@ Method (reference line) :
    have an excess that fades within one gate, and their farther gates saturate
    first : no extra gate ;
 6. by period (year, or instrument log epochs) : the deviation at the recommended
-   gate tells whether a single gate holds within TOL over the whole history.
+   gate tells whether a single gate holds within TOL over the whole history ;
+7. double check from the radar alone : on the same minutes, the reflectivity
+   Zdcr of each minute is normalised by its mean over [R_REF, R_SEARCH] (in dBZ),
+   and the median normalised profile of each event goes through steps 3 to 6
+   (reference line, composite, optimal gate, bootstrap and bistatic rule) without
+   the disdrometer. The two recommended gates are compared : equal within a gate,
+   the near-range effect is the radar's ; a higher Delta Z gate points to the
+   disdrometer side (alignment, fall time, simulated Z), which is no reason to
+   raise the gate. A real vertical gradient of the rain below R_REF shows in both.
 
 The parameters (R_MAX, R_SEARCH, R_REF, TOL, MIN_EVENTS, MIN_EVENTS_PERIOD,
 N_BOOT, BOOT_QUANTILE, DV_RATIO and the LEVELS, from the most lenient to the most
@@ -226,21 +234,23 @@ def saturated_minutes(ds, r_top):
     return (qf.fillna(0) > 0).any("range").to_numpy()
 
 
-def event_profile(ds, qc):
-    """Return the stratiform descriptors and the Delta Z profile of one event.
+def event_profile(ds, qc, layer):
+    """Return the stratiform descriptors, the Delta Z and normalised Z profiles.
 
     Parameters
     ----------
     ds : xr.Dataset
         Preprocessed data of the event
     qc : np.ndarray
-        QC_overall of its minutes (bool)
+        QC_overall of its minutes (bool), saturated minutes removed
+    layer : tuple
+        (bottom, top) of the normalisation layer (m)
 
     Returns
     -------
     dict
         Descriptors (see GATE_LEVEL_KEYS), and range, n, med (Delta Z), medc (corrected
-        for the rain attenuation), dv : per gate
+        for the rain attenuation), dv, zn (normalised Z), n_zn : per gate
 
     """
     r = ds.range.values.astype(float)
@@ -260,6 +270,16 @@ def event_profile(ds, qc):
     medc = _quiet_nanmedian(np.where(ok, dz + att, np.nan), axis=0)
     dvq = np.where(qc[:, None], np.abs(dv), np.nan)
     v = _quiet_nanmedian(dvq, axis=0)
+
+    # normalised reflectivity, radar alone (Zdcr, not aligned on the disdrometer) :
+    # minus its mean over the layer, on the minutes with the whole layer measured
+    zr = ds["Zdcr"].values.astype(float)
+    in_layer = (r >= layer[0]) & (r <= layer[1])
+    full = qc & in_layer.any() & np.isfinite(zr[:, in_layer]).all(axis=1)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        zn = zr - np.nanmean(zr[:, in_layer], axis=1, keepdims=True)
+    ok_zn = np.isfinite(zn) & full[:, None]
 
     # stratiform descriptors, never from Delta Z
     j5, j9 = int(np.argmin(abs(r - 500))), int(np.argmin(abs(r - 900)))
@@ -281,7 +301,16 @@ def event_profile(ds, qc):
             dv_lo=float(dv_lo),
             z_grad=float(abs(np.nanmedian(zq[:, j9] - zq[:, j5]))),
         )
-    return dict(**desc, range=r, n=n, med=med, medc=medc, dv=v)
+    return dict(
+        **desc,
+        range=r,
+        n=n,
+        med=med,
+        medc=medc,
+        dv=v,
+        zn=_quiet_nanmedian(np.where(ok_zn, zn, np.nan), axis=0),
+        n_zn=ok_zn.sum(axis=0),
+    )
 
 
 def running_median(x, w=3):
@@ -391,6 +420,13 @@ def gate_above(gates, comp, g):
     return float(gates[up[0]]) if up.size else np.nan
 
 
+def value_at(gates, comp, g):
+    """Return the composite at the gate nearest to g (NaN without g)."""
+    if g is None or not np.isfinite(g):
+        return np.nan
+    return float(comp[int(np.argmin(abs(gates - g)))])
+
+
 def summarise(gates, devs, conf_gate, label, gp, gate_ref=None, bistatic=False):
     """Optimal gate, bootstrap and deviation at given gates, for one event set.
 
@@ -414,9 +450,7 @@ def summarise(gates, devs, conf_gate, label, gp, gate_ref=None, bistatic=False):
     counts = pd.Series(boot).round().value_counts(normalize=True).sort_index()
 
     def dev_at(g):
-        if g is None or not np.isfinite(g):
-            return np.nan
-        return float(comp[int(np.argmin(abs(gates - g)))])
+        return value_at(gates, comp, g)
 
     return dict(
         set=label,
@@ -430,6 +464,37 @@ def summarise(gates, devs, conf_gate, label, gp, gate_ref=None, bistatic=False):
         dev_at_recommended=dev_at(rec_gate),
         dev_at_reference=dev_at(gate_ref),
     ), comp
+
+
+ZN_KEYS = (
+    "gate_composite",
+    "gate_bootstrap",
+    "gate_composite_plus_one",
+    "gate_recommended",
+    "bootstrap",
+    "dev_at_conf_gate",
+    "dev_at_recommended",
+    "dev_at_reference",
+)
+
+
+def compare_methods(gates, row, comp, row_zn, comp_zn, n_zn):
+    """Add the normalised Z results (suffix _zn) and their comparison to a row.
+
+    gate_shift is the normalised Z gate minus the Delta Z gate, in gates ;
+    methods_agree when they are at most one gate apart.
+    """
+    out = dict(row, n_events_zn=int(n_zn))
+    out.update({f"{k}_zn": row_zn[k] for k in ZN_KEYS})
+    g, g_zn = row["gate_recommended"], row_zn["gate_recommended"]
+    if np.isfinite([g, g_zn]).all():
+        shift = int(np.argmin(abs(gates - g_zn))) - int(np.argmin(abs(gates - g)))
+        out.update(gate_shift=shift, methods_agree=abs(shift) <= 1)
+    else:
+        out.update(gate_shift=np.nan, methods_agree=np.nan)
+    out["dev_at_zn_gate"] = value_at(gates, comp, g_zn)
+    out["dev_zn_at_dz_gate"] = value_at(gates, comp_zn, g)
+    return out
 
 
 def log_breaks(log_file, combo):
@@ -470,7 +535,8 @@ def evaluate(combo, preprocessed_dir, processed_dir, conf, period="year", breaks
     """Return the per-event table, the summary rows and the composite profiles.
 
     conf is the station configuration : DCR_DZ_RANGE and the gate_check
-    parameters (GateParameters).
+    parameters (GateParameters). The composites are {"dz": {set: profile},
+    "zn": {set: profile}}, of the Delta Z and the normalised Z deviations.
     """
     gp = GateParameters.from_config(conf)
     conf_gate = float(conf["instrument_parameters"]["DCR_DZ_RANGE"])
@@ -498,9 +564,10 @@ def evaluate(combo, preprocessed_dir, processed_dir, conf, period="year", breaks
         q = q & ~sat
         if q.sum() < gp.min_points:
             continue
-        p = event_profile(ds, q)
+        p = event_profile(ds, q, (gp.r_ref, gp.r_search))
         p["n_sat"] = n_sat
         p["dev"], p["line"] = deviation(p["range"], p["medc"], p["n"], p["dv"], gp)
+        p["dev_zn"], _ = deviation(p["range"], p["zn"], p["n_zn"], p["dv"], gp)
         p["start"], p["end"] = pd.Timestamp(e.start_event), pd.Timestamp(e.end_event)
         profs.append(p)
     if no_flag:
@@ -517,9 +584,9 @@ def evaluate(combo, preprocessed_dir, processed_dir, conf, period="year", breaks
     grids = pd.Series([tuple(np.round(p["range"], 1)) for p in profs])
     gates = np.array(grids.value_counts().index[0])
     gates = gates[gates <= gp.r_search]
-    devs, meds = [], []
+    devs, meds, devs_zn = [], [], []
     for p in profs:
-        for key, out in (("dev", devs), ("medc", meds)):
+        for key, out in (("dev", devs), ("medc", meds), ("dev_zn", devs_zn)):
             y, r = p[key], np.round(p["range"], 1)
             ok = np.isfinite(y)
             out.append(
@@ -527,7 +594,7 @@ def evaluate(combo, preprocessed_dir, processed_dir, conf, period="year", breaks
                 if ok.sum() >= 2
                 else np.full(gates.size, np.nan)
             )
-    devs, meds = np.array(devs), np.array(meds)
+    devs, meds, devs_zn = np.array(devs), np.array(meds), np.array(devs_zn)
 
     features = pd.DataFrame(
         [{k: p[k] for k in (*GATE_LEVEL_KEYS, "n_sat", "start", "end")} for p in profs]
@@ -540,33 +607,35 @@ def evaluate(combo, preprocessed_dir, processed_dir, conf, period="year", breaks
     j_conf = int(np.argmin(abs(gates - conf_gate)))
     features["dZc_conf_gate"] = meds[:, j_conf]
     features["fit_ok"] = np.isfinite(devs).any(axis=1)
+    features["zn_fit_ok"] = np.isfinite(devs_zn).any(axis=1)
 
-    use = sel & features.fit_ok.to_numpy()
-    summary, comps = [], {}
-    row, comp = summarise(
-        gates,
-        devs[use],
-        conf_gate,
-        f"{level} (toute la période)",
-        gp,
-        bistatic=bistatic,
-    )
-    row["level"] = level
-    summary.append(row)
-    comps[row["set"]] = comp
-    g_ref = row["gate_recommended"]
-    row_all, comp_all = summarise(
-        gates,
-        devs[features.fit_ok.to_numpy()],
-        conf_gate,
-        "tous les événements",
-        gp,
-        g_ref,
-        bistatic=bistatic,
-    )
-    row_all["level"] = "tous"
-    summary.append(row_all)
-    comps[row_all["set"]] = comp_all
+    summary, comps = [], {"dz": {}, "zn": {}}
+    g_ref = {"dz": None, "zn": None}
+
+    def assess(mask, label, lev):
+        """Both methods on the same events ; the row is appended to the summary."""
+        rows = {}
+        for key, d in (("dz", devs), ("zn", devs_zn)):
+            rows[key], comps[key][label] = summarise(
+                gates, d[mask], conf_gate, label, gp, g_ref[key], bistatic=bistatic
+            )
+        n_zn = np.isfinite(devs_zn[mask]).any(axis=1).sum()
+        row = compare_methods(
+            gates,
+            rows["dz"],
+            comps["dz"][label],
+            rows["zn"],
+            comps["zn"][label],
+            n_zn,
+        )
+        row["level"] = lev
+        summary.append(row)
+        return row
+
+    fit_ok = features.fit_ok.to_numpy()
+    row = assess(sel & fit_ok, f"{level} (toute la période)", level)
+    g_ref = {"dz": row["gate_recommended"], "zn": row["gate_recommended_zn"]}
+    assess(fit_ok, "tous les événements", "tous")
     if period != "none":
         order = [*reversed(gp.levels), "tous"]  # from the most demanding
         for lab in sorted(set(features.period)):
@@ -579,45 +648,62 @@ def evaluate(combo, preprocessed_dir, processed_dir, conf, period="year", breaks
             if m.sum() < gp.min_events_period:
                 summary.append(dict(set=lab, level="-", n_events=int(in_p.sum())))
                 continue
-            r, c = summarise(
-                gates,
-                devs[m],
-                conf_gate,
-                f"{lab} ({lev})",
-                gp,
-                g_ref,
-                bistatic=bistatic,
-            )
-            r["level"] = lev
-            summary.append(r)
-            comps[r["set"]] = c
+            assess(m, f"{lab} ({lev})", lev)
     summary = pd.DataFrame(summary)
     summary.insert(0, "antenna", layout)
-    if "dev_at_reference" in summary:
-        ref = summary["dev_at_reference"]
-        summary["single_gate_ok"] = (ref.abs() <= gp.tol).where(ref.notna())
+    for suffix in ("", "_zn"):
+        ref = summary[f"dev_at_reference{suffix}"]
+        summary[f"single_gate_ok{suffix}"] = (ref.abs() <= gp.tol).where(ref.notna())
     return features, summary, gates, comps
 
 
-def plot(gates, comps, conf_gate, title, path, gp):
-    """Composite deviation profiles, with the tolerance and the gates."""
+def plot(gates, comps, conf_gate, title, path, gp, recommended=None):
+    """Composite deviation profiles of both methods, with the tolerance and gates.
+
+    comps is {"dz": {set: profile}, "zn": {set: profile}}, recommended the
+    gates {"dz": g, "zn": g} of the first set.
+    """
     import matplotlib
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    fig, ax = plt.subplots(figsize=(6, 6))
-    ax.axvspan(-gp.tol, gp.tol, color="#d9eadf", label=f"±{gp.tol} dB")
-    ax.axhspan(gp.r_ref, gp.r_search, color="#eeeeee", label="couche de référence")
-    for k, (name, comp) in enumerate(comps.items()):
-        style = dict(lw=2.2, color="k") if k == 0 else dict(lw=1, alpha=0.7)
-        ax.plot(comp, gates, marker="o", ms=3, label=name, **style)
-    ax.axhline(conf_gate, ls=":", color="#c8641e", label=f"gate TOML {conf_gate:g} m")
-    ax.set_xlabel("écart du profil ΔZ à sa droite de référence (dB)")
-    ax.set_ylabel("altitude de la gate (m)")
-    ax.set_ylim(0, gp.r_search + 20)
-    ax.set_title(title, fontsize=10)
-    ax.legend(fontsize=7, loc="lower right")
+    recommended = recommended or {}
+    fig, axes = plt.subplots(1, 2, figsize=(10, 6), sharey=True)
+    panels = (
+        ("dz", "écart du profil ΔZ à sa droite (dB)", "ΔZ = Z radar − Z disdro"),
+        (
+            "zn",
+            "écart du profil Z normalisé à sa droite (dB)",
+            "Z normalisé, radar seul",
+        ),
+    )
+    for ax, (key, xlabel, name) in zip(axes, panels, strict=True):
+        ax.axvspan(-gp.tol, gp.tol, color="#d9eadf", label=f"±{gp.tol} dB")
+        ax.axhspan(gp.r_ref, gp.r_search, color="#eeeeee", label="couche de référence")
+        for k, (label, comp) in enumerate(comps[key].items()):
+            style = dict(lw=2.2, color="k") if k == 0 else dict(lw=1, alpha=0.7)
+            ax.plot(comp, gates, marker="o", ms=3, label=label, **style)
+        ax.axhline(
+            conf_gate, ls=":", color="#c8641e", label=f"gate TOML {conf_gate:g} m"
+        )
+        for other, color in (("dz", "#1f5fa8"), ("zn", "#7a3d9a")):
+            g = recommended.get(other, np.nan)
+            if g is not None and np.isfinite(g):
+                lab = "ΔZ" if other == "dz" else "Z normalisé"
+                ax.axhline(
+                    g,
+                    ls="-" if other == key else "--",
+                    lw=1,
+                    color=color,
+                    label=f"gate {lab} {g:.0f} m",
+                )
+        ax.set_xlabel(xlabel)
+        ax.set_title(name, fontsize=10)
+        ax.legend(fontsize=7, loc="lower right")
+    axes[0].set_ylabel("altitude de la gate (m)")
+    axes[0].set_ylim(0, gp.r_search + 20)
+    fig.suptitle(title, fontsize=10)
     fig.tight_layout()
     fig.savefig(path, dpi=120)
     plt.close(fig)
@@ -653,6 +739,7 @@ def main(argv=None):
     summary.insert(0, "combo", args.combo)
     summary.insert(1, "conf_gate", conf_gate)
     summary.to_csv(out / f"{args.combo}_gate_summary.csv", index=False)
+    first = summary.iloc[0]
     plot(
         gates,
         comps,
@@ -660,6 +747,7 @@ def main(argv=None):
         args.combo,
         out / f"{args.combo}_gate.png",
         GateParameters.from_config(conf),
+        {"dz": first["gate_recommended"], "zn": first["gate_recommended_zn"]},
     )
     pd.set_option("display.width", 220)
     print(summary.drop(columns=["combo"]).round(2).to_string(index=False))

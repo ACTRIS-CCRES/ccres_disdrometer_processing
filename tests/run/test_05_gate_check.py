@@ -52,8 +52,16 @@ def test_run(daily_files, tmp_path):
     assert (summary.antenna == "monostatique").all()
     assert (summary.conf_gate == 150.0).all()
     overall = summary.iloc[0]
-    assert 150.0 <= overall.gate_recommended <= 600.0
     assert abs(overall.dev_at_recommended) <= 0.25
+    # the normalised reflectivity, on the same event, and its comparison
+    assert overall.n_events_zn == 1
+    # on this event Delta Z dips to -0.6 dB at 252-324 m, the normalised Z does not
+    assert overall.gate_recommended == pytest.approx(359.8, abs=0.1)
+    assert overall.gate_recommended_zn == pytest.approx(251.8, abs=0.1)
+    assert overall.gate_shift == -3 and not overall.methods_agree
+    assert overall.dev_at_zn_gate < -0.25
+    assert abs(overall.dev_zn_at_dz_gate) <= 0.25
+    assert events.zn_fit_ok[0]
     # a single event : too few for the period to be assessed
     assert summary.level.iloc[-1] == "-"
     assert (out / f"{COMBO}_gate.png").stat().st_size > 0

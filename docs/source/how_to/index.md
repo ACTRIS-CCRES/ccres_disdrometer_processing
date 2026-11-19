@@ -38,7 +38,7 @@ Every parameter of the preprocessing, the processing, the quicklooks and `gate_c
 | `[disdrometer_axis_check]` | preprocessing | check of the Parsivel `data_raw` axis order on the fall speeds |
 | `[radar_alignment]` | preprocessing | radar window over each disdrometer telegram, advanced by `FALL_TIME_FACTOR` × range / \|v\| |
 | `[saturation]` | preprocessing (`QF_saturation`) and processing (`QC_sat`) | detection of the radar receiver ceiling from the SNR (MIRA), margin `ZDD_MARGIN` below it |
-| `[gate_check]` | `gate_check` | reference layer, tolerance, bootstrap, and the stratiform selection levels `[gate_check.levels.<name>]`, from the most lenient to the most demanding |
+| `[gate_check]` | `gate_check` | reference layer (also the layer the radar reflectivity is normalised over, for the radar-only check of the gate), tolerance, bootstrap, and the stratiform selection levels `[gate_check.levels.<name>]`, from the most lenient to the most demanding |
 | `[nc_meta]` | preprocessing, processing | global attributes of the output files |
 
 A change in a preprocessing section only applies to files preprocessed again.
