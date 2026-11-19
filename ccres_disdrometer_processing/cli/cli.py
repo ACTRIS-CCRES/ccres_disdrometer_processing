@@ -5,10 +5,10 @@ import sys
 from pathlib import Path
 
 import click
-import toml
 import xarray as xr
 
 from ccres_disdrometer_processing.__init__ import __version__
+from ccres_disdrometer_processing.config import load_config
 from ccres_disdrometer_processing.logger import LogLevels, init_logger
 from ccres_disdrometer_processing.utils import format_ql_file_prefix
 
@@ -152,7 +152,7 @@ def preprocess_ql(file, output_ql_overview, output_ql_overview_zh, config_file):
     from ccres_disdrometer_processing.plot import plot, utils
 
     # 1 - check config and import configuration file if ok
-    config = toml.load(config_file)
+    config = load_config(config_file)
 
     # 2 - get preprocessed data
     data = utils.read_nc(file)
@@ -394,18 +394,8 @@ def process(
     "--flag/--no-flag",
     show_default=True,
     default=True,
-    help="nothing is plotted if no event fulfils the flags for long-term monitoring (minimum good timesteps number, and QF on rain gauge VS disdrometer rain accumulation if weather station data is provided); --no-flag plots every event",  # noqa E501
+    help="nothing is plotted if no event fulfils the flags for long-term monitoring (minimum good timesteps number MIN_POINTS of the configuration, and QF on rain gauge VS disdrometer rain accumulation if weather station data is provided); --no-flag plots every event",  # noqa E501
 )
-@click.option(
-    "--min-points",
-    type=int,
-    default=50,
-    help="minimum number of good timesteps an event needs to be plotted with --flag",
-)
-# TODO : put this value in conf file, and use the value given in conf.
-# Also having this value in the configuration could be a good idea for selection of
-# events to keep for long term monitoring (currently it is set
-# in hard in the local productions of long-term time series and PDF)
 def process_ql(
     process_yesterday,
     process_today,
@@ -416,7 +406,6 @@ def process_ql(
     prefix_output_ql_detailled,
     config_file,
     flag,
-    min_points,
 ):
     """Create quicklooks from process netCDF files."""
     from ccres_disdrometer_processing.plot import plot, utils
@@ -430,7 +419,8 @@ def process_ql(
     prefix_output_ql_detailled = format_ql_file_prefix(prefix_output_ql_detailled)
 
     # 1 - check config and import configuration file if ok
-    config = toml.load(config_file)
+    config = load_config(config_file)
+    min_points = config["thresholds"]["MIN_POINTS"]
 
     # 2a - get processed data
     ds_pro_today = utils.read_nc(process_today)

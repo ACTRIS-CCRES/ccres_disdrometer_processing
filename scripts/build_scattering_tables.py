@@ -1,13 +1,16 @@
 r"""Precompute the scattering tables read by ccres_disdrometer_processing.scattering.
 
 One table per diameter grid, radar frequency, refractive index, axis ratio method
-and beam orientation : the (frequency, index, method) cases are read from every
-station configuration, the diameter grids from sample disdrometer files (one per
-grid in use). The tables are computed with the package itself, the tables
-disabled, so that reading one gives the very values computing it would.
+and beam orientation : the frequencies and refractive indices are those of the
+water dielectric table (assets/water_dielectric.toml), the axis ratio methods are
+read from every station configuration and the diameter grids from sample
+disdrometer files (one per grid in use). The tables are computed with the package
+itself, the tables disabled, so that reading one gives the very values computing
+it would. They are normalised with the |K|^2 of rustmatrix : the radar's is
+applied when they are read.
 
-Run it again whenever the scattering code, rustmatrix, a configuration or a
-disdrometer diameter grid changes :
+Run it again whenever the scattering code, rustmatrix, the dielectric table, a
+configuration or a disdrometer diameter grid changes :
 
     python scripts/build_scattering_tables.py --conf-dir <conf_stations> \\
         --disdro-file <parsivel.nc> --disdro-file <thies.nc> ...
@@ -25,7 +28,7 @@ import xarray as xr
 
 os.environ["CCRES_NO_SCATTERING_TABLES"] = "1"  # compute, never read the old file
 
-from ccres_disdrometer_processing import scattering  # noqa: E402
+from ccres_disdrometer_processing import dielectric, scattering  # noqa: E402
 from ccres_disdrometer_processing.open_disdro_netcdf import (  # noqa: E402
     read_parsivel_cloudnet_choice,
 )
@@ -35,14 +38,13 @@ READER_CONFIG = {"instrument_parameters": {"DD_SAMPLING_AREA": 0.0054}}
 
 
 def cases(conf_dir):
-    """Return the (frequency, refractive index, axis ratio method) of every config."""
-    out = set()
-    for f in sorted(Path(conf_dir).glob("*.toml")):
-        m = tomllib.loads(f.read_text())["methods"]
-        for freq, (re, im) in zip(  # noqa: B905
-            m["RADAR_FREQUENCIES"], m["REFRACTION_INDEX"]
-        ):
-            out.add((float(freq), complex(re, im), m["AXIS_RATIO_METHOD"]))
+    """Return the (frequency, refractive index, axis ratio method) to tabulate."""
+    methods = {
+        tomllib.loads(f.read_text())["methods"]["AXIS_RATIO_METHOD"]
+        for f in sorted(Path(conf_dir).glob("*.toml"))
+    }
+    water = dielectric._table().values()
+    out = {(w.frequency, w.refractive_index, m) for w in water for m in methods}
     return sorted(out, key=lambda c: (c[2], c[0], c[1].real, c[1].imag))
 
 

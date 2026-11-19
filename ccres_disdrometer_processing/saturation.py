@@ -23,41 +23,40 @@ Radars without SNR in their file (RPG, BASTA) are not assessed.
 import numpy as np
 import xarray as xr
 
-CAP_RANK = 20
-NEAR_DB = 1.0
-BAND_DB = (2.0, 4.0)
-MIN_PROFILES = 200
-N_STRONG = 300
-N_MIN = 100
-RATIO_MIN = 1.5
-SNR_CAP_MIN = 50.0
-MINUTE_FRACTION = 0.1
-ZDD_MARGIN = 4.0
-
-QF_ATTRS = {
-    "long_name": "Quality flag for radar receiver saturation",
-    "flag_values": np.array([0, 1, 2], dtype="i1"),
-    "flag_meanings": "no_saturation radar_at_ceiling disdrometer_reflectivity_near_ceiling",  # noqa E501
-    "comment": (
-        f"1: at least {MINUTE_FRACTION:.0%} of the profiles of the minute within "
-        f"{NEAR_DB:g} dB of the day's SNR ceiling of the gate ; 2: Zdd within "
-        f"{ZDD_MARGIN:g} dB of the day's reflectivity ceiling of the gate. "
-        "Ceiling detected from the pile-up of SNR values below their maximum."
-    ),
-}
+# The thresholds are read in the [saturation] section of the station file :
+# CAP_RANK, NEAR_DB, BAND_DB, MIN_PROFILES, N_STRONG, N_MIN, RATIO_MIN,
+# SNR_CAP_MIN, MINUTE_FRACTION, ZDD_MARGIN (see the module docstring).
 
 
-def _kth_largest(values, k=CAP_RANK):
+def qf_attrs(params):
+    """Attributes of QF_saturation, with the thresholds in use."""
+    return {
+        "long_name": "Quality flag for radar receiver saturation",
+        "flag_values": np.array([0, 1, 2], dtype="i1"),
+        "flag_meanings": "no_saturation radar_at_ceiling disdrometer_reflectivity_near_ceiling",  # noqa E501
+        "comment": (
+            f"1: at least {params['MINUTE_FRACTION']:.0%} of the profiles of the "
+            f"minute within {params['NEAR_DB']:g} dB of the day's SNR ceiling of the "
+            f"gate ; 2: Zdd within {params['ZDD_MARGIN']:g} dB of the day's "
+            "reflectivity ceiling of the gate. Ceiling detected from the pile-up of "
+            "SNR values below their maximum."
+        ),
+    }
+
+
+def _kth_largest(values, k):
     return np.partition(values, values.size - k)[values.size - k]
 
 
-def detect_ceiling(snr, zh):
+def detect_ceiling(snr, zh, params):
     """Find the day's receiver ceiling of each gate.
 
     Parameters
     ----------
     snr, zh : np.ndarray
         SNR (dB) and reflectivity (dBZ) of every profile, shape (time, range).
+    params : dict
+        [saturation] section of the station configuration
 
     Returns
     -------
@@ -68,6 +67,8 @@ def detect_ceiling(snr, zh):
         Profiles within NEAR_DB of the ceiling, shape (time, range).
 
     """
+    rank, near_db = int(params["CAP_RANK"]), float(params["NEAR_DB"])
+    band_lo, band_hi = (float(b) for b in params["BAND_DB"])
     nrange = snr.shape[1]
     snr_cap = np.full(nrange, np.nan)
     zh_ceiling = np.full(nrange, np.nan)
@@ -75,28 +76,31 @@ def detect_ceiling(snr, zh):
     for j in range(nrange):
         s = snr[:, j]
         finite = np.isfinite(s)
-        if finite.sum() < MIN_PROFILES:
+        if finite.sum() < params["MIN_PROFILES"]:
             continue
-        cap = _kth_largest(s[finite])
-        if cap < SNR_CAP_MIN:
+        cap = _kth_largest(s[finite], rank)
+        if cap < params["SNR_CAP_MIN"]:
             continue
-        near = finite & (s >= cap - NEAR_DB)
+        near = finite & (s >= cap - near_db)
         n_near = int(near.sum())
-        n_band = int(((s >= cap - BAND_DB[1]) & (s < cap - BAND_DB[0])).sum())
+        n_band = int(((s >= cap - band_hi) & (s < cap - band_lo)).sum())
         if not (
-            n_near >= N_STRONG
-            or (n_near >= N_MIN and n_near >= RATIO_MIN * max(n_band, 1))
+            n_near >= params["N_STRONG"]
+            or (
+                n_near >= params["N_MIN"]
+                and n_near >= params["RATIO_MIN"] * max(n_band, 1)
+            )
         ):  # noqa E501
             continue
         snr_cap[j] = cap
         at_ceiling[:, j] = near
         z = zh[:, j][np.isfinite(zh[:, j])]
-        if z.size >= CAP_RANK:
-            zh_ceiling[j] = _kth_largest(z)
+        if z.size >= rank:
+            zh_ceiling[j] = _kth_largest(z, rank)
     return snr_cap, zh_ceiling, at_ceiling
 
 
-def radar_saturation(data_nc, time_bins, labels):
+def radar_saturation(data_nc, time_bins, labels, params):
     """Saturation variables of the radar dataset, on the 1-minute grid.
 
     Parameters
@@ -105,6 +109,8 @@ def radar_saturation(data_nc, time_bins, labels):
         Radar data at full resolution (Zh, and SNR when the file has it).
     time_bins, labels :
         Bins and labels of the 1-minute resampling of the reflectivity.
+    params : dict
+        [saturation] section of the station configuration
 
     Returns
     -------
@@ -121,7 +127,9 @@ def radar_saturation(data_nc, time_bins, labels):
     else:
         comment = None
         snr_cap, zh_ceiling, at_ceiling = detect_ceiling(
-            data_nc["SNR"].values.astype(float), data_nc["Zh"].values.astype(float)
+            data_nc["SNR"].values.astype(float),
+            data_nc["Zh"].values.astype(float),
+            params,
         )
         fraction = (
             xr.DataArray(
@@ -132,9 +140,11 @@ def radar_saturation(data_nc, time_bins, labels):
             .groupby_bins("time", time_bins, labels=labels)
             .mean(dim="time")
         )
-        qf = (fraction.fillna(0).values >= MINUTE_FRACTION).astype("i1")
+        qf = (fraction.fillna(0).values >= params["MINUTE_FRACTION"]).astype("i1")
     out = {
-        "QF_saturation": xr.DataArray(qf, dims=["time", "range"], attrs=dict(QF_ATTRS)),
+        "QF_saturation": xr.DataArray(
+            qf, dims=["time", "range"], attrs=qf_attrs(params)
+        ),
         "saturation_snr_cap": xr.DataArray(
             snr_cap.astype(np.float32),
             dims=["range"],
@@ -160,14 +170,18 @@ def radar_saturation(data_nc, time_bins, labels):
     return out
 
 
-def flag_disdrometer_near_ceiling(ds):
-    """Set QF_saturation to 2 where Zdd is within ZDD_MARGIN of the ceiling."""
+def flag_disdrometer_near_ceiling(ds, params):
+    """Set QF_saturation to 2 where Zdd is within ZDD_MARGIN of the ceiling.
+
+    params is the [saturation] section of the station configuration.
+    """
     if "QF_saturation" not in ds or "Zdlog_vfov_modv_tm" not in ds:
         return ds
     zdd = ds["Zdlog_vfov_modv_tm"].sel(
         radar_frequencies=ds["radar_frequency"], method="nearest"
     )
-    near = zdd >= ds["Zdcr_saturation_ceiling"] - ZDD_MARGIN  # NaN ceiling: False
+    margin = params["ZDD_MARGIN"]
+    near = zdd >= ds["Zdcr_saturation_ceiling"] - margin  # NaN ceiling: False
     qf = ds["QF_saturation"]
     flagged = xr.where((qf == 0) & near, 2, qf).transpose(*qf.dims).astype("i1")
     flagged.attrs = qf.attrs
@@ -178,13 +192,14 @@ def flag_disdrometer_near_ceiling(ds):
 def saturation_qc(ds, conf):
     """QC_sat at the Delta Z gate (1 = no saturation)."""
     r = conf["instrument_parameters"]["DCR_DZ_RANGE"]
+    margin = conf["saturation"]["ZDD_MARGIN"]
     if "QF_saturation" in ds:
         qf = ds["QF_saturation"].sel(range=r, method="nearest")
         data = (qf.fillna(0) == 0).astype("i2").values
         comment = (
             f"from QF_saturation at the gate closest to {r} m (DCR_DZ_RANGE) : "
             "radar at its receiver ceiling or Zdd within "
-            f"{ZDD_MARGIN:g} dB of it"
+            f"{margin:g} dB of it"
         )
     else:
         data = np.ones(ds.time.size, dtype="i2")

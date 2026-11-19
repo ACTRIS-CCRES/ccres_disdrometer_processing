@@ -33,69 +33,7 @@ This code is only compatible with data of Doppler Cloud Radar (DCR), Disdrometer
 
 A configuration file is needed to use the code. The configuration use `toml` format and several examples are available in this [project](https://github.com/ACTRIS-CCRES/ccres_disdro_config) in the `conf_stations` folder.
 
-Here is an example of a configuration file:
-
-```toml
-title = "Configuration for the computation of the dcrcc monitoring (preprocessing and processing)"
-
-[location]
-SITE = "Jülich"
-STATION = "JOYCE" # useful for plots
-
-[methods]
-FALL_SPEED_METHOD = "GunAndKinzer"
-AXIS_RATIO_METHOD = "BeardChuang_PolynomialFit"
-REFRACTION_INDEX = [2.99645,1.54866] # complex index
-RADAR_FREQUENCIES = [10.0e9, 24.0e9, 35.0e9, 94.0e9] # Hz
-MAX_ALTITUDE_RADAR_DATA = 2500
-
-[instrument_parameters]
-DD_SAMPLING_AREA = 0.0054 # m^2 ; Parsivel2 sampling surface
-DCR_DZ_RANGE = 150 # m ; height at which to compute Delta Z ; fill with the real value
-RAIN_GAUGE_SAMPLING = 0 # mm ; default value ; no weather available at Juelich but this value is used by the code only if weather is available
-DD_ORIENTATION = 0 # degree, from North ; fill with the real value
-
-[plot_parameters]
-DCR_PLOTTED_RANGES = [150, 200, 300] # fill with the good values
-
-[thresholds]
-MAX_RR = 3  # mm/h
-MIN_RAINFALL_AMOUNT = 3 # mm/episode
-MAX_MEAN_WS = 7 # m/s ; default value ; no weather available at Juelich but this value is used by the code only if weather is available
-MAX_WS = 10 # m/s ; default value ; no weather available at Juelich but this value is used by the code only if weather is available
-MIN_TEMP = 2 # °C ; default value ; no weather available at Juelich but this value is used by the code only if weather is available
-MIN_HUR = 0 # min relative humidity : avoid cases with evaporation ; default value ; no weather available at Juelich but this value is used by the code only if weather is available
-MAX_HUR = 100 # max relative humidity : avoid fog, ... ; default value ; no weather available at Juelich but this value is used by the code only if weather is available
-DD_ANGLE = 45 # degree ; keep wind data at DD_ORIENTATION[pi] +- DD_ANGLE
-MAX_INTERVAL = 60 # mn ; max interval between two tipping of the pluviometer, to "close" an event
-MIN_DURATION = 180 # mn ; min duration of an event
-PR_SAMPLING = 15  # mn ; ex CHUNK_THICKNESS ; period of averaging for AMS pr ; default value ; no weather available at Juelich but this value is used by the code only if weather is available
-DD_RG_MAX_PR_ACC_RATIO = 0.3 # ex ACCUMULATION_RELATIVE_ERROR ; max relative error in rain accumulation measurement, DD vs Rain gauge ; default value ; no weather available at Juelich but this value is used by the code only if weather is available
-DD_FALLSPEED_RATIO = 0.3 # ex FALLSPEED_RELATIVE_ERROR ; relative difference between "theoretical" and DD fall speed
-
-[nc_meta]
-title = ""
-summary = ""
-id = ""
-naming_authority = ""
-comment = ""
-creator_name = "ACTRIS-CCRES"
-creator_email = "ccres_contact@listes.ipsl.fr"
-creator_url = "https://ccres.aeris-data.fr"
-creator_type = "institution"
-creator_institution = ""
-institution = ""
-project = ""
-publisher_name = ""
-publisher_email = ""
-publisher_url = ""
-publisher_type = ""
-publisher_institution = ""
-contributor_name = ""
-contributor_role = ""
-cdm_data_type = ""
-metadata_link = ""
-```
+Every parameter is read in this file, the code holds no default value : each command checks the file first and lists every missing or unknown key. The sections are described in the documentation (*How to*, configuration file), with a complete example.
 
 ## Preprocessing
 

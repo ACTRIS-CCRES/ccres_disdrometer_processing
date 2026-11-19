@@ -5,15 +5,16 @@ import sys
 import click
 import numpy as np
 import pandas as pd
-import toml
 import xarray as xr
 
+import ccres_disdrometer_processing.dielectric as dielectric
 import ccres_disdrometer_processing.open_disdro_netcdf as disdro
 import ccres_disdrometer_processing.open_radar_netcdf as radar
 import ccres_disdrometer_processing.open_weather_netcdf as weather
 import ccres_disdrometer_processing.saturation as saturation
 import ccres_disdrometer_processing.scattering as scattering
 from ccres_disdrometer_processing.__init__ import __version__, script_name
+from ccres_disdrometer_processing.config import load_config
 from ccres_disdrometer_processing.logger import LogLevels, init_logger
 from ccres_disdrometer_processing.utils import compressed_encoding
 
@@ -24,35 +25,6 @@ TIME_CALENDAR = "standard"
 lgr = logging.getLogger(__name__)
 
 
-def frequency_to_compute(frequencies, radar_frequency):
-    """Return the configured frequencies the processing will use.
-
-    The processing reads the disdrometer reflectivity at the configured frequency
-    nearest to the radar's (see preprocessed_file2processed.extract_dcr_data) :
-    computing the scattering at the other ones is wasted time. Without a finite
-    radar frequency, every configured frequency is kept.
-
-    Parameters
-    ----------
-    frequencies : list
-        RADAR_FREQUENCIES of the station configuration (Hz)
-    radar_frequency : xr.DataArray
-        Frequency of the radar (Hz), from read_radar_cloudnet()
-
-    Returns
-    -------
-    list
-        The configured frequency nearest to the radar's, or all of them
-
-    """
-    f = np.asarray(radar_frequency, dtype=float).ravel()
-    f = f[np.isfinite(f)]
-    if not f.size:
-        return list(frequencies)
-    i = int(np.argmin(np.abs(np.asarray(frequencies, dtype=float) - np.median(f))))
-    return [frequencies[i]]
-
-
 def preprocess(disdro_file, ws_file, radar_file, config_file, output_file, verbosity):
     """Command line interface for ccres_disdrometer_processing."""
     log_level = LogLevels.get_by_verbosity_count(verbosity)
@@ -60,30 +32,24 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file, verbo
     click.echo("CCRES disdrometer preprocessing : test CLI")
 
     lgr.info("Load configuration file")
-    config = toml.load(config_file)
+    config = load_config(config_file)
 
     axrMethod = config["methods"]["AXIS_RATIO_METHOD"]
     strMethod = config["methods"]["FALL_SPEED_METHOD"]
-    refraction_indices = config["methods"]["REFRACTION_INDEX"]
-    computed_frequencies = config["methods"][
-        "RADAR_FREQUENCIES"
-    ]  # given in Hz -> ok for the scattering script
-    E = {}
-    for frequency, index in zip(computed_frequencies, refraction_indices):  # noqa: B905
-        refr_index = complex(index[0], index[1])
-        E[frequency] = refr_index
+    # the scattering is computed at the radar's own frequency (dielectric.py),
+    # with the |K|^2 of the radar given in the configuration
+    kw_sqr = float(config["instrument_parameters"]["KW_SQR"])
+    fall_time_factor = config["radar_alignment"]["FALL_TIME_FACTOR"]
+    timestamp_convention = config["instrument_parameters"]["DD_TIMESTAMP_CONVENTION"]
 
-    max_radar_altitude = config["methods"]["MAX_ALTITUDE_RADAR_DATA"]
-
-    # read doppler radar data
-    # ---------------------------------------------------------------------------------
-    lgr.info("Open and read radar data")
-    radar_xr = radar.read_radar_cloudnet(radar_file, max_radar_alt=max_radar_altitude)
-    lgr.info("Radar data : OK")
-    computed_frequencies = frequency_to_compute(
-        computed_frequencies, radar_xr["radar_frequency"]
+    lgr.info("Read radar frequency")
+    water = dielectric.water_dielectric(radar.read_radar_frequency(radar_file))
+    computed_frequencies = [water.frequency]
+    lgr.info(
+        f"Scattering computed at {water.frequency / 1e9:.2f} GHz, water refractive "
+        f"index {water.refractive_index:.4f} ({water.temperature:g} C), "
+        f"|K|^2 = {kw_sqr}"
     )
-    lgr.info(f"Scattering computed at {computed_frequencies} Hz")
 
     # read and preprocess disdrometer data
     # ---------------------------------------------------------------------------------
@@ -93,6 +59,12 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file, verbo
     )
     lgr.info("Disdrometer raw data : OK")
 
+    # read doppler radar data, aligned on the disdrometer telegrams
+    # ---------------------------------------------------------------------------------
+    lgr.info("Open and read radar data")
+    radar_xr = radar.read_radar_cloudnet(radar_file, config, disdro=disdro_xr)
+    lgr.info("Radar data : OK")
+
     lgr.info("Begin computation of forward modeled-reflectivity and DSD parameters")
     scatt_list = []
     for fov in [1, 0]:  # 1 : vertical fov, 0 : horizontal fov
@@ -101,8 +73,9 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file, verbo
                 disdro_xr.size_classes[0:-5],
                 fov,
                 frequency,
-                e=E[frequency],
+                e=water.refractive_index,
                 axrMethod=axrMethod,
+                kw_sqr=kw_sqr,
             )
             scatt_list.append(scatt)
     disdro_xr = disdro.reflectivity_model_multilambda_measmodV_hvfov(
@@ -145,7 +118,9 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file, verbo
         lgr.info("Merge : OK")
 
     # minutes whose disdrometer reflectivity the saturated radar could not reach
-    final_data = saturation.flag_disdrometer_near_ceiling(final_data)
+    final_data = saturation.flag_disdrometer_near_ceiling(
+        final_data, config["saturation"]
+    )
 
     final_data["weather_data_avail"] = np.array(weather_avail).astype("i2")
     final_data["weather_data_avail"].attrs["long_name"] = (
@@ -166,6 +141,14 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file, verbo
     final_data.time.attrs["standard_name"] = "time"
     final_data.attrs["axis_ratioMethod"] = axrMethod
     final_data.attrs["fallspeedFormula"] = strMethod
+    final_data.attrs["scattering_frequency"] = water.frequency
+    final_data.attrs["water_refractive_index"] = (
+        f"{water.refractive_index.real:.6f} + {water.refractive_index.imag:.6f}i, "
+        f"Ellison (2007) at {water.temperature:g} C"
+    )
+    final_data.attrs["water_dielectric_factor"] = kw_sqr
+    final_data.attrs["fall_time_factor"] = fall_time_factor
+    final_data.attrs["disdrometer_timestamp_convention"] = timestamp_convention
 
     # Add global attributes specified in the file format
     final_data.attrs["title"] = (
@@ -398,7 +381,12 @@ def preprocess(disdro_file, ws_file, radar_file, config_file, output_file, verbo
     final_data.to_netcdf(
         output_file,
         encoding=compressed_encoding(
-            final_data, {"time": {"units": TIME_UNITS, "calendar": "standard"}}
+            final_data,
+            {
+                v: {"units": TIME_UNITS, "calendar": "standard"}
+                for v in ("time", "disdro_telegram_time")
+                if v in final_data.variables
+            },
         ),
     )
 

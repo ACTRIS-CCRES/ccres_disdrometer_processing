@@ -15,6 +15,7 @@ import toml
 import xarray as xr
 
 from ccres_disdrometer_processing.__init__ import __version__, script_name
+from ccres_disdrometer_processing.config import load_config
 from ccres_disdrometer_processing.logger import LogLevels, init_logger
 from ccres_disdrometer_processing.processing import (
     preprocessed_file2processed_noweather as processing_noweather,
@@ -23,14 +24,20 @@ from ccres_disdrometer_processing.processing import (
     preprocessed_file2processed_weather as processing,
 )
 from ccres_disdrometer_processing.saturation import saturation_qc
-from ccres_disdrometer_processing.utils import POSITION_VARS, scalar_positions
+from ccres_disdrometer_processing.utils import (
+    POSITION_VARS,
+    rain_attenuation,
+    scalar_positions,
+)
 
 # Variables of the preprocessed files the processing reads. The others (the other
 # reflectivity variants, DSD moments, attenuation...) are not loaded.
 PROCESSING_VARS = (
     "Zdcr",
+    "Zdcr_aligned",
     "DVdcr",
     "Zdlog_vfov_modv_tm",
+    "attd_vfov_modv",
     "radar_frequency",
     "psd",
     "measV",
@@ -100,13 +107,40 @@ def extract_dcr_data(ds, conf):
         )
     )
 
-    # DCR data extract
+    # DCR data extract : aligned on the disdrometer telegrams when the
+    # preprocessed file has it, then corrected for the two-way rain attenuation
+    # between the radar and the gate, from the disdrometer DSD (homogeneous rain)
+    aligned = "Zdcr_aligned" in ds
+    zdcr = ds["Zdcr_aligned" if aligned else "Zdcr"].sel(
+        {"range": ranges_to_keep}, method="nearest"
+    )
+    gate_range = zdcr["range"].values.astype(float)
+    if "attd_vfov_modv" in ds:
+        attenuation = rain_attenuation(ds, gate_range)
+    else:
+        attenuation = np.zeros(zdcr.shape)
+    Ze_ds["dcr_attenuation"] = xr.DataArray(
+        data=attenuation.astype(np.single),
+        dims=["time", "range"],
+        attrs={
+            "long_name": "Two-way rain attenuation between the DCR and the gate",
+            "units": "dB",
+            "comment": "2 k r, k the specific attenuation from the disdrometer DSD at the radar frequency, rain assumed homogeneous up to the gate ; added to Zdcr",  # noqa E501
+        },
+    )
     Ze_ds["Zdcr"] = xr.DataArray(
-        data=ds["Zdcr"].sel({"range": ranges_to_keep}, method="nearest").data,
+        data=(zdcr.values + attenuation).astype(np.single),
         dims=["time", "range"],
         attrs={
             "long_name": "DCR reflectivity at the ranges closest to those defined in the station configuration file",  # noqa E501
             "units": "dBZ",
+            "comment": (
+                "Aligned on the disdrometer telegrams (Zdcr_aligned of the "
+                "preprocessed file), "
+                if aligned
+                else "Median over each minute (Zdcr of the preprocessed file), "
+            )
+            + "corrected for the rain attenuation (dcr_attenuation)",
         },
     )
     Ze_ds["DVdcr"] = xr.DataArray(
@@ -439,7 +473,7 @@ def process(
     init_logger(log_level)
     click.echo("CCRES disdrometer processing : CLI")
 
-    conf = toml.load(conf)
+    conf = load_config(conf)
     ds, files_provided = merge_preprocessed_data(yesterday, today, tomorrow)
 
     # only the time axis of the day to process is needed here, not the whole file

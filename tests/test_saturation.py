@@ -6,7 +6,10 @@ import xarray as xr
 
 from ccres_disdrometer_processing import saturation
 from ccres_disdrometer_processing.open_radar_netcdf import read_radar_cloudnet
+from tests.station_conf import station_conf
 
+CONF = station_conf()
+SAT = CONF["saturation"]
 RNG = np.random.default_rng(0)
 N = 20000  # about one day of MIRA profiles
 
@@ -22,10 +25,10 @@ def heavy_rain_snr(n=N, cap=None):
 def test_clamped_gate_is_detected_and_smooth_gate_is_not():
     snr = np.column_stack([heavy_rain_snr(cap=55.0), heavy_rain_snr()])
     zh = snr - 40
-    snr_cap, zh_ceiling, at_ceiling = saturation.detect_ceiling(snr, zh)
+    snr_cap, zh_ceiling, at_ceiling = saturation.detect_ceiling(snr, zh, SAT)
     assert abs(snr_cap[0] - 55.0) < 0.5
     assert np.isfinite(zh_ceiling[0])
-    assert at_ceiling[:, 0].sum() >= saturation.N_STRONG
+    assert at_ceiling[:, 0].sum() >= SAT["N_STRONG"]
     assert np.isnan(snr_cap[1]) and np.isnan(zh_ceiling[1])
     assert not at_ceiling[:, 1].any()
 
@@ -33,7 +36,7 @@ def test_clamped_gate_is_detected_and_smooth_gate_is_not():
 def test_low_snr_pile_up_is_not_saturation():
     s = 20 + 5 * RNG.standard_normal(N)
     s = np.where(s > 25, 25 - 0.3 * RNG.random(N), s)  # pile-up, but at 25 dB
-    snr_cap, _, _ = saturation.detect_ceiling(s[:, None], s[:, None])
+    snr_cap, _, _ = saturation.detect_ceiling(s[:, None], s[:, None], SAT)
     assert np.isnan(snr_cap[0])
 
 
@@ -62,7 +65,7 @@ def write_radar(path, with_snr):
 def test_radar_reader_flags_minutes_at_the_ceiling(tmp_path):
     path = tmp_path / "mira.nc"
     snr = write_radar(path, with_snr=True)
-    radar = read_radar_cloudnet(path)
+    radar = read_radar_cloudnet(path, CONF)
     qf = radar["QF_saturation"]
     assert qf.dims == ("time", "range") and qf.sizes["time"] == 1440
     assert np.isfinite(radar["saturation_snr_cap"].values[0])
@@ -71,19 +74,19 @@ def test_radar_reader_flags_minutes_at_the_ceiling(tmp_path):
     # flagged minutes are those where the clamped profiles are
     times = pd.date_range("2025-05-05 00:00:02", periods=N, freq="4s")
     cap = radar["saturation_snr_cap"].values[0]
-    clamped = pd.Series(snr[:, 0] >= cap - saturation.NEAR_DB, index=times)
+    clamped = pd.Series(snr[:, 0] >= cap - SAT["NEAR_DB"], index=times)
     # same bins as the reflectivity: (t - 30 s, t + 30 s]
     minute = clamped.groupby((times - pd.Timedelta(30, "s")).ceil("1min")).mean()
     flagged = qf.isel(range=0).to_series()
     common = minute.index.intersection(flagged.index)
-    expected = (minute[common] >= saturation.MINUTE_FRACTION).astype(int)
+    expected = (minute[common] >= SAT["MINUTE_FRACTION"]).astype(int)
     assert (flagged[common].values == expected.values).all()
 
 
 def test_radar_without_snr_is_not_assessed(tmp_path):
     path = tmp_path / "rpg.nc"
     write_radar(path, with_snr=False)
-    radar = read_radar_cloudnet(path)
+    radar = read_radar_cloudnet(path, CONF)
     assert (radar["QF_saturation"] == 0).all()
     assert np.isnan(radar["Zdcr_saturation_ceiling"].values).all()
     assert "not assessed" in radar["QF_saturation"].attrs["comment"]
@@ -113,7 +116,7 @@ def test_minutes_with_zdd_near_the_ceiling_are_flagged():
     ds = preprocessed(
         qf=[[0, 0], [0, 1], [0, 0]], ceiling=[np.nan, 22.0], zdd=[17.0, 25.0, 19.0]
     )
-    out = saturation.flag_disdrometer_near_ceiling(ds)["QF_saturation"]
+    out = saturation.flag_disdrometer_near_ceiling(ds, SAT)["QF_saturation"]
     # gate without ceiling untouched ; 150 m stays 0 even for Zdd = 25 dBZ
     assert out.isel(range=0).values.tolist() == [0, 0, 0]
     # 300 m: 17 < 22 - 4 kept ; at ceiling stays 1 ; 19 >= 18 becomes 2
@@ -124,19 +127,19 @@ def test_qc_at_the_delta_z_gate():
     ds = preprocessed(
         qf=[[0, 0], [0, 1], [0, 2]], ceiling=[np.nan, 22.0], zdd=[0, 0, 0]
     )
-    conf = {"instrument_parameters": {"DCR_DZ_RANGE": 290}}
+    conf = station_conf(instrument_parameters={"DCR_DZ_RANGE": 290})
     assert saturation.saturation_qc(ds, conf).values.tolist() == [1, 0, 0]
-    conf = {"instrument_parameters": {"DCR_DZ_RANGE": 150}}
+    conf = station_conf(instrument_parameters={"DCR_DZ_RANGE": 150})
     assert saturation.saturation_qc(ds, conf).values.tolist() == [1, 1, 1]
     qc = saturation.saturation_qc(ds.drop_vars("QF_saturation"), conf)
     assert qc.values.tolist() == [1, 1, 1] and "not assessed" in qc.attrs["comment"]
 
 
 def test_gate_with_too_few_profiles_is_not_assessed():
-    n = saturation.MIN_PROFILES - 1
+    n = SAT["MIN_PROFILES"] - 1
     snr = np.column_stack([heavy_rain_snr(n, cap=70.0), heavy_rain_snr(n, cap=70.0)])
     snr[:, 1] = np.nan  # no profile at all at the second gate
-    snr_cap, zh_ceiling, at_ceiling = saturation.detect_ceiling(snr, snr - 45.0)
+    snr_cap, zh_ceiling, at_ceiling = saturation.detect_ceiling(snr, snr - 45.0, SAT)
     assert np.isnan(snr_cap).all() and np.isnan(zh_ceiling).all()
     assert not at_ceiling.any()
 
@@ -144,7 +147,16 @@ def test_gate_with_too_few_profiles_is_not_assessed():
 def test_file_without_flag_or_zdd_is_left_unchanged():
     ds = preprocessed(qf=[[0, 0], [0, 1]], ceiling=[np.nan, 22.0], zdd=[25.0, 25.0])
     no_flag = ds.drop_vars("QF_saturation")
-    assert saturation.flag_disdrometer_near_ceiling(no_flag).identical(no_flag)
+    assert saturation.flag_disdrometer_near_ceiling(no_flag, SAT).identical(no_flag)
     no_zdd = ds.drop_vars("Zdlog_vfov_modv_tm")
-    out = saturation.flag_disdrometer_near_ceiling(no_zdd)
+    out = saturation.flag_disdrometer_near_ceiling(no_zdd, SAT)
     assert out["QF_saturation"].values.tolist() == [[0, 0], [0, 1]]
+
+
+def test_thresholds_come_from_the_configuration():
+    ds = preprocessed(qf=[[0, 0], [0, 0]], ceiling=[np.nan, 22.0], zdd=[17.0, 19.0])
+    wide = saturation.flag_disdrometer_near_ceiling(ds, {**SAT, "ZDD_MARGIN": 6.0})
+    assert wide["QF_saturation"].isel(range=1).values.tolist() == [2, 2]
+    s = np.column_stack([heavy_rain_snr(cap=55.0)])
+    high = saturation.detect_ceiling(s, s - 40, {**SAT, "SNR_CAP_MIN": 60.0})[0]
+    assert np.isnan(high[0])

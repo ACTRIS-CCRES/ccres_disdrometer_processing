@@ -123,15 +123,8 @@ def instrument_position(position: xr.DataArray) -> xr.DataArray:
     return xr.DataArray(value, attrs=position.attrs)
 
 
-# Disdrometer measurement interval (s). Cloudnet files give it per telegram in
-# "interval"; without it, a telegram is taken to integrate the nominal minute.
-NOMINAL_INTERVAL = 60.0
-# Some loggers report the time since the previous telegram: after a data gap
-# the interval spans hours (30050 s at Munich), so longer telegrams are dropped.
-MAX_INTERVAL = 90.0
-# Shorter telegrams sample only part of the minute (5 s at Bucharest). They are
-# normalised by their own interval, kept and flagged.
-MIN_FULL_INTERVAL = 30.0
+# Time step of the preprocessed and processed files (s) : a 1-minute grid
+GRID_STEP = 60.0
 
 
 def disdro_minutes(ds: xr.Dataset) -> np.ndarray:
@@ -156,9 +149,7 @@ def disdro_minutes(ds: xr.Dataset) -> np.ndarray:
     if "disdro_interval" not in ds:
         return np.ones(ds.time.size)
     interval = ds["disdro_interval"].values.astype(float)
-    return np.where(
-        np.isfinite(interval), np.maximum(interval, NOMINAL_INTERVAL) / 60, 1.0
-    )
+    return np.where(np.isfinite(interval), np.maximum(interval, GRID_STEP) / 60, 1.0)
 
 
 POSITION_VARS = [
@@ -166,6 +157,35 @@ POSITION_VARS = [
     for instrument in ("disdro", "ams")
     for coord in ("longitude", "latitude", "altitude")
 ]
+
+
+def rain_attenuation(ds: xr.Dataset, gate_range) -> np.ndarray:
+    """Return the two-way rain attenuation between the radar and each gate (dB).
+
+    2 k r, k the specific attenuation computed from the disdrometer DSD at the
+    radar frequency (attd_vfov_modv, dB/km), the rain being assumed homogeneous up
+    to the gate ; 0 where k is missing (no rain).
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        Preprocessed data, with attd_vfov_modv and radar_frequency
+    gate_range : array-like
+        Range of the gates (m)
+
+    Returns
+    -------
+    np.ndarray
+        Attenuation, (time, gate)
+
+    """
+    k = (
+        ds["attd_vfov_modv"]
+        .sel(radar_frequencies=ds.radar_frequency, method="nearest")
+        .values.astype(float)
+    )
+    r = np.asarray(gate_range, dtype=float)
+    return 2 * np.nan_to_num(k)[:, None] * r[None, :] / 1000
 
 
 def scalar_positions(ds: xr.Dataset) -> xr.Dataset:

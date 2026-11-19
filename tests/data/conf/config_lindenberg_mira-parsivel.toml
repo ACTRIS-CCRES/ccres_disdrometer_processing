@@ -7,9 +7,6 @@ STATION = "Meteorological Observatory Lindenberg" # useful for plots
 [methods]
 FALL_SPEED_METHOD = "GunAndKinzer"
 AXIS_RATIO_METHOD = "BeardChuang_PolynomialFit"
-COMPUTE_MIE_METHOD = "pytmatrix"
-REFRACTION_INDEX = [[2.99645,1.54866], [2.99645,1.54866], [2.99645,1.54866], [2.99645,1.54866]] # complex index
-RADAR_FREQUENCIES = [10.0e9, 24.0e9, 35.0e9, 94.0e9] # Hz
 MAX_ALTITUDE_RADAR_DATA = 2500
 
 [instrument_parameters]
@@ -17,6 +14,8 @@ DD_SAMPLING_AREA = 0.0054 # m^2 ; Parsivel2 sampling surface
 DCR_DZ_RANGE = 200 # m ; height at which to compute Delta Z ; fill with the real value
 PROCESSING_RANGES = [150, 200, 300]
 DD_ORIENTATION = 0 # degree, from North
+DD_TIMESTAMP_CONVENTION = "end" # the time written marks the end of the measurement interval
+KW_SQR = 0.88 # |K|^2 the radar uses to compute Ze ; Ka band, Cloudnet convention
 
 [plot_parameters]
 
@@ -30,10 +29,93 @@ MAX_HUR = 99 # max relative humidity : avoid fog, ...
 DD_ANGLE = 45 # degree ; keep wind data at DD_ORIENTATION[pi] +- DD_ANGLE
 MAX_INTERVAL = 60 # mn ; max interval between two tipping of the pluviometer, to "close" an event
 MIN_DURATION = 180 # mn ; min duration of an event
-PR_SAMPLING = 15  # mn ; ex CHUNK_THICKNESS ; period of averaging for AMS pr
 DD_RG_MAX_PR_ACC_RATIO = 0.3 # ex ACCUMULATION_RELATIVE_ERROR ; max relative error in rain accumulation measurement, DD vs Rain gauge
 DD_FALLSPEED_RATIO = 0.3 # ex FALLSPEED_RELATIVE_ERROR ; relative difference between "theoretical" and DD fall speed
 MIN_POINTS = 50
+
+[disdrometer_interval] # preprocessing : measurement interval of the telegrams
+NOMINAL_INTERVAL = 60.0 # s ; interval assumed when the file gives none
+MAX_TELEGRAM_INTERVAL = 90.0 # s ; longer telegrams cover a data gap and are dropped
+MIN_FULL_INTERVAL = 30.0 # s ; shorter telegrams are kept, normalised by their interval, and flagged
+
+[disdrometer_axis_check] # preprocessing : Parsivel data_raw axis order checked on the fall speeds
+MIN_DROPS = 2000 # drops of 0.5-4 mm over the day needed for the check
+RATIO = 0.5 # the order kept must have a misfit below RATIO times the other one
+
+[radar_alignment] # preprocessing : radar median over each disdrometer telegram (Zdcr_aligned)
+FALL_TIME_FACTOR = 0.55 # window advanced by FALL_TIME_FACTOR x range / |v|
+MIN_FALL_SPEED = 0.5 # m/s ; slower gates (no rain) are not used for |v|
+MIN_WINDOW_COVERAGE = 0.6 # share of the typical number of profiles a window needs
+RADAR_WINDOW = 60.0 # s ; duration of the radar window
+
+[saturation] # preprocessing (QF_saturation) and processing (QC_sat) ; radars with SNR only (MIRA)
+SNR_CAP_MIN = 50.0 # dB ; lowest SNR ceiling taken as a saturation
+ZDD_MARGIN = 4.0 # dB ; flag 2 when Zdd >= reflectivity ceiling - ZDD_MARGIN
+MINUTE_FRACTION = 0.1 # a minute is at the ceiling when this share of its profiles is
+CAP_RANK = 20 # the day's ceiling is the CAP_RANK-th largest SNR of the gate
+NEAR_DB = 1.0 # dB ; profiles within NEAR_DB of the ceiling are at the ceiling
+BAND_DB = [2.0, 4.0] # dB ; comparison band below the ceiling
+MIN_PROFILES = 200 # profiles of the day needed to assess a gate
+N_STRONG = 300 # profiles at the ceiling enough for a saturation
+N_MIN = 100 # or N_MIN profiles at the ceiling, with RATIO_MIN times more than in BAND_DB
+RATIO_MIN = 1.5
+
+[gate_check] # gate_check tool (MIN_POINTS of [thresholds] is used as well)
+R_MAX = 1000.0 # m ; highest gate read (the selection uses Z and |v| at 900 m)
+R_SEARCH = 600.0 # m ; top of the reference layer
+R_REF = 350.0 # m ; bottom of the reference layer
+TOL = 0.25 # dB ; tolerance around the reference line
+MIN_EVENTS = 15 # events wanted in the selection
+MIN_EVENTS_PERIOD = 8 # events for a period to be assessed (looser level if need be)
+N_BOOT = 200 # bootstrap draws of the events
+BOOT_QUANTILE = 0.8 # quantile of the drawn gates recommended
+DV_RATIO = 0.7 # gates slower than this share of the lowest ones are left out (melting layer)
+
+# stratiform selection levels, from the most lenient to the most demanding :
+# n_qc, rain_frac, qc_frac, dv_ratio, dv_lo are lower bounds, the others upper bounds
+[gate_check.levels.large]
+n_qc = 180
+rain_frac = 0.70
+qc_frac = 0.55
+lpr_std = 0.60
+pr_p95 = 2.7
+z5_jump = 1.5
+dv_ratio = 0.85
+dv_lo = 2.5
+z_grad = 1.5
+
+[gate_check.levels.moyen]
+n_qc = 240
+rain_frac = 0.80
+qc_frac = 0.65
+lpr_std = 0.55
+pr_p95 = 2.5
+z5_jump = 1.0
+dv_ratio = 0.90
+dv_lo = 3.0
+z_grad = 1.0
+
+[gate_check.levels.exigeant]
+n_qc = 270
+rain_frac = 0.825
+qc_frac = 0.70
+lpr_std = 0.50
+pr_p95 = 2.25
+z5_jump = 1.0
+dv_ratio = 0.90
+dv_lo = 3.0
+z_grad = 1.0
+
+[gate_check.levels.strict]
+n_qc = 300
+rain_frac = 0.85
+qc_frac = 0.75
+lpr_std = 0.45
+pr_p95 = 2.0
+z5_jump = 1.0
+dv_ratio = 0.90
+dv_lo = 3.0
+z_grad = 1.0
 
 [nc_meta]
 title = ""
