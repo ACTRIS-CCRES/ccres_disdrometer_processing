@@ -85,10 +85,10 @@ def test_frequency_absent_from_the_table_is_computed(caplog):
     assert "not in water_dielectric.toml" in caplog.text
 
 
-@pytest.mark.parametrize("radar", [np.nan, 0.0, -1.0])
-def test_invalid_radar_frequency_is_an_error(radar):
-    with pytest.raises(ValueError, match="radar frequency"):
-        dielectric.water_dielectric(radar)
+def test_invalid_radar_frequency_is_an_error():
+    for radar in (np.nan, 0.0, -1.0):
+        with pytest.raises(ValueError, match="radar frequency"):
+            dielectric.water_dielectric(radar)
 
 
 def test_kw_sqr_scales_the_backscattering_only():

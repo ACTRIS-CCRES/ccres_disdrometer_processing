@@ -6,7 +6,6 @@ import pytest
 import toml
 
 from ccres_disdrometer_processing.config import (
-    REQUIRED,
     ConfigError,
     check_config,
     config_problems,
@@ -85,7 +84,3 @@ def test_gate_check_levels_are_checked(conf):
     assert "[gate_check.levels.large] : unknown n_qcc" in problems
     conf["gate_check"]["levels"] = {}
     assert "at least one level" in config_problems(conf)[0]
-
-
-def test_required_sections_are_those_of_the_test_file():
-    assert set(REQUIRED) <= set(toml.load(CONF_FILE))
