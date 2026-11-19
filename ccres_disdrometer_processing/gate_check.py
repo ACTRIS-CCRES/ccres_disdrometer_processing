@@ -454,7 +454,9 @@ def periods(starts, how, breaks=()):
         edges = [pd.Timestamp.min, *sorted(breaks), pd.Timestamp.max]
         lab = []
         for t in starts:
-            k = np.searchsorted(np.array(edges[1:-1], dtype="datetime64[ns]"), t)
+            k = np.searchsorted(
+                np.array(edges[1:-1], dtype="datetime64[ns]"), t.to_datetime64()
+            )
             lo = "début" if k == 0 else edges[k].strftime("%Y-%m-%d")
             lab.append(f"depuis {lo}")
         return np.array(lab)
