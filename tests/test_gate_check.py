@@ -106,3 +106,15 @@ def test_a_minute_saturated_at_any_gate_up_to_the_reference_layer_is_dropped():
     assert sat.tolist() == [False, True, True, False]
     assert gate_check.saturated_minutes(ds, 950.0).tolist() == [False, True, True, True]
     assert gate_check.saturated_minutes(ds.drop_vars("QF_saturation"), 600.0) is None
+
+
+def test_periods_follow_the_years_or_the_instrument_log():
+    starts = ["2022-03-01", "2023-06-01", "2024-02-08"]
+    assert list(gate_check.periods(starts, "year")) == ["2022", "2023", "2024"]
+    breaks = [pd.Timestamp("2024-01-01"), pd.Timestamp("2023-05-10")]
+    assert list(gate_check.periods(starts, "log", breaks)) == [
+        "depuis début",
+        "depuis 2023-05-10",
+        "depuis 2024-01-01",
+    ]
+    assert list(gate_check.periods(starts, "none")) == ["tout"] * 3
