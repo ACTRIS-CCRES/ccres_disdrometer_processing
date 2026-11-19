@@ -29,8 +29,11 @@ from ccres_disdrometer_processing.open_radar_netcdf import (
 from ccres_disdrometer_processing.processing.preprocessed_file2processed import (
     extract_dcr_data,
 )
+from tests.station_conf import station_conf
 
 AXR = "BeardChuang_PolynomialFit"
+ALIGN = station_conf()["radar_alignment"]
+HALF = {**ALIGN, "FALL_TIME_FACTOR": 0.5}
 
 
 # 1-3 : water properties at the radar frequency ---------------------------------
@@ -48,18 +51,13 @@ def test_ellison_static_limit_and_known_index():
     assert (n.real, n.imag) == pytest.approx((7.7609, 2.4126), abs=1e-4)
 
 
-def test_table_entries_follow_ellison_and_the_band_conventions():
+def test_table_entries_follow_ellison():
     table = dielectric._table()
     assert len(table) >= 8
     for f, w in table.items():
         n = dielectric.ellison_refractive_index(f, w.temperature)
         assert w.refractive_index == pytest.approx(n, abs=1e-6)
-        assert w.kw_sqr == dielectric.kw_sqr_convention(f)
         assert w.temperature == dielectric.T_REF
-    assert dielectric.kw_sqr_convention(9.6e9) == 0.93
-    assert dielectric.kw_sqr_convention(35.5e9) == 0.88
-    assert dielectric.kw_sqr_convention(94e9) == 0.74
-    assert dielectric.kw_sqr_convention(95e9) == 0.74
 
 
 @pytest.mark.parametrize(
@@ -84,7 +82,6 @@ def test_frequency_absent_from_the_table_is_computed(caplog):
     assert not w.from_table
     assert w.frequency == pytest.approx(77.0e9)
     assert w.refractive_index == dielectric.ellison_refractive_index(77.0e9)
-    assert w.kw_sqr == 0.74
     assert "not in water_dielectric.toml" in caplog.text
 
 
@@ -99,7 +96,7 @@ def test_kw_sqr_scales_the_backscattering_only():
     w = dielectric.water_dielectric(94e9)
     ref = scattering.scattering_prop(D, 1, w.frequency, e=w.refractive_index)
     new = scattering.scattering_prop(
-        D, 1, w.frequency, e=w.refractive_index, kw_sqr=w.kw_sqr
+        D, 1, w.frequency, e=w.refractive_index, kw_sqr=0.74
     )
     for v in ("bscat_mie", "bscat_tmatrix"):
         np.testing.assert_allclose(getattr(new, v), getattr(ref, v) * 0.93 / 0.74)
@@ -114,7 +111,7 @@ def test_rayleigh_drops_follow_the_index_and_kw_change():
     old = scattering.scattering_prop(D, 1, 35e9, e=2.99645 + 1.54866j)
     w = dielectric.water_dielectric(35e9)
     new = scattering.scattering_prop(
-        D, 1, w.frequency, e=w.refractive_index, kw_sqr=w.kw_sqr
+        D, 1, w.frequency, e=w.refractive_index, kw_sqr=0.88
     )
 
     def k2(m):
@@ -146,12 +143,15 @@ def test_fall_time_lag():
     rng = np.array([100.0, 200.0, 300.0])
     dv = np.full((10, 3), -4.0)
     rain = np.zeros(10, bool)
-    np.testing.assert_array_equal(fall_time_lag(rng, dv, rain), 0.0)
+    np.testing.assert_array_equal(fall_time_lag(rng, dv, rain, 0.5, 0.5), 0.0)
     rain[3:] = True
-    np.testing.assert_allclose(fall_time_lag(rng, dv, rain, 0.5), 0.5 * rng / 4.0)
+    np.testing.assert_allclose(fall_time_lag(rng, dv, rain, 0.5, 0.5), 0.5 * rng / 4.0)
     # a gate without rain-like fall speed (melting layer...) is not used for |v|
     dv[:, 1] = -0.2
-    np.testing.assert_allclose(fall_time_lag(rng, dv, rain, 0.5), 0.5 * rng / 4.0)
+    np.testing.assert_allclose(fall_time_lag(rng, dv, rain, 0.5, 0.5), 0.5 * rng / 4.0)
+    # unless the configured minimum fall speed lets it in
+    lag = fall_time_lag(rng, dv, rain, 0.5, 0.1)
+    assert lag[1] == pytest.approx(0.5 * 200.0 / 2.1)
 
 
 def ramp_radar(day="2024-12-06"):
@@ -172,7 +172,7 @@ def test_alignment_window_follows_the_telegram_and_the_fall():
     telegram[5] = np.datetime64("NaT")
     rain = np.ones(1440, bool)
     dv = np.full((1440, 2), -5.0)
-    z, lag = aligned_reflectivity(radar, labels, telegram, rain, dv, factor=0.5)
+    z, lag = aligned_reflectivity(radar, labels, telegram, rain, dv, HALF, "end")
     np.testing.assert_allclose(lag, [10.0, 20.0])
     # minute 10 : telegram at 10:56 marks the end of (9:56, 10:56] ; the radar
     # window is advanced by the lag : median of the samples of (s - 60 - lag,
@@ -188,12 +188,14 @@ def test_alignment_window_follows_the_telegram_and_the_fall():
     expected = np.median(samples[(samples > s - 30) & (samples <= s + 30)])
     assert z[5, 0] == expected
     # "start" convention : the telegram time marks the beginning of its interval
-    z_start, _ = aligned_reflectivity(
-        radar, labels, telegram, rain, dv, factor=0.5, convention="start"
-    )
+    z_start, _ = aligned_reflectivity(radar, labels, telegram, rain, dv, HALF, "start")
     np.testing.assert_allclose(z_start[10] - z[10], 60.0)
     with pytest.raises(ValueError, match="convention"):
-        aligned_reflectivity(radar, labels, telegram, rain, dv, convention="middle")
+        aligned_reflectivity(radar, labels, telegram, rain, dv, HALF, "middle")
+    # a shorter radar window, as configured
+    short = {**HALF, "RADAR_WINDOW": 30.0}
+    z_short, _ = aligned_reflectivity(radar, labels, telegram, rain, dv, short, "end")
+    np.testing.assert_allclose(z_short[10] - z[10], 15.0)
 
 
 def write_radar_file(path, day="2024-12-06"):
@@ -227,9 +229,10 @@ def test_radar_reader_aligns_on_the_disdrometer(tmp_path):
         },
         coords={"time": labels},
     )
-    plain = read_radar_cloudnet(path)
+    conf = station_conf()
+    plain = read_radar_cloudnet(path, conf)
     assert "Zdcr_aligned" not in plain
-    radar = read_radar_cloudnet(path, disdro=disdro, fall_time_factor=0.55)
+    radar = read_radar_cloudnet(path, conf, disdro=disdro)
     np.testing.assert_array_equal(radar.Zdcr.values, plain.Zdcr.values)
     np.testing.assert_allclose(
         radar.fall_time_lag.values, 0.55 * radar.range.values / 4.0, rtol=1e-6
@@ -284,7 +287,7 @@ def test_zdcr_gets_the_aligned_and_attenuation_corrected_value():
         },
         coords={"time": t, "range": rng, "radar_frequencies": [94e9]},
     )
-    conf = {"instrument_parameters": {"PROCESSING_RANGES": [150.0, 300.0]}}
+    conf = station_conf(instrument_parameters={"PROCESSING_RANGES": [150.0, 300.0]})
     out = extract_dcr_data(ds, conf)
     att = 2 * np.array([0.0, 1.0, 2.0, 0.0])[:, None] * rng[None, :] / 1000
     np.testing.assert_allclose(out.dcr_attenuation.values, att, rtol=1e-6)
@@ -313,6 +316,12 @@ def test_alignment_accepts_radars_sending_profiles_in_bursts():
     labels = pd.date_range(day, periods=1440, freq="1min")
     telegram = (labels + pd.Timedelta(seconds=56)).values
     z, _ = aligned_reflectivity(
-        radar, labels, telegram, np.zeros(1440, bool), np.full((1440, 1), -5.0)
+        radar,
+        labels,
+        telegram,
+        np.zeros(1440, bool),
+        np.full((1440, 1), -5.0),
+        ALIGN,
+        "end",
     )
     assert np.isfinite(z[5:-5]).all()

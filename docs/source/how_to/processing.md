@@ -144,7 +144,7 @@ An event that began before D-1 00:00 is cut at the start of the window. When the
     - on one hand, the weighted average of droplet fall speed seen by the disdrometer @ 1-minute, computed from drop size distribution and a fall speed model (Gun and Kinzer) ;
     - on the other hand, the average droplet fall speed computed from the disdrometer speed distribution.
 
-    * **QC_sat** : Control on the receiver saturation of the DCR at the comparison range (**DCR_DZ_RANGE**), from **QF_saturation** of the preprocessed file (see the preprocessing page) : 0 when the radar is at its ceiling or when the disdrometer reflectivity is within 4 dB of it. Files preprocessed before this flag existed get **QC_sat** = 1 (not assessed).
+    * **QC_sat** : Control on the receiver saturation of the DCR at the comparison range (**DCR_DZ_RANGE**), from **QF_saturation** of the preprocessed file (see the preprocessing page) : 0 when the radar is at its ceiling or when the disdrometer reflectivity is within `ZDD_MARGIN` (`[saturation]` section of the configuration file, 4 dB in the network files) of it. Files preprocessed before this flag existed get **QC_sat** = 1 (not assessed).
 
     * ***If weather data is provided***, further quality control can be performed on weather variables :
     **QC_ta**, **QC_hur**, **QC_ws**, **QC_wd** : checks based on air temperature, relative humidity, wind speed and wind direction.

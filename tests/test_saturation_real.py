@@ -9,9 +9,11 @@ from click.testing import CliRunner
 
 from ccres_disdrometer_processing.cli import cli
 from ccres_disdrometer_processing.open_radar_netcdf import read_radar_cloudnet
+from tests.station_conf import station_conf
 
 DATA = Path(__file__).parent / "data"
 INPUTS = DATA / "inputs"
+CONF = station_conf()
 SATURATION_VARS = ["QF_saturation", "saturation_snr_cap", "Zdcr_saturation_ceiling"]
 
 
@@ -33,7 +35,7 @@ def input_file(name):
     ],
 )
 def test_heavy_rain_day_saturates_at_the_known_ceiling(name, gate, ceiling):
-    radar = read_radar_cloudnet(input_file(name))
+    radar = read_radar_cloudnet(input_file(name), CONF)
     at_gate = radar.sel(range=gate, method="nearest")
     assert abs(float(at_gate["Zdcr_saturation_ceiling"]) - ceiling) < 0.5
     assert (at_gate["QF_saturation"] == 1).sum() >= 20
@@ -44,14 +46,14 @@ def test_heavy_rain_day_saturates_at_the_known_ceiling(name, gate, ceiling):
     ["20240917_lindenberg_mira-35_d6cc3d73.nc", "20211203_juelich_mira.nc"],
 )
 def test_day_without_heavy_rain_does_not_saturate(name):
-    radar = read_radar_cloudnet(input_file(name))
+    radar = read_radar_cloudnet(input_file(name), CONF)
     assert np.isnan(radar["Zdcr_saturation_ceiling"]).all()
     assert (radar["QF_saturation"] == 0).all()
 
 
 def test_first_gate_of_juelich_does_not_saturate():
     # 144 m, the Delta Z gate of Jülich, stays under the ceiling
-    radar = read_radar_cloudnet(input_file("20211204_juelich_mira.nc"))
+    radar = read_radar_cloudnet(input_file("20211204_juelich_mira.nc"), CONF)
     at_gate = radar.sel(range=144, method="nearest")
     assert np.isnan(float(at_gate["Zdcr_saturation_ceiling"]))
     assert (at_gate["QF_saturation"] == 0).all()

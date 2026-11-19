@@ -5,24 +5,23 @@ import pandas as pd
 import xarray as xr
 from scipy import constants
 
+from ccres_disdrometer_processing.config import TIMESTAMP_CONVENTIONS
 from ccres_disdrometer_processing.saturation import radar_saturation
-from ccres_disdrometer_processing.utils import NOMINAL_INTERVAL
 
 LIST_VARIABLES = ["Zh", "v", "radar_frequency", "latitude", "longitude", "altitude"]
 
-# Alignment of the radar on the disdrometer telegrams (Zdcr_aligned) :
-# the radar window covers the measurement interval of the telegram, advanced by
+# Alignment of the radar on the disdrometer telegrams (Zdcr_aligned), with the
+# [radar_alignment] section of the station configuration : the radar window,
+# RADAR_WINDOW long, covers the measurement interval of the telegram, advanced by
 # the effective fall time of the drops from each gate to the ground,
 # FALL_TIME_FACTOR x range / |v| : the drops advected by the wind reach the
-# disdrometer sooner than their fall time (factor fitted on 17 radar-disdrometer
-# combinations of the network)
-FALL_TIME_FACTOR = 0.55
-# end : the time written marks the end of the measurement interval (Parsivel and
-# Thies loggers read by cloudnetpy) ; start : its beginning (MeteoSwiss files)
-TIMESTAMP_CONVENTIONS = ("end", "start")
-RADAR_WINDOW = NOMINAL_INTERVAL  # s, duration of the radar window
-MIN_FALL_SPEED = 0.5  # m/s, slower gates (no rain) are not used for |v|
-MIN_WINDOW_COVERAGE = 0.6  # share of the typical number of profiles in a window
+# disdrometer sooner than their fall time (0.55 fitted on 17 radar-disdrometer
+# combinations of the network). Gates slower than MIN_FALL_SPEED (no rain) are
+# not used for |v| ; a window holding less than MIN_WINDOW_COVERAGE of the
+# typical number of profiles is left empty. DD_TIMESTAMP_CONVENTION ([instrument_
+# parameters]) : "end", the time written marks the end of the measurement
+# interval (Parsivel and Thies loggers read by cloudnetpy) ; "start", its
+# beginning (MeteoSwiss files).
 
 
 def read_radar_frequency(filename):
@@ -31,12 +30,12 @@ def read_radar_frequency(filename):
         return float(np.nanmedian(raw["radar_frequency"].values)) * 1e9
 
 
-def fall_time_lag(rng, dv, rain, factor=FALL_TIME_FACTOR):
+def fall_time_lag(rng, dv, rain, factor, min_fall_speed):
     """Return the lag of the drops from each gate to the ground (s).
 
     factor x tau, tau = r / |v| with |v| the median over the gates up to r of the
     median Doppler velocity of each gate during the rain minutes of the day
-    (gates slower than MIN_FALL_SPEED left out). 0 without rain.
+    (gates slower than min_fall_speed left out). 0 without rain.
 
     Parameters
     ----------
@@ -46,8 +45,10 @@ def fall_time_lag(rng, dv, rain, factor=FALL_TIME_FACTOR):
         Doppler velocity, (time, range) (m/s)
     rain : np.ndarray
         Rain minutes, (time,) (bool)
-    factor : float, optional
-        Share of the fall time, by default FALL_TIME_FACTOR
+    factor : float
+        Share of the fall time (FALL_TIME_FACTOR)
+    min_fall_speed : float
+        Slower gates are not used for |v| (MIN_FALL_SPEED, m/s)
 
     Returns
     -------
@@ -61,7 +62,7 @@ def fall_time_lag(rng, dv, rain, factor=FALL_TIME_FACTOR):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", RuntimeWarning)
         v = np.nanmedian(np.abs(dv[rain]), axis=0)
-    v[~(v >= MIN_FALL_SPEED)] = np.nan
+    v[~(v >= min_fall_speed)] = np.nan
     for j in range(rng.size):
         if np.isfinite(v[: j + 1]).any():
             lag[j] = factor * rng[j] / np.nanmedian(v[: j + 1])
@@ -112,8 +113,8 @@ def aligned_reflectivity(
     telegram_time,
     rain,
     dv,
-    factor=FALL_TIME_FACTOR,
-    convention="end",
+    alignment,
+    convention,
 ):
     """Return Zh aligned on the disdrometer telegrams, and the lag of each gate.
 
@@ -134,10 +135,11 @@ def aligned_reflectivity(
         Rain minutes (bool), for the fall speed
     dv : np.ndarray
         Doppler velocity per minute, (time, range) (m/s)
-    factor : float, optional
-        Share of the fall time, by default FALL_TIME_FACTOR
-    convention : str, optional
-        What the telegram time marks, "end" (default) or "start" of its interval
+    alignment : dict
+        [radar_alignment] section of the station configuration
+    convention : str
+        What the telegram time marks, "end" or "start" of its interval
+        (DD_TIMESTAMP_CONVENTION)
 
     Returns
     -------
@@ -157,22 +159,25 @@ def aligned_reflectivity(
     rt = seconds(data_nc.time.values)
     lab = seconds(labels.values)
     s = seconds(telegram_time)
+    window = float(alignment["RADAR_WINDOW"])
     if convention == "end":
-        lo, hi = s - RADAR_WINDOW, s
+        lo, hi = s - window, s
     else:
-        lo, hi = s, s + RADAR_WINDOW
+        lo, hi = s, s + window
     none = ~np.isfinite(s)
-    lo[none], hi[none] = lab[none] - RADAR_WINDOW / 2, lab[none] + RADAR_WINDOW / 2
+    lo[none], hi[none] = lab[none] - window / 2, lab[none] + window / 2
 
     rng = data_nc.range.values.astype(float)
-    lag = fall_time_lag(rng, dv, rain, factor)
+    lag = fall_time_lag(
+        rng, dv, rain, alignment["FALL_TIME_FACTOR"], alignment["MIN_FALL_SPEED"]
+    )
     # profiles expected in a window : the typical count of the day, not
-    # RADAR_WINDOW / median gap (some radars send their profiles in bursts)
+    # window / median gap (some radars send their profiles in bursts)
     count = np.searchsorted(rt, hi, side="right") - np.searchsorted(
         rt, lo, side="right"
     )
     typical = np.median(count[count > 0]) if np.any(count > 0) else 1
-    nmin = max(1, int(MIN_WINDOW_COVERAGE * typical))
+    nmin = max(1, int(alignment["MIN_WINDOW_COVERAGE"] * typical))
     zh = data_nc.Zh.transpose("time", "range").values.astype(float)
     out = np.full((lab.size, rng.size), np.nan)
     for j in range(rng.size):
@@ -180,29 +185,20 @@ def aligned_reflectivity(
     return out, lag
 
 
-def read_radar_cloudnet(
-    filename,
-    max_radar_alt=2500,
-    disdro=None,
-    fall_time_factor=FALL_TIME_FACTOR,
-    timestamp_convention="end",
-):
+def read_radar_cloudnet(filename, conf, disdro=None):
     """Open, extract and resample data from CLU daily DCR files.
 
     Parameters
     ----------
     filename : Union[str, Path]
         The considered daily DCR file from CLU
-    max_radar_alt : int, optional
-        Altitude until which to extract 2D data (Z, DV), by default 2500m
+    conf : dict
+        Station configuration : MAX_ALTITUDE_RADAR_DATA (altitude until which to
+        extract 2D data), [saturation], [radar_alignment] and
+        DD_TIMESTAMP_CONVENTION
     disdro : xr.Dataset, optional
         Disdrometer data of the day (disdro_telegram_time, disdro_pr) : when
         given, Zh is also aligned on its telegrams (Zdcr_aligned)
-    fall_time_factor : float, optional
-        Share of the fall time for the alignment, by default FALL_TIME_FACTOR
-    timestamp_convention : str, optional
-        What the disdrometer telegram time marks, "end" (default) or "start" of
-        its measurement interval
 
     Returns
     -------
@@ -211,7 +207,9 @@ def read_radar_cloudnet(
         with a 1-minute regular sampling
 
     """
-    range_bounds = [0, max_radar_alt]
+    range_bounds = [0, conf["methods"]["MAX_ALTITUDE_RADAR_DATA"]]
+    alignment = conf["radar_alignment"]
+    timestamp_convention = conf["instrument_parameters"]["DD_TIMESTAMP_CONVENTION"]
     # in memory first : grouping a lazily read file reads it piece by piece, slowly
     with xr.open_dataset(filename) as raw:
         # the SNR, when the file has it (MIRA), reveals the receiver saturation
@@ -310,7 +308,7 @@ def read_radar_cloudnet(
     radar_ds["DVdcr"].attrs["Comment"] = "Negative downward"
 
     for name, var in radar_saturation(
-        data_nc, time_index_offset, time_index[:-1]
+        data_nc, time_index_offset, time_index[:-1], conf["saturation"]
     ).items():
         radar_ds[name] = var
 
@@ -323,8 +321,8 @@ def read_radar_cloudnet(
             on_grid["disdro_telegram_time"].values,
             rain,
             radar_ds["DVdcr"].values,
-            factor=fall_time_factor,
-            convention=timestamp_convention,
+            alignment,
+            timestamp_convention,
         )
         radar_ds["Zdcr_aligned"] = xr.DataArray(
             z_aligned.astype(np.float32),
@@ -333,7 +331,8 @@ def read_radar_cloudnet(
                 **data_nc["Zh"].attrs,
                 "comment": (
                     "Median of Zh over the measurement interval of the "
-                    f"disdrometer telegram of the minute ({RADAR_WINDOW:.0f} s, "
+                    "disdrometer telegram of the minute "
+                    f"({alignment['RADAR_WINDOW']:.0f} s, "
                     f"timestamp marking its {timestamp_convention}), advanced by "
                     "fall_time_lag ; around the minute label when no telegram"
                 ),
@@ -346,9 +345,9 @@ def read_radar_cloudnet(
                 "units": "s",
                 "long_name": "Lag of the drops from each gate to the disdrometer",
                 "comment": (
-                    f"{fall_time_factor} x range / |v|, |v| the median over the "
-                    "gates up to the range of the median Doppler velocity of each "
-                    "gate during the rain minutes of the day"
+                    f"{alignment['FALL_TIME_FACTOR']} x range / |v|, |v| the median "
+                    "over the gates up to the range of the median Doppler velocity "
+                    "of each gate during the rain minutes of the day"
                 ),
             },
         )

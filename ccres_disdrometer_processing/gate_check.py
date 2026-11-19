@@ -40,91 +40,40 @@ Method (reference line) :
 6. by period (year, or instrument log epochs) : the deviation at the recommended
    gate tells whether a single gate holds within TOL over the whole history.
 
-The configuration files are left untouched : the recommendation is to be checked
-before updating DCR_DZ_RANGE.
+The parameters (R_MAX, R_SEARCH, R_REF, TOL, MIN_EVENTS, MIN_EVENTS_PERIOD,
+N_BOOT, BOOT_QUANTILE, DV_RATIO and the LEVELS, from the most lenient to the most
+demanding) are read in the [gate_check] section of the station configuration,
+MIN_POINTS in its [thresholds]. The configuration files are left untouched : the
+recommendation is to be checked before updating DCR_DZ_RANGE.
 """
 
 import argparse
 import json
 import logging
 import warnings
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import toml
 import xarray as xr
 
+from ccres_disdrometer_processing.config import GATE_LEVEL_KEYS, load_config
 from ccres_disdrometer_processing.utils import rain_attenuation
 
 lgr = logging.getLogger(__name__)
 
-R_MAX = 1000.0  # m, highest gate read (the selection uses Z and |v| at 900 m)
-R_SEARCH = 600.0  # m, top of the reference layer
-R_REF = 350.0  # m, bottom of the reference layer
-TOL = 0.25  # dB
-MIN_POINTS = 50  # QC-passed minutes for a gate of an event to count
-MIN_EVENTS = 15  # events wanted in the selection
-MIN_EVENTS_PERIOD = 8  # events for a period to be assessed (looser level if need be)
-N_BOOT = 200
-BOOT_QUANTILE = 0.8
-DV_RATIO = 0.7  # gates slower than this share of the lowest ones (melting layer)
 # antenna layout from the radar type of the combination name
 MONOSTATIC = ("mira",)
 BISTATIC = ("rpg", "basta")
 
-# Stratiform selection, nested levels ; thresholds of the Juelich study
+# Stratiform selection descriptors of each level of [gate_check.levels]
 # (n_qc : QC-passed minutes ; rain_frac, qc_frac : share of the event minutes
 # with rain, passing the QC ; lpr_std : std of log10(rain rate) ; pr_p95 : 95th
 # percentile of the rain rate (mm/h) ; z5_jump : median minute-to-minute change of
 # Z at 500 m (dB) ; dv_ratio : |v| at 900 m / near the ground ; dv_lo : |v| near
-# the ground (m/s) ; z_grad : |Z(900 m) - Z(500 m)| (dB))
-LEVELS = {
-    "large": dict(
-        n_qc=180,
-        rain_frac=0.70,
-        qc_frac=0.55,
-        lpr_std=0.60,
-        pr_p95=2.7,
-        z5_jump=1.5,
-        dv_ratio=0.85,
-        dv_lo=2.5,
-        z_grad=1.5,
-    ),  # fmt: skip
-    "moyen": dict(
-        n_qc=240,
-        rain_frac=0.80,
-        qc_frac=0.65,
-        lpr_std=0.55,
-        pr_p95=2.5,
-        z5_jump=1.0,
-        dv_ratio=0.90,
-        dv_lo=3.0,
-        z_grad=1.0,
-    ),  # fmt: skip
-    "exigeant": dict(
-        n_qc=270,
-        rain_frac=0.825,
-        qc_frac=0.70,
-        lpr_std=0.50,
-        pr_p95=2.25,
-        z5_jump=1.0,
-        dv_ratio=0.90,
-        dv_lo=3.0,
-        z_grad=1.0,
-    ),  # fmt: skip
-    "strict": dict(
-        n_qc=300,
-        rain_frac=0.85,
-        qc_frac=0.75,
-        lpr_std=0.45,
-        pr_p95=2.0,
-        z5_jump=1.0,
-        dv_ratio=0.90,
-        dv_lo=3.0,
-        z_grad=1.0,
-    ),  # fmt: skip
-}
+# the ground (m/s) ; z_grad : |Z(900 m) - Z(500 m)| (dB)) ; MINIMA are lower
+# bounds, the others upper bounds
 MINIMA = ("n_qc", "rain_frac", "qc_frac", "dv_ratio", "dv_lo")
 LOG_EVENTS = {"installation", "maintenance", "calibration", "removal"}
 PRE_VARS = (
@@ -137,6 +86,41 @@ PRE_VARS = (
     "radar_frequency",
     "QF_saturation",
 )
+
+
+@dataclass(frozen=True)
+class GateParameters:
+    """Parameters of gate_check, from the station configuration."""
+
+    r_max: float  # m, highest gate read (the selection uses Z and |v| at 900 m)
+    r_search: float  # m, top of the reference layer
+    r_ref: float  # m, bottom of the reference layer
+    tol: float  # dB
+    min_points: int  # QC-passed minutes for an event, and a gate of it, to count
+    min_events: int  # events wanted in the selection
+    min_events_period: int  # events for a period to be assessed
+    n_boot: int
+    boot_quantile: float
+    dv_ratio: float  # gates slower than this share of the lowest ones (melting)
+    levels: dict  # nested levels, from the most lenient to the most demanding
+
+    @classmethod
+    def from_config(cls, conf):
+        """Build them from a (checked) station configuration."""
+        g = conf["gate_check"]
+        return cls(
+            r_max=float(g["R_MAX"]),
+            r_search=float(g["R_SEARCH"]),
+            r_ref=float(g["R_REF"]),
+            tol=float(g["TOL"]),
+            min_points=int(conf["thresholds"]["MIN_POINTS"]),
+            min_events=int(g["MIN_EVENTS"]),
+            min_events_period=int(g["MIN_EVENTS_PERIOD"]),
+            n_boot=int(g["N_BOOT"]),
+            boot_quantile=float(g["BOOT_QUANTILE"]),
+            dv_ratio=float(g["DV_RATIO"]),
+            levels={k: dict(v) for k, v in g["levels"].items()},
+        )
 
 
 def _quiet_nanmedian(x, axis=None):
@@ -156,7 +140,7 @@ def _day_files(directory, combo, kind):
     return dict(sorted(out.items()))
 
 
-def read_processed(files):
+def read_processed(files, min_points):
     """Return the events (one row each) and the QC_overall series."""
     events, qc = [], []
     for day, f in files.items():
@@ -188,7 +172,7 @@ def read_processed(files):
     good = (
         (ev.get("QF_rain_accumulation", 1) > 0)
         & (ev.get("QF_rg_dd_event", 1) != 0)
-        & (ev["good_points_number"] >= MIN_POINTS)
+        & (ev["good_points_number"] >= min_points)
         & np.isfinite(ev["dZ_med"])
     )
     return ev[good].reset_index(drop=True), qc
@@ -197,8 +181,9 @@ def read_processed(files):
 class Preprocessed:
     """Lazy reader of the daily preprocessed files (one day kept at a time)."""
 
-    def __init__(self, files):
+    def __init__(self, files, r_max):
         self.files = files
+        self.r_max = r_max
         self.cache = {}
 
     def day(self, day):
@@ -210,7 +195,7 @@ class Preprocessed:
             else:
                 with xr.open_dataset(f) as raw:
                     ds = raw[[v for v in PRE_VARS if v in raw]]
-                    self.cache[day] = ds.sel(range=slice(0, R_MAX)).load()
+                    self.cache[day] = ds.sel(range=slice(0, self.r_max)).load()
         return self.cache[day]
 
     def event(self, start, end):
@@ -233,7 +218,7 @@ class Preprocessed:
 # per-event quantities ------------------------------------------------------------
 
 
-def saturated_minutes(ds, r_top=R_SEARCH):
+def saturated_minutes(ds, r_top):
     """Minutes flagged by QF_saturation at any gate up to r_top (None without it)."""
     if "QF_saturation" not in ds:
         return None
@@ -254,7 +239,7 @@ def event_profile(ds, qc):
     Returns
     -------
     dict
-        Descriptors (see LEVELS), and range, n, med (Delta Z), medc (corrected
+        Descriptors (see GATE_LEVEL_KEYS), and range, n, med (Delta Z), medc (corrected
         for the rain attenuation), dv : per gate
 
     """
@@ -311,20 +296,20 @@ def running_median(x, w=3):
     return out
 
 
-def deviation(r, medc, n, v, r_ref=R_REF, r_search=R_SEARCH):
+def deviation(r, medc, n, v, gp):
     """Return the deviation of a profile from its reference line, and the line.
 
-    The line is fitted over [r_ref, r_search] on the gates with MIN_POINTS
-    minutes and a rain-like fall speed (|v| above DV_RATIO times that of the
-    lowest gates : a melting layer is left out), the profile being smoothed by a
-    3-gate running median. NaN without at least 4 such gates.
+    The line is fitted over [gp.r_ref, gp.r_search] on the gates with
+    gp.min_points minutes and a rain-like fall speed (|v| above gp.dv_ratio times
+    that of the lowest gates : a melting layer is left out), the profile being
+    smoothed by a 3-gate running median. NaN without at least 4 such gates.
     """
-    valid = (r <= r_search) & (n >= MIN_POINTS) & np.isfinite(medc)
+    valid = (r <= gp.r_search) & (n >= gp.min_points) & np.isfinite(medc)
     if np.isfinite(v[valid]).sum() >= 3:
         ref_v = np.nanmedian(v[valid][:3])
-        valid &= np.isfinite(v) & (v >= DV_RATIO * ref_v)
+        valid &= np.isfinite(v) & (v >= gp.dv_ratio * ref_v)
     sm = running_median(np.where(valid, medc, np.nan))
-    fit = valid & (r >= r_ref) & np.isfinite(sm)
+    fit = valid & (r >= gp.r_ref) & np.isfinite(sm)
     if fit.sum() < 4:
         return np.full(r.size, np.nan), (np.nan, np.nan)
     a, b = np.polyfit(r[fit], sm[fit], 1)
@@ -335,14 +320,15 @@ def deviation(r, medc, n, v, r_ref=R_REF, r_search=R_SEARCH):
 # selection and gate --------------------------------------------------------------
 
 
-def selection_level(features, min_events=MIN_EVENTS):
+def selection_level(features, levels, min_events):
     """Return the levels each event passes, and the level to use.
 
-    The most demanding level holding at least min_events events ; "large" if none
-    does, "tous" (every good event) if "large" holds fewer than 5.
+    The most demanding level holding at least min_events events ; the most
+    lenient one if none does, "tous" (every good event) if it holds fewer than 5.
     """
     passes = {}
-    for name, th in LEVELS.items():
+    lenient = next(iter(levels))
+    for name, th in levels.items():
         ok = np.ones(len(features), bool)
         for k, x in th.items():
             col = features[k].to_numpy(dtype=float)
@@ -350,15 +336,15 @@ def selection_level(features, min_events=MIN_EVENTS):
         passes[name] = ok
     passes = pd.DataFrame(passes, index=features.index)
     level = "tous"
-    for name in LEVELS:
+    for name in levels:
         if passes[name].sum() >= min_events or (
-            name == "large" and passes[name].sum() >= 5
+            name == lenient and passes[name].sum() >= 5
         ):
             level = name
     return passes, level
 
 
-def optimal_gate(gates, devs, tol=TOL, r_ref=R_REF):
+def optimal_gate(gates, devs, tol, r_ref):
     """Return the optimal gate of a set of deviation profiles (NaN if none).
 
     The composite is the median over the events ; the gate is the lowest one
@@ -375,12 +361,15 @@ def optimal_gate(gates, devs, tol=TOL, r_ref=R_REF):
     return (float(gates[above[0][0]]) if above[0].size else np.nan), comp
 
 
-def bootstrap_gates(gates, devs, n_boot=N_BOOT, seed=0):
-    """Return the optimal gates of n_boot draws of the events."""
+def bootstrap_gates(gates, devs, gp, seed=0):
+    """Return the optimal gates of gp.n_boot draws of the events."""
     rng = np.random.default_rng(seed)
     k = devs.shape[0]
     return np.array(
-        [optimal_gate(gates, devs[rng.integers(0, k, k)])[0] for _ in range(n_boot)]
+        [
+            optimal_gate(gates, devs[rng.integers(0, k, k)], gp.tol, gp.r_ref)[0]
+            for _ in range(gp.n_boot)
+        ]
     )
 
 
@@ -402,17 +391,17 @@ def gate_above(gates, comp, g):
     return float(gates[up[0]]) if up.size else np.nan
 
 
-def summarise(gates, devs, conf_gate, label, gate_ref=None, bistatic=False):
+def summarise(gates, devs, conf_gate, label, gp, gate_ref=None, bistatic=False):
     """Optimal gate, bootstrap and deviation at given gates, for one event set.
 
     The recommended gate is the bootstrap quantile, and for a bistatic radar at
     least the gate above the composite optimal gate.
     """
-    g_opt, comp = optimal_gate(gates, devs)
-    boot = bootstrap_gates(gates, devs) if devs.shape[0] >= 5 else np.array([g_opt])
+    g_opt, comp = optimal_gate(gates, devs, gp.tol, gp.r_ref)
+    boot = bootstrap_gates(gates, devs, gp) if devs.shape[0] >= 5 else np.array([g_opt])
     boot = boot[np.isfinite(boot)]
     g_boot = (
-        float(np.quantile(boot, BOOT_QUANTILE, method="higher"))
+        float(np.quantile(boot, gp.boot_quantile, method="higher"))
         if boot.size
         else np.nan
     )
@@ -475,35 +464,41 @@ def periods(starts, how, breaks=()):
 # main ----------------------------------------------------------------------------
 
 
-def evaluate(
-    combo, preprocessed_dir, processed_dir, conf_gate, period="year", breaks=()
-):
-    """Return the per-event table, the summary rows and the composite profiles."""
+def evaluate(combo, preprocessed_dir, processed_dir, conf, period="year", breaks=()):
+    """Return the per-event table, the summary rows and the composite profiles.
+
+    conf is the station configuration : DCR_DZ_RANGE and the gate_check
+    parameters (GateParameters).
+    """
+    gp = GateParameters.from_config(conf)
+    conf_gate = float(conf["instrument_parameters"]["DCR_DZ_RANGE"])
     layout = antenna_layout(combo)
     if layout is None:
         lgr.warning("antenna layout unknown for %s : no extra gate", combo)
     bistatic = layout == "bistatique"
-    ev, qc = read_processed(_day_files(processed_dir, combo, "processed"))
+    ev, qc = read_processed(
+        _day_files(processed_dir, combo, "processed"), gp.min_points
+    )
     if ev.empty:
         raise ValueError(f"no good event for {combo} in {processed_dir}")
-    pre = Preprocessed(_day_files(preprocessed_dir, combo, "preprocessed"))
+    pre = Preprocessed(_day_files(preprocessed_dir, combo, "preprocessed"), gp.r_max)
     profs, no_flag = [], 0
     for _, e in ev.sort_values("start_event").iterrows():
         ds = pre.event(e.start_event, e.end_event)
         if ds is None:
             continue
         q = qc.reindex(ds.time.values).fillna(False).to_numpy(dtype=bool)
-        sat = saturated_minutes(ds)
+        sat = saturated_minutes(ds, gp.r_search)
         if sat is None:
             no_flag += 1
             sat = np.zeros(q.size, bool)
         n_sat = int((q & sat).sum())
         q = q & ~sat
-        if q.sum() < MIN_POINTS:
+        if q.sum() < gp.min_points:
             continue
         p = event_profile(ds, q)
         p["n_sat"] = n_sat
-        p["dev"], p["line"] = deviation(p["range"], p["medc"], p["n"], p["dv"])
+        p["dev"], p["line"] = deviation(p["range"], p["medc"], p["n"], p["dv"], gp)
         p["start"], p["end"] = pd.Timestamp(e.start_event), pd.Timestamp(e.end_event)
         profs.append(p)
     if no_flag:
@@ -519,7 +514,7 @@ def evaluate(
     # common gate grid : the most frequent one (a RPG chirp change moves gates)
     grids = pd.Series([tuple(np.round(p["range"], 1)) for p in profs])
     gates = np.array(grids.value_counts().index[0])
-    gates = gates[gates <= R_SEARCH]
+    gates = gates[gates <= gp.r_search]
     devs, meds = [], []
     for p in profs:
         for key, out in (("dev", devs), ("medc", meds)):
@@ -533,9 +528,9 @@ def evaluate(
     devs, meds = np.array(devs), np.array(meds)
 
     features = pd.DataFrame(
-        [{k: p[k] for k in (*LEVELS["large"], "n_sat", "start", "end")} for p in profs]
+        [{k: p[k] for k in (*GATE_LEVEL_KEYS, "n_sat", "start", "end")} for p in profs]
     )
-    passes, level = selection_level(features)
+    passes, level = selection_level(features, gp.levels, gp.min_events)
     sel = passes[level].to_numpy() if level != "tous" else np.ones(len(profs), bool)
     features = pd.concat([features, passes], axis=1)
     features["selected"] = sel
@@ -547,7 +542,12 @@ def evaluate(
     use = sel & features.fit_ok.to_numpy()
     summary, comps = [], {}
     row, comp = summarise(
-        gates, devs[use], conf_gate, f"{level} (toute la période)", bistatic=bistatic
+        gates,
+        devs[use],
+        conf_gate,
+        f"{level} (toute la période)",
+        gp,
+        bistatic=bistatic,
     )
     row["level"] = level
     summary.append(row)
@@ -558,6 +558,7 @@ def evaluate(
         devs[features.fit_ok.to_numpy()],
         conf_gate,
         "tous les événements",
+        gp,
         g_ref,
         bistatic=bistatic,
     )
@@ -565,19 +566,25 @@ def evaluate(
     summary.append(row_all)
     comps[row_all["set"]] = comp_all
     if period != "none":
-        order = [*reversed(LEVELS), "tous"]  # from the most demanding
+        order = [*reversed(gp.levels), "tous"]  # from the most demanding
         for lab in sorted(set(features.period)):
             in_p = (features.period == lab).to_numpy() & features.fit_ok.to_numpy()
             # the global level, or looser ones when it leaves too few events
             for lev in order[order.index(level) :]:
                 m = in_p & (passes[lev].to_numpy() if lev != "tous" else True)
-                if m.sum() >= MIN_EVENTS_PERIOD:
+                if m.sum() >= gp.min_events_period:
                     break
-            if m.sum() < MIN_EVENTS_PERIOD:
+            if m.sum() < gp.min_events_period:
                 summary.append(dict(set=lab, level="-", n_events=int(in_p.sum())))
                 continue
             r, c = summarise(
-                gates, devs[m], conf_gate, f"{lab} ({lev})", g_ref, bistatic=bistatic
+                gates,
+                devs[m],
+                conf_gate,
+                f"{lab} ({lev})",
+                gp,
+                g_ref,
+                bistatic=bistatic,
             )
             r["level"] = lev
             summary.append(r)
@@ -586,11 +593,11 @@ def evaluate(
     summary.insert(0, "antenna", layout)
     if "dev_at_reference" in summary:
         ref = summary["dev_at_reference"]
-        summary["single_gate_ok"] = (ref.abs() <= TOL).where(ref.notna())
+        summary["single_gate_ok"] = (ref.abs() <= gp.tol).where(ref.notna())
     return features, summary, gates, comps
 
 
-def plot(gates, comps, conf_gate, title, path):
+def plot(gates, comps, conf_gate, title, path, gp):
     """Composite deviation profiles, with the tolerance and the gates."""
     import matplotlib
 
@@ -598,15 +605,15 @@ def plot(gates, comps, conf_gate, title, path):
     import matplotlib.pyplot as plt
 
     fig, ax = plt.subplots(figsize=(6, 6))
-    ax.axvspan(-TOL, TOL, color="#d9eadf", label=f"±{TOL} dB")
-    ax.axhspan(R_REF, R_SEARCH, color="#eeeeee", label="couche de référence")
+    ax.axvspan(-gp.tol, gp.tol, color="#d9eadf", label=f"±{gp.tol} dB")
+    ax.axhspan(gp.r_ref, gp.r_search, color="#eeeeee", label="couche de référence")
     for k, (name, comp) in enumerate(comps.items()):
         style = dict(lw=2.2, color="k") if k == 0 else dict(lw=1, alpha=0.7)
         ax.plot(comp, gates, marker="o", ms=3, label=name, **style)
     ax.axhline(conf_gate, ls=":", color="#c8641e", label=f"gate TOML {conf_gate:g} m")
     ax.set_xlabel("écart du profil ΔZ à sa droite de référence (dB)")
     ax.set_ylabel("altitude de la gate (m)")
-    ax.set_ylim(0, R_SEARCH + 20)
+    ax.set_ylim(0, gp.r_search + 20)
     ax.set_title(title, fontsize=10)
     ax.legend(fontsize=7, loc="lower right")
     fig.tight_layout()
@@ -627,13 +634,14 @@ def main(argv=None):
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(message)s")
 
-    conf_gate = float(toml.load(args.config)["instrument_parameters"]["DCR_DZ_RANGE"])
+    conf = load_config(args.config)
+    conf_gate = float(conf["instrument_parameters"]["DCR_DZ_RANGE"])
     breaks = log_breaks(args.instrument_log, args.combo)
     features, summary, gates, comps = evaluate(
         args.combo,
         args.preprocessed_dir,
         args.processed_dir,
-        conf_gate,
+        conf,
         args.period,
         breaks,
     )
@@ -643,7 +651,14 @@ def main(argv=None):
     summary.insert(0, "combo", args.combo)
     summary.insert(1, "conf_gate", conf_gate)
     summary.to_csv(out / f"{args.combo}_gate_summary.csv", index=False)
-    plot(gates, comps, conf_gate, args.combo, out / f"{args.combo}_gate.png")
+    plot(
+        gates,
+        comps,
+        conf_gate,
+        args.combo,
+        out / f"{args.combo}_gate.png",
+        GateParameters.from_config(conf),
+    )
     pd.set_option("display.width", 220)
     print(summary.drop(columns=["combo"]).round(2).to_string(index=False))
 

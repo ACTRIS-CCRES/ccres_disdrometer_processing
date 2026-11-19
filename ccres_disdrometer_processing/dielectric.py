@@ -1,21 +1,22 @@
-"""Refractive index and dielectric factor of liquid water at the radar frequency.
+"""Refractive index of liquid water at the radar frequency.
 
 The scattering of the drops is computed at the radar's own frequency, read in the
-radar file, with :
+radar file, with the refractive index of water from Ellison (2007) at T_REF, the
+temperature of the drops : a single compromise for every station (the wet-bulb
+temperature during rain is 8 to 10 C at the European sites, and Zdd changes by
+only 0.03 to 0.06 dB per C).
 
-- the refractive index of water from Ellison (2007) at T_REF, the temperature of
-  the drops : a single compromise for every station (the wet-bulb temperature
-  during rain is 8 to 10 C at the European sites, and Zdd changes by only 0.03 to
-  0.06 dB per C) ;
-- the dielectric factor |K|^2 the radar uses to convert its power into Ze, so that
-  Zdd follows the same convention as Zdcr : 0.93 in X band, 0.88 in Ka band (the
-  Cloudnet convention), 0.74 in W band (|K| = 0.86, used by the RPG software and
-  for the BASTA, see Toledo and Delanoe).
-
-Both are read in a fixed table (assets/water_dielectric.toml, written by
+The index is read in a fixed table (assets/water_dielectric.toml, written by
 scripts/build_dielectric_table.py) for the frequencies of the network, so that
-nothing is recomputed at each run. A frequency absent from the table is computed
-with the same formulas, with a warning : add it to the table.
+nothing is recomputed at each run, the scattering tables being computed with the
+same values. A frequency absent from the table is computed with the same
+formulas, with a warning : add it to the table.
+
+The dielectric factor |K|^2 the radar uses to convert its power into Ze, so that
+Zdd follows the same convention as Zdcr, is a property of the radar : it is read
+in the station configuration (KW_SQR, [instrument_parameters]) : 0.93 in X band,
+0.88 in Ka band (the Cloudnet convention), 0.74 in W band (|K| = 0.86, used by
+the RPG software and for the BASTA, see Toledo and Delanoe).
 """
 
 import cmath
@@ -34,8 +35,6 @@ TABLE_FILE = Path(__file__).parent / "assets" / "water_dielectric.toml"
 T_REF = 10.0  # C, temperature of the drops for the refractive index
 # a radar frequency within this distance of a table entry uses that entry
 FREQUENCY_TOLERANCE = 0.02e9  # Hz
-# |K|^2 by band, (upper frequency bound in Hz, |K|^2), see the module docstring
-KW_SQR_BANDS = ((15e9, 0.93), (50e9, 0.88), (math.inf, 0.74))
 # |K|^2 rustmatrix normalises its reflectivities with (Scatterer.Kw_sqr default)
 RUSTMATRIX_KW_SQR = 0.93
 
@@ -104,21 +103,12 @@ def ellison_refractive_index(freq_hz: float, temp_c: float = T_REF) -> complex:
     return cmath.sqrt(ellison_permittivity(freq_hz, temp_c))
 
 
-def kw_sqr_convention(freq_hz: float) -> float:
-    """Return the |K|^2 the radars of this band use to compute Ze."""
-    for upper, kw in KW_SQR_BANDS:
-        if freq_hz < upper:
-            return kw
-    raise ValueError(f"invalid frequency {freq_hz}")
-
-
 @dataclass(frozen=True)
 class WaterDielectric:
     """Water properties used for the scattering at one radar frequency."""
 
     frequency: float  # Hz, frequency of the scattering computation
     refractive_index: complex
-    kw_sqr: float
     temperature: float  # C
     from_table: bool
 
@@ -135,7 +125,6 @@ def _table():
         out[f] = WaterDielectric(
             frequency=f,
             refractive_index=complex(*e["refractive_index"]),
-            kw_sqr=float(e["kw_sqr"]),
             temperature=float(content["temperature"]),
             from_table=True,
         )
@@ -180,7 +169,6 @@ def water_dielectric(radar_frequency: float) -> WaterDielectric:
     return WaterDielectric(
         frequency=f,
         refractive_index=ellison_refractive_index(f, T_REF),
-        kw_sqr=kw_sqr_convention(f),
         temperature=T_REF,
         from_table=False,
     )

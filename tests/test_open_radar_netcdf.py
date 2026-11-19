@@ -6,6 +6,7 @@ import pytest
 import xarray as xr
 
 from ccres_disdrometer_processing.open_radar_netcdf import read_radar_cloudnet
+from tests.station_conf import station_conf
 
 
 def write_radar_file(path, times):
@@ -35,7 +36,7 @@ def test_time_grid_covers_the_file_day_only(tmp_path, sample_at_next_midnight):
     path = tmp_path / "radar.nc"
     write_radar_file(path, times)
 
-    radar = read_radar_cloudnet(path)
+    radar = read_radar_cloudnet(path, station_conf())
 
     assert radar.sizes["time"] == 1440
     assert radar.time.values[0] == np.datetime64("2024-12-06T00:00")

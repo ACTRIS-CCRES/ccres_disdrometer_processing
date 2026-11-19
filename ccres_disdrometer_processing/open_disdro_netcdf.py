@@ -7,9 +7,6 @@ import xarray as xr
 
 from ccres_disdrometer_processing.scattering import DATA, compute_fallspeed
 from ccres_disdrometer_processing.utils import (
-    MAX_INTERVAL,
-    MIN_FULL_INTERVAL,
-    NOMINAL_INTERVAL,
     disdro_minutes,
     instrument_position,
 )
@@ -57,14 +54,20 @@ RESAMPLED_VARS = (
 )
 
 
-def add_interval_and_accumulation(data: xr.Dataset, data_nc: xr.Dataset) -> None:
+def add_interval_and_accumulation(
+    data: xr.Dataset, data_nc: xr.Dataset, params: dict
+) -> None:
     """Add the measurement interval of each timestep and the rain accumulation.
 
     The counts are normalised by this interval, not by a fixed minute (see
-    reflectivity_model_multilambda_measmodV_hvfov). A missing interval means the
-    nominal minute. A timestep integrating more than MAX_INTERVAL covers a data
-    gap: its counts and rate are dropped. The accumulation weighs each rate by the
-    duration its timestep stands for (utils.disdro_minutes).
+    reflectivity_model_multilambda_measmodV_hvfov). Cloudnet files give it per
+    telegram in "interval" ; a missing interval means NOMINAL_INTERVAL. Some
+    loggers report the time since the previous telegram : after a data gap the
+    interval spans hours (30050 s at Munich), so a timestep integrating more than
+    MAX_TELEGRAM_INTERVAL is dropped (counts and rate). Shorter telegrams than
+    MIN_FULL_INTERVAL sample only part of the minute (5 s at Bucharest) : they are
+    normalised by their own interval, kept and flagged. The accumulation weighs
+    each rate by the duration its timestep stands for (utils.disdro_minutes).
 
     Parameters
     ----------
@@ -73,17 +76,22 @@ def add_interval_and_accumulation(data: xr.Dataset, data_nc: xr.Dataset) -> None
         modified in place
     data_nc : xr.Dataset
         output from resample_data_perfect_timesteps()
+    params : dict
+        [disdrometer_interval] section of the station configuration
 
     """
+    nominal = float(params["NOMINAL_INTERVAL"])
+    max_interval = float(params["MAX_TELEGRAM_INTERVAL"])
+    min_full = float(params["MIN_FULL_INTERVAL"])
     if "interval" in data_nc:
         # per telegram, or a single value for the whole file (Cabauw)
         interval = np.broadcast_to(
             data_nc["interval"].values.astype(float), data.time.shape
         )
-        interval = np.where(np.isfinite(interval), interval, NOMINAL_INTERVAL)
+        interval = np.where(np.isfinite(interval), interval, nominal)
     else:
-        interval = np.full(data.time.size, NOMINAL_INTERVAL)
-    gap = (interval <= 0) | (interval > MAX_INTERVAL)
+        interval = np.full(data.time.size, nominal)
+    gap = (interval <= 0) | (interval > max_interval)
     # minutes left without a telegram by resample_data_perfect_timesteps()
     no_telegram = np.all(np.isnan(data["psd"].values), axis=(1, 2))
     interval[gap | no_telegram] = np.nan
@@ -94,24 +102,24 @@ def add_interval_and_accumulation(data: xr.Dataset, data_nc: xr.Dataset) -> None
             "units": "s",
             "long_name": "Measurement interval of the disdrometer timestep",
             "comment": (
-                f"From the Cloudnet 'interval' variable, {NOMINAL_INTERVAL:.0f} s "
+                f"From the Cloudnet 'interval' variable, {nominal:.0f} s "
                 f"when missing; NaN for a minute without telegram, or longer than "
-                f"{MAX_INTERVAL:.0f} s (data gap: the timestep is dropped). "
+                f"{max_interval:.0f} s (data gap: the timestep is dropped). "
                 "Counts are normalised by it."
             ),
         },
     )
     data["QF_disdro_interval"] = xr.DataArray(
-        np.where(
-            np.isnan(interval), -9, (interval >= MIN_FULL_INTERVAL).astype(int)
-        ).astype("i2"),
+        np.where(np.isnan(interval), -9, (interval >= min_full).astype(int)).astype(
+            "i2"
+        ),
         dims=["time"],
         attrs={
             "long_name": "Quality flag for the disdrometer measurement interval",
             "flag_values": np.array([0, 1], dtype="i2"),
             "flag_meanings": "short_sampling full_sampling",
             "comment": (
-                f"short_sampling: interval below {MIN_FULL_INTERVAL:.0f} s, only part"
+                f"short_sampling: interval below {min_full:.0f} s, only part"
                 " of the minute was sampled; -9 (fill value): no telegram kept"
                 " (empty minute or data gap)"
             ),
@@ -230,11 +238,6 @@ def cloudnetpy_version(data_nc: xr.Dataset) -> tuple[int, int] | None:
         return None
 
 
-# Check of the Parsivel2 data_raw axis order from the data themselves
-MIN_DROPS_AXIS_CHECK = 2000  # drops of 0.5-4 mm over the day for the check
-AXIS_CHECK_RATIO = 0.5  # the order kept must fit at least twice as well
-
-
 def fallspeed_misfit(counts, size_classes, speed_classes):
     """Return the misfit of the measured fall speeds to Gunn and Kinzer (1949).
 
@@ -266,7 +269,7 @@ def fallspeed_misfit(counts, size_classes, speed_classes):
     return float(np.sum(w[ok] * np.abs(v[ok] / model - 1)) / n), n
 
 
-def psd_axis_order(psd, size_classes, speed_classes, version):
+def psd_axis_order(psd, size_classes, speed_classes, version, params):
     """Return data_raw as (time, diameter, velocity), and how its order was set.
 
     The order follows the cloudnetpy version : < 1.94 stored (time, velocity,
@@ -276,7 +279,8 @@ def psd_axis_order(psd, size_classes, speed_classes, version):
     (time, velocity, diameter), and a few files with an old version already hold
     (time, diameter, velocity). The order is therefore checked on the data : the
     one whose fall speeds fit Gunn and Kinzer is kept, when the day has enough
-    drops and one order fits at least twice as well as the other.
+    drops of 0.5-4 mm (MIN_DROPS) and one order fits clearly better than the
+    other (misfit below RATIO times the other one).
 
     Parameters
     ----------
@@ -286,6 +290,8 @@ def psd_axis_order(psd, size_classes, speed_classes, version):
         Centres of the diameter (mm) and velocity (m/s) classes
     version : tuple or None
         (major, minor) cloudnetpy version, None if not written by cloudnetpy
+    params : dict
+        [disdrometer_axis_check] section of the station configuration
 
     Returns
     -------
@@ -303,10 +309,10 @@ def psd_axis_order(psd, size_classes, speed_classes, version):
     how = "version"
     swap = by_version
     clear = (
-        n >= MIN_DROPS_AXIS_CHECK
+        n >= params["MIN_DROPS"]
         and np.isfinite(e_stored)
         and np.isfinite(e_swapped)
-        and min(e_stored, e_swapped) < AXIS_CHECK_RATIO * max(e_stored, e_swapped)
+        and min(e_stored, e_swapped) < params["RATIO"] * max(e_stored, e_swapped)
     )
     if clear:
         swap, how = bool(e_swapped < e_stored), "data"
@@ -319,7 +325,7 @@ def psd_axis_order(psd, size_classes, speed_classes, version):
 
 
 def read_parsivel_cloudnet(
-    data_nc: xr.Dataset,
+    data_nc: xr.Dataset, config: dict
 ) -> xr.Dataset:  # Read Parsivel file from CLU resampled file
     """Create a dataset from CLU resampled data.
 
@@ -331,6 +337,8 @@ def read_parsivel_cloudnet(
     ----------
     data_nc : xr.Dataset
         output from resample_data_perfect_timesteps()
+    config : dict
+        Station configuration ([disdrometer_interval], [disdrometer_axis_check])
 
     Returns
     -------
@@ -374,6 +382,7 @@ def read_parsivel_cloudnet(
             data.size_classes.values,
             data.speed_classes.values,
             cloudnetpy_version(data_nc),
+            config["disdrometer_axis_check"],
         )
         data["psd"] = xr.DataArray(
             psd,
@@ -402,13 +411,11 @@ def read_parsivel_cloudnet(
             dims=["speed_classes"],
             attrs={"units": "m/s", "long_name": "Width of the speed bins"},
         )
-        add_interval_and_accumulation(data, data_nc)
+        add_interval_and_accumulation(data, data_nc, config["disdrometer_interval"])
     return data
 
 
-def read_thies_cloudnet(
-    data_nc: xr.Dataset,
-) -> xr.Dataset:
+def read_thies_cloudnet(data_nc: xr.Dataset, config: dict) -> xr.Dataset:
     """Create a dataset from CLU resampled data.
 
     Input the result of resample_data_perfect_timesteps() ;
@@ -419,6 +426,8 @@ def read_thies_cloudnet(
     ----------
     data_nc : xr.Dataset
         output from resample_data_perfect_timesteps()
+    config : dict
+        Station configuration ([disdrometer_interval])
 
     Returns
     -------
@@ -496,7 +505,7 @@ def read_thies_cloudnet(
         dims=["speed_classes"],
         attrs={"units": "m/s", "long_name": "Width of the speed bins"},
     )
-    add_interval_and_accumulation(data, data_nc)
+    add_interval_and_accumulation(data, data_nc, config["disdrometer_interval"])
     return data
 
 
@@ -529,9 +538,9 @@ def read_parsivel_cloudnet_choice(
     source = data_nc.disdrometer_source
 
     if source == "OTT HydroMet Parsivel2":
-        data = read_parsivel_cloudnet(data_nc)
+        data = read_parsivel_cloudnet(data_nc, config)
     elif source == "Thies Clima LNM":
-        data = read_thies_cloudnet(data_nc)
+        data = read_thies_cloudnet(data_nc, config)
     else:
         data = None
 

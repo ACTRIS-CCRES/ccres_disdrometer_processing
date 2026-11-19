@@ -217,7 +217,9 @@ def compute_quality_checks_weather(ds, conf, start, end):
     ratio_vdisdro_vth = vobs_disdro / vth_disdro
 
     qc_ds["QC_vdsd_t"] = xr.DataArray(
-        data=(np.abs(ratio_vdisdro_vth - 1) <= 0.3),
+        data=(
+            np.abs(ratio_vdisdro_vth - 1) <= conf["thresholds"]["DD_FALLSPEED_RATIO"]
+        ),
         dims="time",
         attrs={
             "long_name": "Quality check for cohence between fall speed and droplet diameter",  # noqa E501

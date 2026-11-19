@@ -15,6 +15,7 @@ import toml
 import xarray as xr
 
 from ccres_disdrometer_processing.__init__ import __version__, script_name
+from ccres_disdrometer_processing.config import load_config
 from ccres_disdrometer_processing.logger import LogLevels, init_logger
 from ccres_disdrometer_processing.processing import (
     preprocessed_file2processed_noweather as processing_noweather,
@@ -472,7 +473,7 @@ def process(
     init_logger(log_level)
     click.echo("CCRES disdrometer processing : CLI")
 
-    conf = toml.load(conf)
+    conf = load_config(conf)
     ds, files_provided = merge_preprocessed_data(yesterday, today, tomorrow)
 
     # only the time axis of the day to process is needed here, not the whole file
